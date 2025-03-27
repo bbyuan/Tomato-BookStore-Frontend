@@ -59,7 +59,7 @@
         <!-- 注册提示 -->
         <div class="register-hint">
           <span>还没有账号？</span>
-          <a href="#" class="create-account">创建账号</a>
+          <a @click="handleRegister" class="create-account">创建账号</a>
         </div>
       </div>
     </div>
@@ -68,7 +68,9 @@
   
   <script setup>
   import { ref } from 'vue'
-  
+  import { useRouter } from 'vue-router'
+
+  const router = useRouter()
   const email = ref('')
   const password = ref('')
   const rememberMe = ref(false)
@@ -85,6 +87,10 @@
       password: password.value,
       rememberMe: rememberMe.value
     })
+  }
+
+  const handleRegister = () => {
+    router.push('/register')
   }
   </script>
   
@@ -256,55 +262,6 @@
     color: #d44c4c;
     text-decoration: none;
     margin-left: 0.5rem;
-  }
-  
-  .divider {
-    text-align: center;
-    position: relative;
-    margin: 1.5rem 0;
-  }
-  
-  .divider::before,
-  .divider::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    width: 45%;
-    height: 1px;
-    background: #d8d6de;
-  }
-  
-  .divider::before {
-    left: 0;
-  }
-  
-  .divider::after {
-    right: 0;
-  }
-  
-  .divider span {
-    background: white;
-    padding: 0 1rem;
-    color: #6e6b7b;
-  }
-  
-  .social-login {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-  }
-  
-  .social-button {
-    width: 40px;
-    height: 40px;
-    border: 1px solid #d8d6de;
-    border-radius: 6px;
-    background: white;
     cursor: pointer;
-    transition: background 0.15s ease;
-  }
-  
-  .social-button:hover {
-    background: #f8f8f8;
-  }
+  } 
   </style>
