@@ -16,8 +16,8 @@
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
             <input 
-              type="email" 
-              v-model="email" 
+              type="username" 
+              v-model="username" 
               placeholder="请输入用户名" 
               class="form-input"
             />
@@ -53,6 +53,11 @@
             <a href="#" class="forgot-password">忘记密码</a>
           </div>
   
+          <!-- 添加错误提示区域 -->
+          <div v-if="errorMessage" class="error-message">
+            {{ errorMessage }}
+          </div>
+  
           <button type="submit" class="login-button">登录</button>
         </form>
   
@@ -66,27 +71,71 @@
   </div>
   </template>
   
-  <script setup>
+  <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter } from 'vue-router'
 
   const router = useRouter()
-  const email = ref('')
+  const username = ref('')
   const password = ref('')
   const rememberMe = ref(false)
   const showPassword = ref(false)
-  
+  const errorMessage = ref('')
+
+  // 添加清除错误信息和表单的函数
+  const clearErrorAndForm = () => {
+    setTimeout(() => {
+      errorMessage.value = ''
+      username.value = ''
+      password.value = ''
+    }, 3000) // 3秒后清除
+  }
+
   const togglePassword = () => {
     showPassword.value = !showPassword.value
   }
   
-  const handleLogin = () => {
-    // 处理登录逻辑
-    console.log('Login attempt:', {
-      email: email.value,
-      password: password.value,
-      rememberMe: rememberMe.value
-    })
+  const handleLogin = async () => {
+    // 重置错误信息
+    errorMessage.value = ''
+    
+    // 表单验证
+    if (!username.value || !password.value) {
+      errorMessage.value = '请输入用户名和密码'
+      clearErrorAndForm()
+      return
+    }
+
+    try {
+      const response = await fetch('/api/accounts/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: username.value,
+          password: password.value
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.code === '200') {
+        if (rememberMe.value) {
+          localStorage.setItem('token', data.data.token)
+        } else {
+          sessionStorage.setItem('token', data.data.token)
+        }
+        router.push('/register')
+      } else {
+        errorMessage.value = data.msg || '登录失败，请重试'
+        clearErrorAndForm()
+      }
+    } catch (error) {
+      console.error('登录出错:', error)
+      errorMessage.value = '网络错误，请检查网络连接'
+      clearErrorAndForm()
+    }
   }
 
   const handleRegister = () => {
@@ -232,7 +281,7 @@
   }
   
   .forgot-password {
-    color: #d44c4c;
+    color: rgb(36, 114, 36);
     text-decoration: none;
   }
   
@@ -246,6 +295,7 @@
     font-size: 1rem;
     cursor: pointer;
     transition: background 0.15s ease;
+    margin-top: 8px;
   }
   
   .login-button:hover {
@@ -259,9 +309,29 @@
   }
   
   .create-account {
-    color: #d44c4c;
+    color: rgb(36, 114, 36);
     text-decoration: none;
     margin-left: 0.5rem;
     cursor: pointer;
-  } 
+  }
+
+  .error-message {
+    color: #d44c4c;;
+    padding: 8px 12px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   </style>
