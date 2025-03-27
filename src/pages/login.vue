@@ -1,15 +1,16 @@
 <template>
+  <div class="login-page">
     <div class="login-container">
       <div class="login-card">
         <!-- Logo部分 -->
         <div class="logo">
-          <img src="@/assets/logo.png" alt="Logo" />
-          <span class="logo-text">MATERIO</span>
+          <img src="@/assets/logo.png" alt="Logo"  class="logo-img"/>
+          <h1 class="logo-text">番茄书城</h1>
         </div>
   
         <!-- 欢迎文本 -->
-        <h1 class="welcome">Welcome to Materio! 👋</h1>
-        <p class="subtitle">Please sign-in to your account and start the adventure</p>
+        <h1 class="welcome">阅读图书 阅历人生 </h1>
+        <p class="subtitle">请登录账号 开启阅读之旅</p>
   
         <!-- 登录表单 -->
         <form @submit.prevent="handleLogin" class="login-form">
@@ -17,7 +18,7 @@
             <input 
               type="email" 
               v-model="email" 
-              placeholder="Email" 
+              placeholder="请输入用户名" 
               class="form-input"
             />
           </div>
@@ -27,7 +28,7 @@
               <input 
                 :type="showPassword ? 'text' : 'password'" 
                 v-model="password" 
-                placeholder="Password" 
+                placeholder="请输入密码" 
                 class="form-input"
               />
               <button 
@@ -35,7 +36,11 @@
                 @click="togglePassword" 
                 class="eye-button"
               >
-                <i :class="showPassword ? 'eye-open' : 'eye-close'"></i>
+                <img 
+                  :src="showPassword ? '/src/assets/images/眼睛_显示.svg' : '/src/assets/images/眼睛_隐藏.svg'"
+                  alt="toggle password visibility"
+                  class="eye-icon"
+                />
               </button>
             </div>
           </div>
@@ -43,42 +48,22 @@
           <div class="form-options">
             <label class="remember-me">
               <input type="checkbox" v-model="rememberMe" />
-              <span>Remember me</span>
+              <span>记住我</span>
             </label>
-            <a href="#" class="forgot-password">Forgot Password?</a>
+            <a href="#" class="forgot-password">忘记密码</a>
           </div>
   
-          <button type="submit" class="login-button">Login</button>
+          <button type="submit" class="login-button">登录</button>
         </form>
   
         <!-- 注册提示 -->
         <div class="register-hint">
-          <span>New on our platform?</span>
-          <a href="#" class="create-account">Create an account</a>
-        </div>
-  
-        <!-- 分割线 -->
-        <div class="divider">
-          <span>or</span>
-        </div>
-  
-        <!-- 社交登录 -->
-        <div class="social-login">
-          <button class="social-button facebook">
-            <i class="facebook-icon"></i>
-          </button>
-          <button class="social-button twitter">
-            <i class="twitter-icon"></i>
-          </button>
-          <button class="social-button github">
-            <i class="github-icon"></i>
-          </button>
-          <button class="social-button google">
-            <i class="google-icon"></i>
-          </button>
+          <span>还没有账号？</span>
+          <a href="#" class="create-account">创建账号</a>
         </div>
       </div>
     </div>
+  </div>
   </template>
   
   <script setup>
@@ -104,48 +89,80 @@
   </script>
   
   <style scoped>
-  .login-container {
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f4f5fa;
-    padding: 20px;
-  }
+  .login-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100vh;
+  background-image: url('@/assets/images/login_background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.login-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 20px;
+}
   
   .login-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 2.5rem;
+    border-radius: 15px;
     width: 100%;
-    max-width: 400px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    max-width: 450px;
+    height: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
   
   .logo {
     display: flex;
     align-items: center;
-    height: 100px;
-    width: 100px;
+    width: 100%;
     gap: 10px;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+    justify-content: center;
   }
   
+  .logo-img {
+    height: 50px;
+    width: auto;
+  }
+
   .logo-text {
-    font-size: 1.5rem;
+    font-size: 3rem;
     font-weight: 600;
-    color: #333;
+    color: #2c3e50;
+    text-align: center;
   }
   
   .welcome {
-    font-size: 1.5rem;
-    color: #32325d;
-    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.8rem;
+    margin-top: 1rem;
+    text-align: center;
   }
   
   .subtitle {
-    color: #6e6b7b;
-    margin-bottom: 2rem;
+    color: #5d6778;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 1rem;
   }
   
   .form-group {
@@ -163,7 +180,7 @@
   
   .form-input:focus {
     outline: none;
-    border-color: #7367f0;
+    border-color: #d44c4c;
   }
   
   .password-input {
@@ -178,7 +195,20 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #6e6b7b;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .eye-icon {
+    width: 20px;
+    height: 20px;
+    opacity: 0.6;
+  }
+  
+  .eye-button:hover .eye-icon {
+    opacity: 1;
   }
   
   .form-options {
@@ -196,14 +226,14 @@
   }
   
   .forgot-password {
-    color: #7367f0;
+    color: #d44c4c;
     text-decoration: none;
   }
   
   .login-button {
     width: 100%;
     padding: 0.75rem;
-    background: #7367f0;
+    background: #d44c4c;
     color: white;
     border: none;
     border-radius: 6px;
@@ -213,7 +243,7 @@
   }
   
   .login-button:hover {
-    background: #635ce6;
+    background: #c13e3e;
   }
   
   .register-hint {
@@ -223,7 +253,7 @@
   }
   
   .create-account {
-    color: #7367f0;
+    color: #d44c4c;
     text-decoration: none;
     margin-left: 0.5rem;
   }
