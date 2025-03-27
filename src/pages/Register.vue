@@ -1,38 +1,42 @@
 <template>
   <div class="page-container">
     <div class="register-container">
-      <h2>基本信息</h2>
+      <h2>注册账号</h2>
       
       <!-- 步骤指示器 -->
-      <div class="steps">
-        <div class="step" :class="{ active: currentStep === 1 }">
-          <div class="step-number">01</div>
-          <div class="step-content">
-            <h3>账户信息</h3>
-            <p>设置账户信息</p>
+      <div class="steps-container">
+        <div class="steps">
+          <div class="step" :class="{ active: currentStep === 1, visible: isStepVisible(1) }">
+            <div class="step-number">01</div>
+            <div class="step-content">
+              <h3>账号信息</h3>
+              <p>请设置账号信息</p>
+            </div>
           </div>
-        </div>
-        <div class="step" :class="{ active: currentStep === 2 }">
-          <div class="step-number">02</div>
-          <div class="step-content">
-            <h3>个人信息</h3>
-            <p>设置个人信息</p>
+          <div class="step-line" :class="{ visible: isLineVisible(1) }"></div>
+          <div class="step" :class="{ active: currentStep === 2, visible: isStepVisible(2) }">
+            <div class="step-number">02</div>
+            <div class="step-content">
+              <h3>个人信息</h3>
+              <p>请输入基本信息</p>
+            </div>
           </div>
-        </div>
-        <div class="step" :class="{ active: currentStep === 3 }">
-          <div class="step-number">03</div>
-          <div class="step-content">
-            <h3>扩展信息</h3>
-            <p>添加扩展信息</p>
+          <div class="step-line" :class="{ visible: isLineVisible(2) }"></div>
+          <div class="step" :class="{ active: currentStep === 3, visible: isStepVisible(3) }">
+            <div class="step-number">03</div>
+            <div class="step-content">
+              <h3>扩展信息</h3>
+              <p>请输入扩展信息</p>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 表单内容 -->
       <div class="form-content">
-        <!-- 第一步：账户信息 -->
+        <!-- 第一步：账号信息 -->
         <div v-if="currentStep === 1" class="form-step">
-          <h3>账户信息</h3>
+          <h3>账号信息</h3>
           <p>输入你的账户信息 <span class="required">*</span></p>
           
           <div class="form-grid">
@@ -41,22 +45,7 @@
               <label for="username" :class="{ 'label-float': form.username }">用户名</label>
             </div>
             <div class="form-field">
-              <select v-model="form.country" id="country" class="input-field">
-                <option value="" disabled selected></option>
-                <option value="manager">管理员</option>
-                <option value="customer">顾客</option>
-                <option value="supplier">出版社</option>
-              </select>
-              <label for="country" :class="{ 'label-float': form.country }">角色</label>
-            </div>
-            <div class="form-field">
-              <input 
-                type="password" 
-                v-model="form.password" 
-                id="password" 
-                class="input-field"
-                :class="{ 'input-error': passwordError }"
-              >
+              <input type="password" v-model="form.password" id="password" class="input-field">
               <label for="password" :class="{ 'label-float': form.password }">密码</label>
             </div>
             <div class="form-field">
@@ -64,54 +53,74 @@
                 type="password" 
                 v-model="form.confirmPassword" 
                 id="confirmPassword" 
-                class="input-field"
-                :class="{ 'input-error': passwordError }"
+                class="input-field" 
+                :class="{ 'input-error': passwordMismatch }"
               >
               <label for="confirmPassword" :class="{ 'label-float': form.confirmPassword }">确认密码</label>
-              <span class="error-message" v-if="passwordError">密码不匹配</span>
+              <span class="error-message" v-if="passwordMismatch">两次输入的密码不一致</span>
+            </div>
+            <div class="form-field">
+              <select v-model="form.role" id="role" class="input-field">
+                <option value="manager">管理员</option>
+                <option value="customer">顾客</option>
+                <option value="supplier">出版社</option>
+              </select>
+              <label for="role" :class="{ 'label-float': form.role }">角色</label>
             </div>
           </div>
         </div>
 
-        <!-- 第二步：个人信息 -->
+        <!-- 第二步：基本信息 -->
         <div v-if="currentStep === 2" class="form-step">
-          <h3>个人信息</h3>
+          <h3>基本信息</h3>
           <p>设置个人信息 <span class="required">*</span></p>
           
           <div class="form-grid">
             <div class="form-field">
-              <input type="text" v-model="form.firstName" id="firstName" class="input-field">
-              <label for="firstName" :class="{ 'label-float': form.firstName }">名字</label>
+              <input type="text" v-model="form.name" id="name" class="input-field">
+              <label for="name" :class="{ 'label-float': form.name }">姓名</label>
             </div>
+            
             <div class="form-field">
-              <input type="text" v-model="form.lastName" id="lastName" class="input-field">
-              <label for="lastName" :class="{ 'label-float': form.lastName }">姓氏</label>
+              <input type="tel" v-model="form.telephone" id="telephone" class="input-field">
+              <label for="telephone" :class="{ 'label-float': form.telephone }">手机号</label>
             </div>
+
             <div class="form-field">
-              <select v-model="form.country" id="country" class="input-field">
-                <option value="" disabled selected></option>
-                <option value="china">中国</option>
-                <option value="usa">美国</option>
-                <option value="uk">英国</option>
-              </select>
-              <label for="country" :class="{ 'label-float': form.country }">国家</label>
+              <input type="email" v-model="form.email" id="email" class="input-field">
+              <label for="email" :class="{ 'label-float': form.email }">邮箱</label>
+            </div>
+
+            <div class="form-field avatar-field">
+              <div class="avatar-upload">
+                <div class="avatar-preview" v-if="avatarPreview">
+                  <img :src="avatarPreview" alt="头像预览">
+                </div>
+                <div class="avatar-placeholder" v-else>
+                  <i class="avatar-icon">📷</i>
+                  <span>点击上传头像</span>
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  @change="handleAvatarUpload" 
+                  id="avatarUpload" 
+                  class="avatar-input"
+                >
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- 第三步：社交链接 -->
+        <!-- 第三步：位置信息 -->
         <div v-if="currentStep === 3" class="form-step">
-          <h3>社交链接</h3>
-          <p>添加你的社交链接 (可选)</p>
+          <h3>位置信息</h3>
+          <p>添加你的位置信息 (可选)</p>
           
           <div class="form-grid">
             <div class="form-field">
-              <input type="text" v-model="form.qq" id="qq" class="input-field">
-              <label for="qq" :class="{ 'label-float': form.qq }">QQ</label>
-            </div>
-            <div class="form-field">
-              <input type="text" v-model="form.wechat" id="wechat" class="input-field">
-              <label for="wechat" :class="{ 'label-float': form.wechat }">微信</label>
+              <input type="text" v-model="form.location" id="location" class="input-field">
+              <label for="location" :class="{ 'label-float': form.location }">所在地</label>
             </div>
           </div>
         </div>
@@ -140,69 +149,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
 const currentStep = ref(1)
 const form = reactive({
   username: '',
-  email: '',
   password: '',
   confirmPassword: '',
-  firstName: '',
-  lastName: '',
-  country: '',
-  language: '',
-  qq: '',
-  wechat: ''
+  role: '',
+  name: '',
+  avatar: '',
+  telephone: '',
+  email: '',
+  location: ''
 })
 
-// 添加表单验证
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const passwordMismatch = computed(() => {
+  return form.password && form.confirmPassword && (form.password !== form.confirmPassword)
+})
+
 const isStep1Valid = computed(() => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return form.username.trim() !== '' && 
-         form.role !== '' && 
-         form.password.length >= 6 && 
+  return form.username.trim() !== '' &&
+         form.password.trim() !== '' &&
+         form.confirmPassword.trim() !== '' &&
+         form.role.trim() !== '' &&
          form.password === form.confirmPassword
 })
 
 const isStep2Valid = computed(() => {
-  return form.firstName.trim() !== '' && 
-         form.lastName.trim() !== '' && 
-         form.country !== '' && 
-         form.language !== '' &&
-         emailRegex.test(form.email) 
-})
-
-// 添加密码匹配检查
-const passwordError = computed(() => {
-  return form.password && form.confirmPassword && 
-         form.password !== form.confirmPassword
+  if (form.name.trim() === '') return false
+  if (form.email.trim() !== '' && !emailRegex.test(form.email)) return false
+  return true
 })
 
 const nextStep = () => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
-    alert('Please fill in all required fields in step 1:\n' +
-          '- Username is required\n' +
-          '- Valid email is required\n' +
-          '- Password must be at least 6 characters\n' +
-          '- Passwords must match')
+    alert("请填写完整账号信息，并确保密码一致：用户名、密码、确认密码和角色")
     return
   }
-  
   if (currentStep.value === 2 && !isStep2Valid.value) {
-    alert('Please fill in all required fields in step 2:\n' +
-          '- First Name is required\n' +
-          '- Last Name is required\n' +
-          '- Country is required\n' +
-          '- Language is required')
+    alert("请填写姓名，并确保邮箱格式正确（如填写）")
     return
   }
-
   if (currentStep.value < 3) {
     currentStep.value++
   } else {
-    // 提交表单
-    console.log('Form submitted:', form)
+    // 表单提交逻辑
+    console.log("提交的表单数据:", form)
+    alert("注册成功！")
   }
 }
 
@@ -211,103 +207,376 @@ const previousStep = () => {
     currentStep.value--
   }
 }
+
+const avatarPreview = ref<string | null>(null)
+
+const handleAvatarUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      avatarPreview.value = reader.result as string
+      form.avatar = avatarPreview.value // 将 base64 存到 avatar 字段中
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+// 判断步骤是否应该显示
+const isStepVisible = (stepNumber: number) => {
+  // 当前步骤始终显示
+  if (stepNumber === currentStep.value) return true
+  
+  // 如果是第一步，显示当前步骤和下一步
+  if (currentStep.value === 1) {
+    return stepNumber <= 2
+  }
+  
+  // 如果是最后一步，显示当前步骤和上一步
+  if (currentStep.value === 3) {
+    return stepNumber >= 2
+  }
+  
+  // 在中间步骤时，显示三个步骤
+  return true
+}
+
+// 判断连接线是否应该显示
+const isLineVisible = (lineNumber: number) => {
+  if (currentStep.value === 1) {
+    return lineNumber === 1
+  }
+  if (currentStep.value === 3) {
+    return lineNumber === 2
+  }
+  return true
+}
+
 </script>
 
 <style scoped>
 .page-container {
   min-height: 100vh;
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f3f4f6;
-  padding: 2rem 0;  /* 添加上下内边距 */
-  margin: 0;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  overflow-y: auto;  /* 添加滚动条 */
+  background-image: url('@/assets/images/login_background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;  /* 增加内边距，让容器与屏幕边缘有更多空间 */
+  overflow-y: auto;  /* 添加垂直滚动条 */
 }
 
 .register-container {
   width: 100%;
-  max-width: 800px;
-  margin: 0 2rem;
-  padding: 2rem;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-  max-height: fit-content;  /* 让容器高度适应内容 */
+  max-width: 600px;  /* 减小最大宽度 */
+  max-height: 85vh;
+  margin: 2rem;
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+/* 修改滚动条样式 */
+.register-container::-webkit-scrollbar {
+  width: 4px;  /* 减小滚动条宽度 */
+}
+
+.register-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;  /* 减小圆角 */
+}
+
+.register-container::-webkit-scrollbar-thumb {
+  background: rgba(212, 76, 76, 0.3);  /* 降低滚动条不透明度 */
+  border-radius: 2px;  /* 减小圆角 */
+}
+
+.register-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 76, 76, 0.5);  /* 悬停时稍微加深 */
+}
+
+h2 {
+  color: #1a1a1a;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 步骤导航容器 */
+.steps-container {
+  margin: 2rem 0 3rem;
+  overflow: hidden;
+  position: relative;
 }
 
 .steps {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;  /* 减小步骤指示器的下边距 */
-  padding: 0.5rem 0;  /* 减小内边距 */
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  position: relative;
 }
 
+/* 修改步骤样式 */
 .step {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  opacity: 0.5;
+  gap: 0.5rem;
+  opacity: 1;  /* 取消透明度 */
+  transition: all 0.3s ease;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
+/* 当前步骤样式 */
 .step.active {
   opacity: 1;
+  flex: 0 0 auto;  /* 不允许压缩 */
+  max-width: none;  /* 移除最大宽度限制 */
 }
 
+/* 非当前步骤样式 */
+.step:not(.active) {
+  opacity: 1;  /* 取消非激活状态的透明度 */
+  max-width: 50px;  /* 限制非活动步骤的宽度 */
+  overflow: hidden;
+}
+
+/* 步骤数字样式 */
 .step-number {
-  width: 40px;
-  height: 40px;
+  flex: 0 0 auto;  /* 不允许压缩 */
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #7c3aed;
+  background: #d44c4c;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-}
-
-.step-content h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.step-content p {
-  margin: 0;
+  font-weight: 500;
   font-size: 0.9rem;
-  color: #666;
 }
 
-.form-content {
-  /* 保持原有样式 */
+/* 步骤内容样式 */
+.step-content {
+  overflow: hidden;  /* 超出部分隐藏 */
+  transition: all 0.3s ease;
 }
 
-.form-field {
-  position: relative;
-  margin-bottom: 1rem;  /* 减小表单字段之间的间距 */
+/* 连接线样式 */
+.step-line {
+  width: 60px;
+  height: 2px;
+  background: #e5e7eb;
+  flex: 0 0 auto;  /* 不允许压缩 */
+}
+
+/* 移除之前的 visible 相关样式 */
+.step.visible {
+  max-width: none;
+  visibility: visible;
 }
 
 .input-field {
   width: 100%;
-  padding: 1rem;
-  border: 2px solid #ddd;
-  border-radius: 6px;
+  padding: 1rem 1.2rem;
+  border: 2px solid #eee;
+  border-radius: 8px;
   font-size: 1rem;
   background-color: white;
-  appearance: none;
-  transition: border-color 0.2s;
+  transition: all 0.3s ease;
+  color: #1a1a1a;
 }
 
 .input-field:focus {
-  outline: none;
-  border-color: #7c3aed;
+  border-color: #d44c4c;
+  box-shadow: 0 4px 12px rgba(212, 76, 76, 0.1);
 }
 
+.form-field {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .avatar-field {
+    grid-column: span 2;
+  }
+}
+
+/* 修改导航按钮的样式 */
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;  /* 改为两端对齐 */
+  align-items: center;
+  margin-top: 3rem;  /* 增加与表单的间距 */
+  padding: 0 1rem;  /* 添加左右内边距 */
+}
+
+.btn-previous,
+.btn-next {
+  padding: 1rem 2.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  min-width: 140px;  /* 设置最小宽度确保按钮大小一致 */
+}
+
+.btn-previous {
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #eee;
+}
+
+.btn-previous:hover:not(:disabled) {
+  background: #f1f3f5;
+  border-color: #ddd;
+}
+
+.btn-next {
+  background: #d44c4c;
+  color: white;
+  box-shadow: 0 4px 12px rgba(212, 76, 76, 0.2);
+}
+
+.btn-next:hover:not(:disabled) {
+  background: #c43c3c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(212, 76, 76, 0.3);
+}
+
+.btn-submit {
+  background: #22c55e !important;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2) !important;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #16a34a !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3) !important;
+}
+
+/* 修改第二步的表单布局 */
+.avatar-field {
+  margin-top: 1rem;
+}
+
+.avatar-upload {
+  width: 100%;
+  height: 120px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar-upload:hover {
+  border-color: #d44c4c;
+  background-color: #fff5f5;
+}
+
+.avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+}
+
+.avatar-icon {
+  font-size: 2rem;
+}
+
+.avatar-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-preview img {
+  height: 100px;
+  width: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #d44c4c;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.avatar-preview img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 美化错误提示 */
+.error-message {
+  position: absolute;
+  left: 0;
+  bottom: -22px;
+  font-size: 0.85rem;
+  color: #dc2626;
+  padding: 0.2rem 0;
+  opacity: 0.9;
+}
+
+/* 添加表单标题样式 */
+.form-step h3 {
+  color: #1a1a1a;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.form-step p {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+/* 修改标签样式 */
 .form-field label {
   position: absolute;
   left: 1rem;
@@ -318,103 +587,39 @@ const previousStep = () => {
   color: #666;
   transition: all 0.2s;
   pointer-events: none;
+  font-size: 1rem;
 }
 
+/* 修改浮动标签样式 */
 .form-field .input-field:focus + label,
 .form-field .label-float {
   top: 0;
   font-size: 0.85rem;
-  color: #7c3aed;
+  color: #d44c4c;
+  font-weight: 500;
 }
 
-.form-field .input-field:focus {
-  border-color: #7c3aed;
-}
-
+/* 修改选择框文字颜色 */
 select.input-field {
-  padding-right: 2.5rem;
+  color: #1a1a1a;
 }
 
-.form-field select.input-field + label {
-  background: white;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;  /* 减小表单项之间的间距 */
-  margin-top: 1rem;  /* 减小上边距 */
-}
-
-.navigation-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2rem;
-}
-
-.btn-previous,
-.btn-next {
-  padding: 0.8rem 2rem;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.btn-previous {
-  background: transparent;
-  color: #666;
-  border: 1px solid #ddd;
-}
-
-.btn-next {
-  background: #7c3aed;
-  color: white;
-  padding: 0.8rem 2rem;
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-/* 添加提交按钮的绿色样式 */
-.btn-submit {
-  background: #22c55e !important; /* 使用绿色 */
-}
-
-.btn-submit:hover {
-  background: #16a34a !important; /* 深绿色悬停效果 */
-}
-
-.btn-next:disabled {
-  background: #9ca3af !important; /* 确保禁用状态覆盖所有按钮 */
-  cursor: not-allowed;
-}
-
-.btn-previous:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 添加必填标记样式 */
+/* 修改必填标记样式 */
 .required {
-  color: #dc2626;
+  color: #d44c4c;
   margin-left: 4px;
 }
 
-/* 添加输入验证样式 */
-.input-field:invalid {
-  border-color: #dc2626;
+/* 步骤指示器文字样式 */
+.step-content h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #1a1a1a;
 }
 
-.input-error {
-  border-color: #dc2626 !important;
-}
-
-.error-message {
-  position: absolute;
-  left: 0;
-  bottom: -20px;
+.step-content p {
+  margin: 0;
   font-size: 0.8rem;
-  color: #dc2626;
+  color: #666;
 }
 </style>
