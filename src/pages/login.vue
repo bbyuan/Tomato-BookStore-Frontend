@@ -14,6 +14,10 @@
   
         <!-- 登录表单 -->
         <form @submit.prevent="handleLogin" class="login-form">
+          <div v-if="errorMessage" class="error-message">
+            {{ errorMessage }}
+          </div>
+  
           <div class="form-group">
             <input 
               type="username" 
@@ -51,11 +55,6 @@
               <span>记住我</span>
             </label>
             <a href="#" class="forgot-password">忘记密码</a>
-          </div>
-  
-          <!-- 添加错误提示区域 -->
-          <div v-if="errorMessage" class="error-message">
-            {{ errorMessage }}
           </div>
   
           <button type="submit" class="login-button">登录</button>
@@ -220,6 +219,10 @@
     font-size: 1rem;
   }
   
+  .form-group:first-of-type {
+    margin-top: 8px;
+  }
+  
   .form-group {
     margin-bottom: 1.5rem;
   }
@@ -316,7 +319,7 @@
   }
 
   .error-message {
-    color: #d44c4c;;
+    color: #d44c4c;
     padding: 8px 12px;
     font-size: 14px;
     margin-bottom: 16px;
