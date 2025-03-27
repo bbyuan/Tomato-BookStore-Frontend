@@ -125,7 +125,7 @@
         } else {
           sessionStorage.setItem('token', data.data.token)
         }
-        router.push('/register')
+        router.push('/account-settings')
       } else {
         errorMessage.value = data.msg || '登录失败，请重试'
         clearErrorAndForm()
