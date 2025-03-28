@@ -319,34 +319,35 @@ const handleAvatarUpload = (event: Event) => {
   }
 }
 
-// 判断步骤是否应该显示
+// 修改步骤显示逻辑
 const isStepVisible = (stepNumber: number) => {
-  // 当前步骤始终显示
+  // 当前步骤必须显示
   if (stepNumber === currentStep.value) return true
   
-  // 如果是第一步，显示当前步骤和下一步
+  // 如果是第一步
   if (currentStep.value === 1) {
-    return stepNumber <= 2
+    return stepNumber <= 2  // 显示第一步和第二步
   }
   
-  // 如果是最后一步，显示当前步骤和上一步
+  // 如果是最后一步
   if (currentStep.value === 3) {
-    return stepNumber >= 2
+    return stepNumber >= 2  // 显示第二步和第三步
   }
   
-  // 在中间步骤时，显示三个步骤
-  return true
+  // 如果是中间步骤，显示前后各一个步骤
+  return Math.abs(stepNumber - currentStep.value) <= 1
 }
 
-// 判断连接线是否应该显示
+// 修改连接线显示逻辑
 const isLineVisible = (lineNumber: number) => {
+  // 确保当前步骤相邻的连接线可见
   if (currentStep.value === 1) {
     return lineNumber === 1
   }
   if (currentStep.value === 3) {
     return lineNumber === 2
   }
-  return true
+  return Math.abs(lineNumber - currentStep.value) <= 1
 }
 
 const showPassword = ref(false)
@@ -376,7 +377,7 @@ const showConfirmPassword = ref(false)
 
 .register-container {
   width: 100%;
-  max-width: 600px;  /* 减小最大宽度 */
+  max-width: 800px;  /* 从600px增加到800px */
   max-height: 85vh;
   margin: 2rem;
   padding: 2.5rem;
@@ -423,21 +424,21 @@ h2 {
 .steps {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
+  justify-content: flex-start;  /* 改为左对齐 */
+  gap: 2rem;
   position: relative;
+  transition: transform 0.3s ease;  /* 添加过渡效果 */
 }
 
-/* 修改步骤样式 */
 .step {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  opacity: 1;  /* 取消透明度 */
+  opacity: 1;
   transition: all 0.3s ease;
   position: relative;
   white-space: nowrap;
-  overflow: hidden;
+  flex: 0 0 auto;  /* 防止步骤被压缩 */
 }
 
 /* 当前步骤样式 */
@@ -449,9 +450,8 @@ h2 {
 
 /* 非当前步骤样式 */
 .step:not(.active) {
-  opacity: 1;  /* 取消非激活状态的透明度 */
-  max-width: 50px;  /* 限制非活动步骤的宽度 */
-  overflow: hidden;
+  max-width: none;  /* 移除宽度限制，让所有步骤完全显示 */
+  overflow: visible;
 }
 
 /* 步骤数字样式 */
@@ -477,10 +477,10 @@ h2 {
 
 /* 连接线样式 */
 .step-line {
-  width: 60px;
+  width: 80px;  /* 增加连接线的宽度 */
   height: 2px;
   background: #e5e7eb;
-  flex: 0 0 auto;  /* 不允许压缩 */
+  flex: 0 0 auto;
 }
 
 /* 移除之前的 visible 相关样式 */
