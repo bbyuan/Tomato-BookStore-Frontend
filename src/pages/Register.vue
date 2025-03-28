@@ -78,9 +78,10 @@
             </div>
             <div class="form-field">
               <select v-model="form.role" id="role" class="input-field">
-                <option value="manager">管理员</option>
+            
                 <option value="customer">顾客</option>
-                <option value="supplier">出版社</option>
+                <option value="publisher">出版社</option>
+                <option value="admin">管理员</option>
               </select>
               <label for="role" :class="{ 'label-float': form.role }">角色</label>
             </div>
@@ -156,9 +157,14 @@
             :class="{ 'btn-submit': currentStep === 3 }"
             @click="nextStep"
             :disabled="(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid)"
+            "
           >
             {{ currentStep === 3 ? '提交 ✓' : '下一步 →' }}
           </button>
+        </div>
+
+        <div class="login-link">
+          已有账号？<router-link to="/" class="login-text">返回登录</router-link>
         </div>
       </div>
     </div>
@@ -167,6 +173,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const router = useRouter()
 
 const currentStep = ref(1)
 const form = reactive({
@@ -201,7 +211,7 @@ const isStep2Valid = computed(() => {
   return true
 })
 
-const nextStep = () => {
+const nextStep = async () => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
     alert("请填写完整账号信息，并确保密码一致：用户名、密码、确认密码和角色")
     return
@@ -213,9 +223,35 @@ const nextStep = () => {
   if (currentStep.value < 3) {
     currentStep.value++
   } else {
-    // 表单提交逻辑
-    console.log("提交的表单数据:", form)
-    alert("注册成功！")
+    try {
+      const formData = {
+        username: form.username,
+        password: form.password,
+        name: form.name,
+        role: form.role,
+        avatar: form.avatar,
+        telephone: form.telephone,
+        email: form.email,
+        location: form.location
+      }
+
+      const response = await axios.post('/api/accounts', formData)
+      
+      if (response.status === 200 || response.status === 201) {
+        router.push({
+          path: '/',
+          query: { 
+            username: form.username,
+            registered: 'true'
+          }
+        })
+      } else {
+        throw new Error('注册失败')
+      }
+    } catch (error: any) {
+      console.error('注册错误:', error)
+      alert(error.response?.data?.message || '注册失败，请稍后重试')
+    }
   }
 }
 
@@ -273,6 +309,16 @@ const isLineVisible = (lineNumber: number) => {
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 
+const getButtonDisabledMessage = () => {
+  if (currentStep.value === 1 && !isStep1Valid.value) {
+    return '请填写完整账号信息：用户名、密码、确认密码和角色'
+  }
+  if (currentStep.value === 2 && !isStep2Valid.value) {
+    return '请填写姓名，并确保邮箱格式正确（如填写）'
+  }
+  return ''
+}
+
 </script>
 
 <style scoped>
@@ -291,8 +337,9 @@ const showConfirmPassword = ref(false)
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;  /* 增加内边距，让容器与屏幕边缘有更多空间 */
-  overflow-y: auto;  /* 添加垂直滚动条 */
+  padding: 40px;
+  overflow-y: auto;
+  background-color: #f3f4f6;  /* 添加一个与背景图片相近的背景色 */
 }
 
 .register-container {
@@ -463,6 +510,7 @@ select.input-field:focus {
   align-items: center;
   margin-top: 3rem;  /* 增加与表单的间距 */
   padding: 0 1rem;  /* 添加左右内边距 */
+  margin-bottom: 0;  /* 移除底部边距 */
 }
 
 .btn-previous,
@@ -672,4 +720,40 @@ select.input-field {
 .form-field input[type="text"] {
   padding-right: 2.5rem;
 }
+
+/* 修改登录链接样式 */
+.login-link {
+  text-align: center;
+  margin-top: 2rem;  /* 调整与按钮的间距 */
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.login-text {
+  color: #d44c4c;
+  text-decoration: none;
+  margin-left: 4px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.login-text:hover {
+  color: #c43c3c;
+  text-decoration: underline;
+}
+
+.btn-next:disabled {
+  background: #ccc !important;  /* 使用灰色背景 */
+  color: #666 !important;  /* 文字颜色变浅 */
+  cursor: not-allowed;  /* 鼠标显示禁用状态 */
+  box-shadow: none !important;  /* 移除阴影 */
+  transform: none !important;  /* 禁用悬停效果 */
+}
+
+.btn-next:disabled:hover {
+  background: #ccc !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 </style>
