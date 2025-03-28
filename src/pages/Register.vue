@@ -149,6 +149,7 @@
             class="btn-previous" 
             @click="previousStep"
             :disabled="currentStep === 1"
+            :title="currentStep === 1 ? '已经是第一步' : undefined"
           >
             ← 上一步
           </button>
@@ -157,7 +158,7 @@
             :class="{ 'btn-submit': currentStep === 3 }"
             @click="nextStep"
             :disabled="(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid)"
-            "
+            :title="getNextButtonTitle || undefined"
           >
             {{ currentStep === 3 ? '提交 ✓' : '下一步 →' }}
           </button>
@@ -211,15 +212,17 @@ const isStep2Valid = computed(() => {
   return true
 })
 
-const nextStep = async () => {
+const getNextButtonTitle = computed(() => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
-    alert("请填写完整账号信息，并确保密码一致：用户名、密码、确认密码和角色")
-    return
+    return '请填写完整账号信息并确保密码一致'
   }
   if (currentStep.value === 2 && !isStep2Valid.value) {
-    alert("请填写姓名，并确保邮箱格式正确（如填写）")
-    return
+    return '请填写姓名并确保邮箱格式正确'
   }
+  return ''
+})
+
+const nextStep = async () => {
   if (currentStep.value < 3) {
     currentStep.value++
   } else {
@@ -309,16 +312,6 @@ const isLineVisible = (lineNumber: number) => {
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-const getButtonDisabledMessage = () => {
-  if (currentStep.value === 1 && !isStep1Valid.value) {
-    return '请填写完整账号信息：用户名、密码、确认密码和角色'
-  }
-  if (currentStep.value === 2 && !isStep2Valid.value) {
-    return '请填写姓名，并确保邮箱格式正确（如填写）'
-  }
-  return ''
-}
-
 </script>
 
 <style scoped>
@@ -337,9 +330,8 @@ const getButtonDisabledMessage = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  overflow-y: auto;
-  background-color: #f3f4f6;  /* 添加一个与背景图片相近的背景色 */
+  padding: 40px;  /* 增加内边距，让容器与屏幕边缘有更多空间 */
+  overflow-y: auto;  /* 添加垂直滚动条 */
 }
 
 .register-container {
@@ -559,6 +551,37 @@ select.input-field:focus {
   box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3) !important;
 }
 
+.btn-next:disabled {
+  background: #ccc !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-previous:disabled {
+  background: #f8f9fa;
+  color: #ccc;
+  cursor: not-allowed;
+  border-color: #eee;
+}
+
+/* 修改提示框样式，只在有 title 且不为空时显示 */
+.btn-next[title]:not([title=""]):hover::after,
+.btn-previous[title]:not([title=""]):hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
 /* 修改第二步的表单布局 */
 .avatar-field {
   margin-top: 1rem;
@@ -741,19 +764,4 @@ select.input-field {
   color: #c43c3c;
   text-decoration: underline;
 }
-
-.btn-next:disabled {
-  background: #ccc !important;  /* 使用灰色背景 */
-  color: #666 !important;  /* 文字颜色变浅 */
-  cursor: not-allowed;  /* 鼠标显示禁用状态 */
-  box-shadow: none !important;  /* 移除阴影 */
-  transform: none !important;  /* 禁用悬停效果 */
-}
-
-.btn-next:disabled:hover {
-  background: #ccc !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
 </style>
