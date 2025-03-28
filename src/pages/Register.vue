@@ -78,9 +78,10 @@
             </div>
             <div class="form-field">
               <select v-model="form.role" id="role" class="input-field">
-                <option value="manager">管理员</option>
+            
                 <option value="customer">顾客</option>
-                <option value="supplier">出版社</option>
+                <option value="publisher">出版社</option>
+                <option value="admin">管理员</option>
               </select>
               <label for="role" :class="{ 'label-float': form.role }">角色</label>
             </div>
@@ -148,6 +149,7 @@
             class="btn-previous" 
             @click="previousStep"
             :disabled="currentStep === 1"
+            :title="currentStep === 1 ? '已经是第一步' : undefined"
           >
             ← 上一步
           </button>
@@ -156,9 +158,14 @@
             :class="{ 'btn-submit': currentStep === 3 }"
             @click="nextStep"
             :disabled="(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid)"
+            :title="getNextButtonTitle || undefined"
           >
             {{ currentStep === 3 ? '提交 ✓' : '下一步 →' }}
           </button>
+        </div>
+
+        <div class="login-link">
+          已有账号？<router-link to="/" class="login-text">返回登录</router-link>
         </div>
       </div>
     </div>
@@ -167,6 +174,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const router = useRouter()
 
 const currentStep = ref(1)
 const form = reactive({
@@ -201,21 +212,49 @@ const isStep2Valid = computed(() => {
   return true
 })
 
-const nextStep = () => {
+const getNextButtonTitle = computed(() => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
-    alert("请填写完整账号信息，并确保密码一致：用户名、密码、确认密码和角色")
-    return
+    return '请填写完整账号信息并确保密码一致'
   }
   if (currentStep.value === 2 && !isStep2Valid.value) {
-    alert("请填写姓名，并确保邮箱格式正确（如填写）")
-    return
+    return '请填写姓名并确保邮箱格式正确'
   }
+  return ''
+})
+
+const nextStep = async () => {
   if (currentStep.value < 3) {
     currentStep.value++
   } else {
-    // 表单提交逻辑
-    console.log("提交的表单数据:", form)
-    alert("注册成功！")
+    try {
+      const formData = {
+        username: form.username,
+        password: form.password,
+        name: form.name,
+        role: form.role,
+        avatar: form.avatar,
+        telephone: form.telephone,
+        email: form.email,
+        location: form.location
+      }
+
+      const response = await axios.post('/api/accounts', formData)
+      
+      if (response.status === 200 || response.status === 201) {
+        router.push({
+          path: '/',
+          query: { 
+            username: form.username,
+            registered: 'true'
+          }
+        })
+      } else {
+        throw new Error('注册失败')
+      }
+    } catch (error: any) {
+      console.error('注册错误:', error)
+      alert(error.response?.data?.message || '注册失败，请稍后重试')
+    }
   }
 }
 
@@ -463,6 +502,7 @@ select.input-field:focus {
   align-items: center;
   margin-top: 3rem;  /* 增加与表单的间距 */
   padding: 0 1rem;  /* 添加左右内边距 */
+  margin-bottom: 0;  /* 移除底部边距 */
 }
 
 .btn-previous,
@@ -509,6 +549,37 @@ select.input-field:focus {
   background: #16a34a !important;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3) !important;
+}
+
+.btn-next:disabled {
+  background: #ccc !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-previous:disabled {
+  background: #f8f9fa;
+  color: #ccc;
+  cursor: not-allowed;
+  border-color: #eee;
+}
+
+/* 修改提示框样式，只在有 title 且不为空时显示 */
+.btn-next[title]:not([title=""]):hover::after,
+.btn-previous[title]:not([title=""]):hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 1000;
 }
 
 /* 修改第二步的表单布局 */
@@ -671,5 +742,26 @@ select.input-field {
 .form-field input[type="password"],
 .form-field input[type="text"] {
   padding-right: 2.5rem;
+}
+
+/* 修改登录链接样式 */
+.login-link {
+  text-align: center;
+  margin-top: 2rem;  /* 调整与按钮的间距 */
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.login-text {
+  color: #d44c4c;
+  text-decoration: none;
+  margin-left: 4px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.login-text:hover {
+  color: #c43c3c;
+  text-decoration: underline;
 }
 </style>
