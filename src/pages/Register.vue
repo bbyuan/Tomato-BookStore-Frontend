@@ -45,18 +45,35 @@
               <label for="username" :class="{ 'label-float': form.username }">用户名</label>
             </div>
             <div class="form-field">
-              <input type="password" v-model="form.password" id="password" class="input-field">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                v-model="form.password" 
+                id="password" 
+                class="input-field"
+              >
               <label for="password" :class="{ 'label-float': form.password }">密码</label>
+              <img 
+                class="password-toggle" 
+                :src="showPassword ? '/src/assets/images/眼睛_显示.svg' : '/src/assets/images/眼睛_隐藏.svg'"
+                @click="showPassword = !showPassword"
+                alt="toggle password visibility"
+              >
             </div>
             <div class="form-field">
               <input 
-                type="password" 
+                :type="showConfirmPassword ? 'text' : 'password'" 
                 v-model="form.confirmPassword" 
                 id="confirmPassword" 
-                class="input-field" 
+                class="input-field"
                 :class="{ 'input-error': passwordMismatch }"
               >
               <label for="confirmPassword" :class="{ 'label-float': form.confirmPassword }">确认密码</label>
+              <img 
+                class="password-toggle" 
+                :src="showConfirmPassword ? '/src/assets/images/眼睛_显示.svg' : '/src/assets/images/眼睛_隐藏.svg'"
+                @click="showConfirmPassword = !showConfirmPassword"
+                alt="toggle password visibility"
+              >
               <span class="error-message" v-if="passwordMismatch">两次输入的密码不一致</span>
             </div>
             <div class="form-field">
@@ -253,6 +270,9 @@ const isLineVisible = (lineNumber: number) => {
   return true
 }
 
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
+
 </script>
 
 <style scoped>
@@ -399,11 +419,19 @@ h2 {
   background-color: white;
   transition: all 0.3s ease;
   color: #1a1a1a;
+  outline: none;  /* 移除默认的焦点轮廓 */
 }
 
 .input-field:focus {
-  border-color: #d44c4c;
+  border-color: #d44c4c;  /* 保持红色边框 */
   box-shadow: 0 4px 12px rgba(212, 76, 76, 0.1);
+  outline: none;  /* 确保移除默认的蓝色轮廓 */
+}
+
+/* 修改选择框样式 */
+select.input-field:focus {
+  border-color: #d44c4c;  /* 确保下拉框也保持红色边框 */
+  outline: none;
 }
 
 .form-field {
@@ -503,8 +531,8 @@ h2 {
 }
 
 .avatar-upload:hover {
-  border-color: #d44c4c;
-  background-color: #fff5f5;
+  border-color: #ddd;  /* 改为灰色边框 */
+  background-color: #f8f9fa;  /* 改为浅灰色背景 */
 }
 
 .avatar-placeholder {
@@ -542,14 +570,14 @@ h2 {
   width: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #d44c4c;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;  /* 移除边框 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* 调整阴影效果 */
   transition: all 0.3s ease;
 }
 
 .avatar-preview img:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* 悬停时增加阴影 */
 }
 
 /* 美化错误提示 */
@@ -621,5 +649,27 @@ select.input-field {
   margin: 0;
   font-size: 0.8rem;
   color: #666;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  width: 20px;  /* 设置图标大小 */
+  height: 20px;
+  opacity: 0.6;  /* 默认状态稍微透明 */
+  transition: opacity 0.3s ease;
+}
+
+.password-toggle:hover {
+  opacity: 1;  /* 悬停时完全不透明 */
+}
+
+/* 调整带有切换按钮的输入框的内边距 */
+.form-field input[type="password"],
+.form-field input[type="text"] {
+  padding-right: 2.5rem;
 }
 </style>
