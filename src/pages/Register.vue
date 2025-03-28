@@ -57,6 +57,7 @@
                 v-model="form.password" 
                 id="password" 
                 class="input-field"
+                :class="{ 'input-error': passwordError }"
               >
               <label for="password" :class="{ 'label-float': form.password }">密码</label>
               <img 
@@ -65,6 +66,7 @@
                 @click="showPassword = !showPassword"
                 alt="toggle password visibility"
               >
+              <span class="error-message" v-if="passwordError">{{ passwordErrorMessage }}</span>
             </div>
             <div class="form-field">
               <input 
@@ -164,6 +166,15 @@
           </div>
         </div>
 
+        <!-- 添加密码要求提示 -->
+        <div class="password-requirements" v-if="currentStep === 1">
+          <p>密码要求：</p>
+          <ul>
+            <li>密码长度：确保密码至少包含8个字符</li>
+            <li>字符种类：使用大小写字母、数字和特殊字符的组合</li>
+          </ul>
+        </div>
+
         <!-- 导航按钮 -->
         <div class="navigation-buttons">
           <button 
@@ -235,10 +246,43 @@ const emailError = computed(() => {
   return form.email && !emailRegex.test(form.email)
 })
 
+const validatePassword = (password: string) => {
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumbers = /\d/.test(password)
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  
+  return {
+    isValid: hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar,
+    message: !hasUpperCase ? '密码必须包含大写字母' :
+             !hasLowerCase ? '密码必须包含小写字母' :
+             !hasNumbers ? '密码必须包含数字' :
+             !hasSpecialChar ? '密码必须包含特殊字符' : ''
+  }
+}
+
+const passwordError = computed(() => {
+  if (form.password === '') return false
+  if (!form.password) return true
+  if (form.password.length < 8) return true
+  return !validatePassword(form.password).isValid
+})
+
+const passwordErrorMessage = computed(() => {
+  if (!form.password && form.password !== '') 
+    return '密码不能为空'
+  if (form.password.length < 8) 
+    return '密码长度必须至少为8个字符'
+  const validation = validatePassword(form.password)
+  if (!validation.isValid) return validation.message
+  return ''
+})
+
 const isStep1Valid = computed(() => {
   return form.username.trim() !== '' &&
-         !usernameError.value &&  // 添加用户名格式验证
+         !usernameError.value &&
          form.password.trim() !== '' &&
+         !passwordError.value &&
          form.confirmPassword.trim() !== '' &&
          form.role.trim() !== '' &&
          form.password === form.confirmPassword
@@ -562,7 +606,10 @@ select.input-field:focus {
 
 .form-field {
   position: relative;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.5rem;  /* 增加底部间距，为错误消息留出空间 */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;  /* 调整为与 Security/Accounts 一致的间距 */
 }
 
 .form-grid {
@@ -693,21 +740,6 @@ select.input-field:focus {
   background-color: #f8f9fa;  /* 改为浅灰色背景 */
 }
 
-.avatar-preview {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-preview img {
-  height: 100px;
-  width: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 .avatar-placeholder {
   display: flex;
   flex-direction: column;
@@ -730,15 +762,34 @@ select.input-field:focus {
   cursor: pointer;
 }
 
-/* 美化错误提示 */
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-preview img {
+  height: 100px;
+  width: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: none;  /* 移除边框 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* 调整阴影效果 */
+  transition: all 0.3s ease;
+}
+
+.avatar-preview img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* 悬停时增加阴影 */
+}
+
+/* 修改错误消息样式 */
 .error-message {
-  position: absolute;
-  left: 0;
-  bottom: -22px;
-  font-size: 0.85rem;
+  margin-top: 4px;  /* 调整为与 Security/Accounts 一致的间距 */
+  font-size: 12px;  /* 调整字体大小 */
   color: #dc2626;
-  padding: 0.2rem 0;
-  opacity: 0.9;
 }
 
 /* 添加表单标题样式 */
@@ -846,5 +897,42 @@ select.input-field {
 
 .input-error {
   border-color: #dc2626 !important;
+}
+
+/* 调整密码要求的位置 */
+.password-requirements {
+  background: #F9FAFB;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 0.5rem;  /* 稍微减小与上方表单的间距 */
+  margin-bottom: 1rem;  /* 增加与下方按钮的间距 */
+  grid-column: span 2;
+}
+
+.password-requirements p {
+  color: #374151;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.password-requirements ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.password-requirements li {
+  color: #6B7280;
+  font-size: 14px;
+  margin-bottom: 8px;
+  padding-left: 24px;
+  position: relative;
+}
+
+.password-requirements li::before {
+  content: "•";
+  position: absolute;
+  left: 8px;
+  color: #d44c4c;
 }
 </style>
