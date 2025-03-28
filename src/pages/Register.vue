@@ -133,7 +133,7 @@
             <div class="form-field avatar-field">
               <div class="avatar-upload">
                 <div class="avatar-preview" v-if="avatarPreview">
-                  <img :src="avatarPreview" alt="头像预览">
+                  <img :src="avatarPreview" :alt="'头像预览'" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%;">
                 </div>
                 <div class="avatar-placeholder" v-else>
                   <i class="avatar-icon">📷</i>
@@ -194,9 +194,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { v4 as uuidv4 } from 'uuid'
 
 const router = useRouter()
 
@@ -208,6 +209,7 @@ const form = reactive({
   role: '',
   name: '',
   avatar: '',
+  avatar_name: '',
   telephone: '',
   email: '',
   location: ''
@@ -272,15 +274,21 @@ const nextStep = async () => {
         password: form.password,
         name: form.name,
         role: form.role,
-        avatar: form.avatar,
+        avatar_name: form.avatar_name,
         telephone: form.telephone,
         email: form.email,
         location: form.location
       }
 
+      console.log('提交的数据:', formData) // 添加日志
+
       const response = await axios.post('/api/accounts', formData)
       
-      if (response.status === 200 || response.status === 201) {
+      console.log('注册响应:', response.data) // 添加日志
+
+      // 修改判断条件，使用 response.data.code
+      if (response.data.code === '200') {
+        // 注册成功，跳转到登录页
         router.push({
           path: '/',
           query: { 
@@ -289,11 +297,13 @@ const nextStep = async () => {
           }
         })
       } else {
-        throw new Error('注册失败')
+        // 如果后端返回了错误信息，显示具体错误
+        throw new Error(response.data.msg || '注册失败')
       }
     } catch (error: any) {
       console.error('注册错误:', error)
-      alert(error.response?.data?.message || '注册失败，请稍后重试')
+      // 显示具体的错误信息
+      alert(error.response?.data?.msg || error.message || '注册失败，请稍后重试')
     }
   }
 }
@@ -306,16 +316,48 @@ const previousStep = () => {
 
 const avatarPreview = ref<string | null>(null)
 
-const handleAvatarUpload = (event: Event) => {
+const handleAvatarUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
+  
   if (file) {
-    const reader = new FileReader()
-    reader.onload = () => {
-      avatarPreview.value = reader.result as string
-      form.avatar = avatarPreview.value // 将 base64 存到 avatar 字段中
+    try {
+      // 检查文件大小（800KB限制）
+      if (file.size > 800 * 1024) {
+        throw new Error('文件大小不能超过800KB')
+      }
+
+      // 生成随机文件名
+      const fileExt = file.name.split('.').pop() // 获取文件扩展名
+      const randomFileName = `${uuidv4()}.${fileExt}` // 生成随机文件名
+
+      // 创建 FormData
+      const formData = new FormData()
+      formData.append('file', file, randomFileName)
+
+      // 调用上传接口
+      const response = await axios.post('/api/upload/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      console.log('上传响应:', response.data) // 添加日志
+
+      if (response.data.code === '200') {
+        // 保存文件名和预览URL
+        form.avatar_name = randomFileName  // 保存文件名，用于创建用户时传递
+        // 直接使用返回的完整URL
+        const imageUrl = response.data.data
+        console.log('设置预览URL:', imageUrl) // 添加日志
+        avatarPreview.value = imageUrl  // 更新预览图片
+      } else {
+        throw new Error(response.data.msg || '上传失败')
+      }
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert(error instanceof Error ? error.message : '头像上传失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 }
 
@@ -352,6 +394,11 @@ const isLineVisible = (lineNumber: number) => {
 
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
+
+// 监听 avatarPreview 的变化
+watch(avatarPreview, (newValue) => {
+  console.log('avatarPreview 更新为:', newValue)
+})
 
 </script>
 
@@ -646,6 +693,21 @@ select.input-field:focus {
   background-color: #f8f9fa;  /* 改为浅灰色背景 */
 }
 
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-preview img {
+  height: 100px;
+  width: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .avatar-placeholder {
   display: flex;
   flex-direction: column;
@@ -666,29 +728,6 @@ select.input-field:focus {
   height: 100%;
   opacity: 0;
   cursor: pointer;
-}
-
-.avatar-preview {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-preview img {
-  height: 100px;
-  width: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: none;  /* 移除边框 */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* 调整阴影效果 */
-  transition: all 0.3s ease;
-}
-
-.avatar-preview img:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* 悬停时增加阴影 */
 }
 
 /* 美化错误提示 */

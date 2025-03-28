@@ -110,11 +110,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import defaultAvatar from '@/assets/logo.png'
+import { v4 as uuidv4 } from 'uuid'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
 interface UserInfo {
   avatar: string
+  avatar_name: string
   userName: string
   realName: string
   email: string
@@ -125,6 +127,7 @@ interface UserInfo {
 
 const userInfo = ref<UserInfo>({
   avatar: '',
+  avatar_name: '',
   userName: '',
   realName: '',
   email: '',
@@ -174,6 +177,7 @@ const fetchUserInfo = async () => {
     if (data.code === '200') {
       userInfo.value = {
         avatar: data.data.avatar,
+        avatar_name: data.data.avatar_name,
         userName: data.data.username,
         realName: data.data.name,
         email: data.data.email,
@@ -206,15 +210,49 @@ const handleUploadClick = () => {
   fileInput.value?.click()
 }
 
-const handleFileChange = (event: Event) => {
+const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
-  if (target.files && target.files[0]) {
-    const file = target.files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      userInfo.value.avatar = e.target?.result as string
+  const file = target.files?.[0]
+  
+  if (file) {
+    try {
+      // 检查文件大小（800KB限制）
+      if (file.size > 800 * 1024) {
+        throw new Error('文件大小不能超过800KB')
+      }
+
+      // 生成随机文件名
+      const fileExt = file.name.split('.').pop() // 获取文件扩展名
+      const randomFileName = `${uuidv4()}.${fileExt}` // 生成随机文件名
+
+      // 创建 FormData
+      const formData = new FormData()
+      formData.append('file', file, randomFileName)
+
+      // 调用上传接口
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+      console.log('上传响应:', data)
+
+      if (data.code === '200') {
+        // 更新用户信息中的头像
+        userInfo.value = {
+          ...userInfo.value,
+          avatar_name: randomFileName,  // 保存文件名
+          avatar: data.data  // 使用返回的临时URL进行预览
+        }
+        console.log('更新后的用户信息:', userInfo.value)
+      } else {
+        throw new Error(data.msg || '上传失败')
+      }
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert(error instanceof Error ? error.message : '头像上传失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 }
 
@@ -306,15 +344,6 @@ const handleSubmit = async () => {
       return
     }
 
-    // 重置所有错误
-    errors.value = {
-      userName: '',
-      realName: '',
-      email: '',
-      phoneNumber: '',
-      address: ''
-    }
-
     const token = sessionStorage.getItem('token')
     const username = sessionStorage.getItem('username')
     
@@ -323,6 +352,7 @@ const handleSubmit = async () => {
       return
     }
 
+    // 转换角色
     let role = 'customer'
     if (userInfo.value.role === '顾客') {
       role = 'customer'
@@ -332,18 +362,20 @@ const handleSubmit = async () => {
       role = 'admin'
     }
 
-    // 打印请求数据
+    // 构建请求数据
     const requestData = {
       username: userInfo.value.userName,
       name: userInfo.value.realName,
       role: role,
       telephone: userInfo.value.phoneNumber,
       email: userInfo.value.email,
-      location: userInfo.value.address
+      location: userInfo.value.address,
+      avatar_name: userInfo.value.avatar_name  // 确保包含 avatar_name
     }
-    console.log('发送的数据:', requestData)
-    console.log('Token:', token)
 
+    console.log('发送的更新数据:', requestData)
+
+    // 发送更新请求
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`, {
       method: 'PUT',
       headers: {
@@ -353,29 +385,23 @@ const handleSubmit = async () => {
       body: JSON.stringify(requestData)
     })
 
-    console.log('响应状态:', response.status)
-    console.log('响应头:', Object.fromEntries(response.headers.entries()))
-
     const responseData = await response.json()
-    console.log('响应数据:', responseData)
-
-    if (!response.ok) {
-      throw new Error(responseData.msg || '更新失败')
-    }
+    console.log('更新响应:', responseData)
 
     if (responseData.code === '200') {
-      console.log('用户信息更新成功')
+      alert('更新成功')
+      // 如果用户名改变了，更新 sessionStorage
       if (userInfo.value.userName !== username) {
         sessionStorage.setItem('username', userInfo.value.userName)
       }
+      // 重新获取用户信息以刷新显示
       await fetchUserInfo()
     } else {
-      console.error('更新用户信息失败:', responseData.msg)
+      throw new Error(responseData.msg || '更新失败')
     }
   } catch (error) {
-    errors.value.userName = '更新用户信息失败，请稍后重试'
-    clearErrors()
-    console.error('更新用户信息出错:', error instanceof Error ? error.message : String(error))
+    console.error('更新失败:', error)
+    alert(error instanceof Error ? error.message : '更新失败，请稍后重试')
   }
 }
 
@@ -387,6 +413,9 @@ const resetForm = async () => {
 <style scoped>
 .account-details {
   margin: 0 auto;
+  height: 100%; /* 改为100%以适应父容器 */
+  overflow-y: auto;
+  padding: 20px;
 }
 
 h2 {
@@ -551,6 +580,25 @@ button {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 优化滚动条样式 */
+.account-details::-webkit-scrollbar {
+  width: 6px; /* 稍微调小滚动条宽度 */
+}
+
+.account-details::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.account-details::-webkit-scrollbar-thumb {
+  background: #d44c4c;
+  border-radius: 3px;
+}
+
+.account-details::-webkit-scrollbar-thumb:hover {
+  background: #b83c3c;
 }
 </style>
 
