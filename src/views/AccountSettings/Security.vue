@@ -11,6 +11,7 @@
               v-model="passwordForm.currentPassword" 
               :type="showCurrentPassword ? 'text' : 'password'" 
               placeholder="请输入当前密码"
+              :class="{ 'input-error': currentPasswordError }"
             >
             <button type="button" class="toggle-password" @click="showCurrentPassword = !showCurrentPassword">
               <img 
@@ -19,6 +20,9 @@
                 class="eye-icon"
               >
             </button>
+          </div>
+          <div v-if="currentPasswordError" class="error-message">
+            当前密码不能为空
           </div>
         </div>
         <div class="form-group">
@@ -34,6 +38,7 @@
               v-model="passwordForm.newPassword" 
               :type="showNewPassword ? 'text' : 'password'" 
               placeholder="请输入新密码"
+              :class="{ 'input-error': newPasswordError }"
             >
             <button type="button" class="toggle-password" @click="showNewPassword = !showNewPassword">
               <img 
@@ -42,6 +47,9 @@
                 class="eye-icon"
               >
             </button>
+          </div>
+          <div v-if="newPasswordError" class="error-message">
+            {{ newPasswordErrorMessage }}
           </div>
         </div>
 
@@ -52,6 +60,7 @@
               v-model="passwordForm.confirmPassword" 
               :type="showConfirmPassword ? 'text' : 'password'" 
               placeholder="请再次输入新密码"
+              :class="{ 'input-error': confirmPasswordError }"
             >
             <button type="button" class="toggle-password" @click="showConfirmPassword = !showConfirmPassword">
               <img 
@@ -60,6 +69,9 @@
                 class="eye-icon"
               >
             </button>
+          </div>
+          <div v-if="confirmPasswordError" class="error-message">
+            {{ confirmPasswordErrorMessage }}
           </div>
         </div>
       </div>
@@ -73,7 +85,11 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="save-btn">保存修改</button>
+        <button 
+          type="submit" 
+          class="save-btn"
+          :disabled="hasErrors"
+        >保存修改</button>
         <button type="button" class="reset-btn" @click="resetForm">重置</button>
       </div>
     </form>
@@ -81,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import eyeIcon from '@/assets/images/眼睛_显示.svg'
 import eyeOffIcon from '@/assets/images/眼睛_隐藏.svg'
 
@@ -95,15 +111,139 @@ const showCurrentPassword = ref(false)
 const showNewPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-const handleSubmit = () => {
-  // 验证密码
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    alert('新密码与确认密码不匹配')
+interface Errors {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+const errors = ref<Errors>({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const clearErrors = () => {
+  setTimeout(() => {
+    errors.value = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    }
+  }, 3000)
+}
+
+// 验证密码强度
+const validatePassword = (password: string) => {
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumbers = /\d/.test(password)
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  
+  return {
+    isValid: hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar,
+    message: !hasUpperCase ? '密码必须包含大写字母' :
+             !hasLowerCase ? '密码必须包含小写字母' :
+             !hasNumbers ? '密码必须包含数字' :
+             !hasSpecialChar ? '密码必须包含特殊字符' : ''
+  }
+}
+
+const currentPasswordError = computed(() => {
+  return passwordForm.value.currentPassword !== '' && !passwordForm.value.currentPassword
+})
+
+const newPasswordError = computed(() => {
+  if (passwordForm.value.newPassword === '') return false
+  if (!passwordForm.value.newPassword) return true
+  if (passwordForm.value.newPassword.length < 8) return true
+  return !validatePassword(passwordForm.value.newPassword).isValid
+})
+
+const newPasswordErrorMessage = computed(() => {
+  if (!passwordForm.value.newPassword && passwordForm.value.newPassword !== '') 
+    return '新密码不能为空'
+  if (passwordForm.value.newPassword.length < 8) 
+    return '新密码长度必须至少为8个字符'
+  const validation = validatePassword(passwordForm.value.newPassword)
+  if (!validation.isValid) return validation.message
+  return ''
+})
+
+const confirmPasswordError = computed(() => {
+  if (passwordForm.value.confirmPassword === '') return false
+  if (!passwordForm.value.confirmPassword) return true
+  return passwordForm.value.newPassword !== passwordForm.value.confirmPassword
+})
+
+const confirmPasswordErrorMessage = computed(() => {
+  if (!passwordForm.value.confirmPassword && passwordForm.value.confirmPassword !== '') 
+    return '请确认新密码'
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword)
+    return '新密码与确认密码不匹配'
+  return ''
+})
+
+const hasErrors = computed(() => {
+  return currentPasswordError.value ||
+         newPasswordError.value ||
+         confirmPasswordError.value ||
+         !passwordForm.value.currentPassword ||
+         !passwordForm.value.newPassword ||
+         !passwordForm.value.confirmPassword
+})
+
+const handleSubmit = async () => {
+  if (hasErrors.value) {
     return
   }
 
-  // 这里添加更改密码的逻辑
-  console.log('更改密码:', passwordForm.value)
+  try {
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+    
+    if (!token || !username) {
+      console.error('未找到token或用户名')
+      return
+    }
+
+    const requestData = {
+      username: username,
+      oldPassword: passwordForm.value.currentPassword,
+      newPassword: passwordForm.value.newPassword
+    }
+
+    console.log('发送的数据:', requestData)
+    console.log('Token:', token)
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`, {
+      method: 'PUT',
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    console.log('响应状态:', response.status)
+    console.log('响应头:', Object.fromEntries(response.headers.entries()))
+
+    const responseData = await response.json()
+    console.log('响应数据:', responseData)
+
+    if (responseData.code === '200') {
+      errors.value.currentPassword = '密码修改成功'
+      clearErrors()
+      resetForm()
+    } else {
+      errors.value.currentPassword = responseData.msg || '密码修改失败'
+      clearErrors()
+    }
+  } catch (error) {
+    errors.value.currentPassword = '修改密码失败，请稍后重试'
+    clearErrors()
+    console.error('修改密码出错:', error instanceof Error ? error.message : String(error))
+  }
 }
 
 const resetForm = () => {
@@ -263,5 +403,32 @@ button {
 
 .reset-btn:hover {
   background: #F9FAFB;
+}
+
+.error-message {
+  color: #d44c4c;
+  font-size: 12px;
+  margin-top: 4px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.input-error {
+  border-color: #dc2626 !important;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

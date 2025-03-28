@@ -2,6 +2,10 @@
   <div class="account-details">
     <h2>个人信息</h2>
     
+    <div v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
     <div class="avatar-section">
       <div class="avatar">
         <img :src="userInfo.avatar || defaultAvatar" alt="用户头像">
@@ -22,23 +26,55 @@
 
     <form @submit.prevent="handleSubmit" class="form-grid">
       <div class="form-group">
-        <label>用户名</label>
-        <input v-model="userInfo.userName" type="text" placeholder="请输入用户名">
+        <label>用户名<span class="required">*</span></label>
+        <input 
+          v-model="userInfo.userName" 
+          type="text" 
+          placeholder="请输入用户名"
+          :class="{ 'input-error': userNameError }"
+        >
+        <div v-if="userNameError" class="error-message">
+          用户名不能为空
+        </div>
       </div>
 
       <div class="form-group">
-        <label>姓名</label>
-        <input v-model="userInfo.realName" type="text" placeholder="请输入姓名">
+        <label>姓名<span class="required">*</span></label>
+        <input 
+          v-model="userInfo.realName" 
+          type="text" 
+          placeholder="请输入姓名"
+          :class="{ 'input-error': realNameError }"
+        >
+        <div v-if="realNameError" class="error-message">
+          姓名不能为空
+        </div>
       </div>
 
       <div class="form-group">
-        <label>邮箱</label>
-        <input v-model="userInfo.email" type="email" placeholder="请输入邮箱">
+        <label>邮箱<span class="required">*</span></label>
+        <input 
+          v-model="userInfo.email" 
+          type="email" 
+          placeholder="请输入邮箱"
+          :class="{ 'input-error': emailError }"
+        >
+        <div v-if="emailError" class="error-message">
+          {{ emailErrorMessage }}
+        </div>
       </div>
 
       <div class="form-group">
-        <label>手机号码</label>
-        <input v-model="userInfo.phoneNumber" type="text" placeholder="请输入手机号码">
+        <label>手机号码<span class="required">*</span></label>
+        <input 
+          v-model="userInfo.phoneNumber" 
+          type="text" 
+          placeholder="请输入手机号码"
+          :class="{ 'input-error': phoneNumberError }"
+        >
+        <div v-if="phoneNumberError" class="error-message">
+          {{ phoneNumberErrorMessage }}
+        </div>
       </div>
 
       <div class="form-group">
@@ -47,12 +83,24 @@
       </div>
 
       <div class="form-group">
-        <label>地址</label>
-        <input v-model="userInfo.address" type="text" placeholder="请输入地址">
+        <label>地址<span class="required">*</span></label>
+        <input 
+          v-model="userInfo.address" 
+          type="text" 
+          placeholder="请输入地址"
+          :class="{ 'input-error': addressError }"
+        >
+        <div v-if="addressError" class="error-message">
+          地址不能为空
+        </div>
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="save-btn">保存更改</button>
+        <button 
+          type="submit" 
+          class="save-btn"
+          :disabled="hasErrors"
+        >保存更改</button>
         <button type="button" class="reset-btn" @click="resetForm">重置</button>
       </div>
     </form>
@@ -60,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import defaultAvatar from '@/assets/logo.png'
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -85,28 +133,47 @@ const userInfo = ref<UserInfo>({
   address: ''
 })
 
+const errorMessage = ref('')
+
+interface Errors {
+  userName: string
+  realName: string
+  email: string
+  phoneNumber: string
+  address: string
+}
+
+const errors = ref<Errors>({
+  userName: '',
+  realName: '',
+  email: '',
+  phoneNumber: '',
+  address: ''
+})
+
 const fetchUserInfo = async () => {
   try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-    const username = localStorage.getItem('username') || sessionStorage.getItem('username')
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
     
     if (!token || !username) {
       console.error('未找到token或用户名')
       return
     }
 
-    const response = await fetch(`/api/accounts/${username}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${username}`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'token': token,
         'Content-Type': 'application/json'
       }
     })
-
+    
     const data = await response.json()
     
-    if (data.code === '200' && data.data) {
+    if (data.code === '200') {
       userInfo.value = {
-        avatar: data.data.avatar || defaultAvatar,
+        avatar: data.data.avatar,
         userName: data.data.username,
         realName: data.data.name,
         email: data.data.email,
@@ -151,55 +218,169 @@ const handleFileChange = (event: Event) => {
   }
 }
 
-const handleReset = () => {
-  userInfo.value.avatar = ''
+const handleReset = async () => {
+  await fetchUserInfo()
 }
+
+const clearError = () => {
+  setTimeout(() => {
+    errorMessage.value = ''
+  }, 3000)
+}
+
+const validateEmail = (email: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+const validatePhone = (phone: string) => {
+  const phoneRegex = /^1[3-9]\d{9}$/
+  return phoneRegex.test(phone)
+}
+
+const clearErrors = () => {
+  setTimeout(() => {
+    errors.value = {
+      userName: '',
+      realName: '',
+      email: '',
+      phoneNumber: '',
+      address: ''
+    }
+  }, 3000)
+}
+
+// 验证规则
+const userNameError = computed(() => {
+  return userInfo.value.userName !== '' && !userInfo.value.userName
+})
+
+const realNameError = computed(() => {
+  return userInfo.value.realName !== '' && !userInfo.value.realName
+})
+
+const emailError = computed(() => {
+  if (userInfo.value.email === '') return false
+  if (!userInfo.value.email) return true
+  return !validateEmail(userInfo.value.email)
+})
+
+const emailErrorMessage = computed(() => {
+  if (!userInfo.value.email && userInfo.value.email !== '') return '邮箱不能为空'
+  if (!validateEmail(userInfo.value.email)) return '请输入正确的邮箱格式'
+  return ''
+})
+
+const phoneNumberError = computed(() => {
+  if (userInfo.value.phoneNumber === '') return false
+  if (!userInfo.value.phoneNumber) return true
+  return !validatePhone(userInfo.value.phoneNumber)
+})
+
+const phoneNumberErrorMessage = computed(() => {
+  if (!userInfo.value.phoneNumber && userInfo.value.phoneNumber !== '') return '手机号码不能为空'
+  if (!validatePhone(userInfo.value.phoneNumber)) return '请输入正确的11位手机号格式'
+  return ''
+})
+
+const addressError = computed(() => {
+  return userInfo.value.address !== '' && !userInfo.value.address
+})
+
+const hasErrors = computed(() => {
+  return userNameError.value || 
+         realNameError.value || 
+         emailError.value || 
+         phoneNumberError.value || 
+         addressError.value ||
+         !userInfo.value.userName ||
+         !userInfo.value.realName ||
+         !userInfo.value.email ||
+         !userInfo.value.phoneNumber ||
+         !userInfo.value.address
+})
 
 const handleSubmit = async () => {
   try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-    const username = localStorage.getItem('username') || sessionStorage.getItem('username')
+    if (hasErrors.value) {
+      return
+    }
+
+    // 重置所有错误
+    errors.value = {
+      userName: '',
+      realName: '',
+      email: '',
+      phoneNumber: '',
+      address: ''
+    }
+
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
     
     if (!token || !username) {
       console.error('未找到token或用户名')
       return
     }
 
-    const response = await fetch(`/api/accounts/${username}`, {
+    let role = 'customer'
+    if (userInfo.value.role === '顾客') {
+      role = 'customer'
+    } else if (userInfo.value.role === '出版商') {
+      role = 'publisher'
+    } else if (userInfo.value.role === '管理员') {
+      role = 'admin'
+    }
+
+    // 打印请求数据
+    const requestData = {
+      username: userInfo.value.userName,
+      name: userInfo.value.realName,
+      role: role,
+      telephone: userInfo.value.phoneNumber,
+      email: userInfo.value.email,
+      location: userInfo.value.address
+    }
+    console.log('发送的数据:', requestData)
+    console.log('Token:', token)
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'token': token,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        name: userInfo.value.realName,
-        email: userInfo.value.email,
-        telephone: userInfo.value.phoneNumber,
-        location: userInfo.value.address
-      })
+      body: JSON.stringify(requestData)
     })
 
-    const data = await response.json()
-    if (data.code === '200') {
+    console.log('响应状态:', response.status)
+    console.log('响应头:', Object.fromEntries(response.headers.entries()))
+
+    const responseData = await response.json()
+    console.log('响应数据:', responseData)
+
+    if (!response.ok) {
+      throw new Error(responseData.msg || '更新失败')
+    }
+
+    if (responseData.code === '200') {
       console.log('用户信息更新成功')
+      if (userInfo.value.userName !== username) {
+        sessionStorage.setItem('username', userInfo.value.userName)
+      }
+      await fetchUserInfo()
     } else {
-      console.error('更新用户信息失败:', data.msg)
+      console.error('更新用户信息失败:', responseData.msg)
     }
   } catch (error) {
-    console.error('更新用户信息出错:', error)
+    errors.value.userName = '更新用户信息失败，请稍后重试'
+    clearErrors()
+    console.error('更新用户信息出错:', error instanceof Error ? error.message : String(error))
   }
 }
 
-const resetForm = () => {
-  userInfo.value = {
-    avatar: '',
-    userName: '',
-    realName: '',
-    email: '',
-    phoneNumber: '',
-    role: '',
-    address: ''
-  }
+const resetForm = async () => {
+  await fetchUserInfo()
 }
 </script>
 
@@ -276,7 +457,7 @@ h2 {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .form-group label {
@@ -327,4 +508,50 @@ button {
 .save-btn:hover {
   background: #d44c4c;
 }
+
+.error-message {
+  color: #d44c4c;
+  font-size: 12px;
+  margin-top: 4px;
+  animation: fadeIn 0.3s ease;
+}
+
+.required {
+  color: #d44c4c;
+  margin-left: 4px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.input-error {
+  border-color: #dc2626 !important;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>
+
+
