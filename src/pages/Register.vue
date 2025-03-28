@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="register-container">
-      <h2>注册账号</h2>
+      <h2>创建账号</h2>
       
       <!-- 步骤指示器 -->
       <div class="steps-container">
@@ -41,8 +41,15 @@
           
           <div class="form-grid">
             <div class="form-field">
-              <input type="text" v-model="form.username" id="username" class="input-field">
+              <input 
+                type="text" 
+                v-model="form.username" 
+                id="username" 
+                class="input-field"
+                :class="{ 'input-error': usernameError }"
+              >
               <label for="username" :class="{ 'label-float': form.username }">用户名</label>
+              <span class="error-message" v-if="usernameError">用户名只能包含中文、英文字母、数字</span>
             </div>
             <div class="form-field">
               <input 
@@ -100,13 +107,27 @@
             </div>
             
             <div class="form-field">
-              <input type="tel" v-model="form.telephone" id="telephone" class="input-field">
+              <input 
+                type="tel" 
+                v-model="form.telephone" 
+                id="telephone" 
+                class="input-field"
+                :class="{ 'input-error': telephoneError }"
+              >
               <label for="telephone" :class="{ 'label-float': form.telephone }">手机号</label>
+              <span class="error-message" v-if="telephoneError">请输入正确的11位手机号</span>
             </div>
 
             <div class="form-field">
-              <input type="email" v-model="form.email" id="email" class="input-field">
+              <input 
+                type="email" 
+                v-model="form.email" 
+                id="email" 
+                class="input-field"
+                :class="{ 'input-error': emailError }"
+              >
               <label for="email" :class="{ 'label-float': form.email }">邮箱</label>
+              <span class="error-message" v-if="emailError">请输入正确的邮箱格式</span>
             </div>
 
             <div class="form-field avatar-field">
@@ -192,14 +213,29 @@ const form = reactive({
   location: ''
 })
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const usernameRegex = /^[\u4e00-\u9fa5a-zA-Z0-9]+$/  // 中文、英文字母、数字
+const telephoneRegex = /^1[3-9]\d{9}$/  // 11位手机号
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/  // 邮箱格式
 
 const passwordMismatch = computed(() => {
   return form.password && form.confirmPassword && (form.password !== form.confirmPassword)
 })
 
+const usernameError = computed(() => {
+  return form.username && !usernameRegex.test(form.username)
+})
+
+const telephoneError = computed(() => {
+  return form.telephone && !telephoneRegex.test(form.telephone)
+})
+
+const emailError = computed(() => {
+  return form.email && !emailRegex.test(form.email)
+})
+
 const isStep1Valid = computed(() => {
   return form.username.trim() !== '' &&
+         !usernameError.value &&  // 添加用户名格式验证
          form.password.trim() !== '' &&
          form.confirmPassword.trim() !== '' &&
          form.role.trim() !== '' &&
@@ -208,16 +244,20 @@ const isStep1Valid = computed(() => {
 
 const isStep2Valid = computed(() => {
   if (form.name.trim() === '') return false
+  if (form.telephone.trim() !== '' && !telephoneRegex.test(form.telephone)) return false
   if (form.email.trim() !== '' && !emailRegex.test(form.email)) return false
   return true
 })
 
 const getNextButtonTitle = computed(() => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
+    if (usernameError.value) return '请输入正确格式的用户名'
     return '请填写完整账号信息并确保密码一致'
   }
   if (currentStep.value === 2 && !isStep2Valid.value) {
-    return '请填写姓名并确保邮箱格式正确'
+    if (telephoneError.value) return '请输入正确的手机号格式'
+    if (emailError.value) return '请输入正确的邮箱格式'
+    return '请填写姓名'
   }
   return ''
 })
@@ -763,5 +803,9 @@ select.input-field {
 .login-text:hover {
   color: #c43c3c;
   text-decoration: underline;
+}
+
+.input-error {
+  border-color: #dc2626 !important;
 }
 </style>
