@@ -43,7 +43,7 @@
 
       <div class="form-group">
         <label>角色</label>
-        <input v-model="userInfo.role" type="tel" placeholder="请选择角色">
+        <input v-model="userInfo.role" type="text" readonly class="readonly-input">
       </div>
 
       <div class="form-group">
@@ -207,6 +207,11 @@ h2 {
 .form-group input:focus {
   outline: none;
   border-color: #d44c4c;
+}
+
+.readonly-input {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
 }
 
 .form-actions {

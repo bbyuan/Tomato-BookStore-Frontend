@@ -1,4 +1,5 @@
 <template>
+<div class="account-settings-page">
   <div class="account-settings">
     <div class="nav-tabs">
       <router-link 
@@ -20,6 +21,7 @@
       <router-view></router-view>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -31,10 +33,25 @@ const currentTab = computed(() => route.path.split('/').pop())
 </script>
 
 <style scoped>
+.account-settings-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100vh;
+  background-image: url('@/assets/images/login_background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .account-settings {
   height: 55rem;
   width: 80rem;
   margin: 0 auto;
+  margin-top: 3rem;
   padding: 20px;
 }
 
@@ -42,7 +59,6 @@ const currentTab = computed(() => route.path.split('/').pop())
   display: flex;
   gap: 20px;
   margin-bottom: 20px;
-  border-bottom: 1px solid #eee;
   padding-bottom: 10px;
 }
 
@@ -51,6 +67,7 @@ const currentTab = computed(() => route.path.split('/').pop())
   color: #666;
   padding: 8px 16px;
   border-radius: 4px;
+  background-color: #f5f5f5;
 }
 
 .tab:hover {
