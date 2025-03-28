@@ -120,10 +120,20 @@
       const data = await response.json()
 
       if (data.code === '200') {
+        // 确保token存在
+        if (!data.data) {
+          errorMessage.value = '登录失败：未收到token'
+          clearErrorAndForm()
+          return
+        }
+
+        // 保存token和用户名
         if (rememberMe.value) {
-          localStorage.setItem('token', data.data.token)
+          localStorage.setItem('token', data.data)  // 直接保存完整token字符串
+          localStorage.setItem('username', username.value)
         } else {
-          sessionStorage.setItem('token', data.data.token)
+          sessionStorage.setItem('token', data.data)  // 直接保存完整token字符串
+          sessionStorage.setItem('username', username.value)
         }
         router.push('/account-settings')
       } else {

@@ -60,19 +60,79 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import defaultAvatar from '@/assets/logo.png'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const userInfo = ref({
+interface UserInfo {
+  avatar: string
+  userName: string
+  realName: string
+  email: string
+  phoneNumber: string
+  role: string
+  address: string
+}
+
+const userInfo = ref<UserInfo>({
   avatar: '',
-  userName: '潜心一志@ok爸',
-  realName: '刘钦',
-  email: 'liuqin@nju.edu.cn',
-  phoneNumber: '13812345678',
-  role: '管理员',
-  address: '南京市鼓楼区汉口路22号'
+  userName: '',
+  realName: '',
+  email: '',
+  phoneNumber: '',
+  role: '',
+  address: ''
+})
+
+const fetchUserInfo = async () => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    const username = localStorage.getItem('username') || sessionStorage.getItem('username')
+    
+    if (!token || !username) {
+      console.error('未找到token或用户名')
+      return
+    }
+
+    const response = await fetch(`/api/accounts/${username}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = await response.json()
+    
+    if (data.code === '200' && data.data) {
+      userInfo.value = {
+        avatar: data.data.avatar || defaultAvatar,
+        userName: data.data.username,
+        realName: data.data.name,
+        email: data.data.email,
+        phoneNumber: data.data.telephone,
+        role: translateRole(data.data.role),
+        address: data.data.location
+      }
+    } else {
+      console.error('获取用户信息失败:', data.msg)
+    }
+  } catch (error) {
+    console.error('获取用户信息出错:', error)
+  }
+}
+
+const translateRole = (role: string): string => {
+  const roleMap: Record<string, string> = {
+    'customer': '顾客',
+    'publisher': '出版商',
+    'admin': '管理员'
+  }
+  return roleMap[role] || role
+}
+
+onMounted(() => {
+  fetchUserInfo()
 })
 
 const handleUploadClick = () => {
@@ -95,21 +155,50 @@ const handleReset = () => {
   userInfo.value.avatar = ''
 }
 
-const handleSubmit = () => {
-  // 这里添加保存用户信息的逻辑
-  console.log('保存用户信息:', userInfo.value)
+const handleSubmit = async () => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    const username = localStorage.getItem('username') || sessionStorage.getItem('username')
+    
+    if (!token || !username) {
+      console.error('未找到token或用户名')
+      return
+    }
+
+    const response = await fetch(`/api/accounts/${username}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: userInfo.value.realName,
+        email: userInfo.value.email,
+        telephone: userInfo.value.phoneNumber,
+        location: userInfo.value.address
+      })
+    })
+
+    const data = await response.json()
+    if (data.code === '200') {
+      console.log('用户信息更新成功')
+    } else {
+      console.error('更新用户信息失败:', data.msg)
+    }
+  } catch (error) {
+    console.error('更新用户信息出错:', error)
+  }
 }
 
 const resetForm = () => {
-  // 重置表单数据
   userInfo.value = {
     avatar: '',
-    userName: '潜心一志@ok爸',
-    realName: '刘钦',
-    email: 'liuqin@nju.edu.cn',
-    phoneNumber: '13812345678',
-    role: '管理员',
-    address: '南京市鼓楼区汉口路22号'
+    userName: '',
+    realName: '',
+    email: '',
+    phoneNumber: '',
+    role: '',
+    address: ''
   }
 }
 </script>
