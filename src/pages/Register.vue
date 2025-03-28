@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="register-container">
-      <h2>注册账号</h2>
+      <h2>创建账号</h2>
       
       <!-- 步骤指示器 -->
       <div class="steps-container">
@@ -41,8 +41,15 @@
           
           <div class="form-grid">
             <div class="form-field">
-              <input type="text" v-model="form.username" id="username" class="input-field">
+              <input 
+                type="text" 
+                v-model="form.username" 
+                id="username" 
+                class="input-field"
+                :class="{ 'input-error': usernameError }"
+              >
               <label for="username" :class="{ 'label-float': form.username }">用户名</label>
+              <span class="error-message" v-if="usernameError">用户名只能包含中文、英文字母、数字</span>
             </div>
             <div class="form-field">
               <input 
@@ -100,13 +107,27 @@
             </div>
             
             <div class="form-field">
-              <input type="tel" v-model="form.telephone" id="telephone" class="input-field">
+              <input 
+                type="tel" 
+                v-model="form.telephone" 
+                id="telephone" 
+                class="input-field"
+                :class="{ 'input-error': telephoneError }"
+              >
               <label for="telephone" :class="{ 'label-float': form.telephone }">手机号</label>
+              <span class="error-message" v-if="telephoneError">请输入正确的11位手机号</span>
             </div>
 
             <div class="form-field">
-              <input type="email" v-model="form.email" id="email" class="input-field">
+              <input 
+                type="email" 
+                v-model="form.email" 
+                id="email" 
+                class="input-field"
+                :class="{ 'input-error': emailError }"
+              >
               <label for="email" :class="{ 'label-float': form.email }">邮箱</label>
+              <span class="error-message" v-if="emailError">请输入正确的邮箱格式</span>
             </div>
 
             <div class="form-field avatar-field">
@@ -192,14 +213,29 @@ const form = reactive({
   location: ''
 })
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const usernameRegex = /^[\u4e00-\u9fa5a-zA-Z0-9]+$/  // 中文、英文字母、数字
+const telephoneRegex = /^1[3-9]\d{9}$/  // 11位手机号
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/  // 邮箱格式
 
 const passwordMismatch = computed(() => {
   return form.password && form.confirmPassword && (form.password !== form.confirmPassword)
 })
 
+const usernameError = computed(() => {
+  return form.username && !usernameRegex.test(form.username)
+})
+
+const telephoneError = computed(() => {
+  return form.telephone && !telephoneRegex.test(form.telephone)
+})
+
+const emailError = computed(() => {
+  return form.email && !emailRegex.test(form.email)
+})
+
 const isStep1Valid = computed(() => {
   return form.username.trim() !== '' &&
+         !usernameError.value &&  // 添加用户名格式验证
          form.password.trim() !== '' &&
          form.confirmPassword.trim() !== '' &&
          form.role.trim() !== '' &&
@@ -208,16 +244,20 @@ const isStep1Valid = computed(() => {
 
 const isStep2Valid = computed(() => {
   if (form.name.trim() === '') return false
+  if (form.telephone.trim() !== '' && !telephoneRegex.test(form.telephone)) return false
   if (form.email.trim() !== '' && !emailRegex.test(form.email)) return false
   return true
 })
 
 const getNextButtonTitle = computed(() => {
   if (currentStep.value === 1 && !isStep1Valid.value) {
+    if (usernameError.value) return '请输入正确格式的用户名'
     return '请填写完整账号信息并确保密码一致'
   }
   if (currentStep.value === 2 && !isStep2Valid.value) {
-    return '请填写姓名并确保邮箱格式正确'
+    if (telephoneError.value) return '请输入正确的手机号格式'
+    if (emailError.value) return '请输入正确的邮箱格式'
+    return '请填写姓名'
   }
   return ''
 })
@@ -279,34 +319,35 @@ const handleAvatarUpload = (event: Event) => {
   }
 }
 
-// 判断步骤是否应该显示
+// 修改步骤显示逻辑
 const isStepVisible = (stepNumber: number) => {
-  // 当前步骤始终显示
+  // 当前步骤必须显示
   if (stepNumber === currentStep.value) return true
   
-  // 如果是第一步，显示当前步骤和下一步
+  // 如果是第一步
   if (currentStep.value === 1) {
-    return stepNumber <= 2
+    return stepNumber <= 2  // 显示第一步和第二步
   }
   
-  // 如果是最后一步，显示当前步骤和上一步
+  // 如果是最后一步
   if (currentStep.value === 3) {
-    return stepNumber >= 2
+    return stepNumber >= 2  // 显示第二步和第三步
   }
   
-  // 在中间步骤时，显示三个步骤
-  return true
+  // 如果是中间步骤，显示前后各一个步骤
+  return Math.abs(stepNumber - currentStep.value) <= 1
 }
 
-// 判断连接线是否应该显示
+// 修改连接线显示逻辑
 const isLineVisible = (lineNumber: number) => {
+  // 确保当前步骤相邻的连接线可见
   if (currentStep.value === 1) {
     return lineNumber === 1
   }
   if (currentStep.value === 3) {
     return lineNumber === 2
   }
-  return true
+  return Math.abs(lineNumber - currentStep.value) <= 1
 }
 
 const showPassword = ref(false)
@@ -336,7 +377,7 @@ const showConfirmPassword = ref(false)
 
 .register-container {
   width: 100%;
-  max-width: 600px;  /* 减小最大宽度 */
+  max-width: 800px;  /* 从600px增加到800px */
   max-height: 85vh;
   margin: 2rem;
   padding: 2.5rem;
@@ -383,21 +424,21 @@ h2 {
 .steps {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
+  justify-content: flex-start;  /* 改为左对齐 */
+  gap: 2rem;
   position: relative;
+  transition: transform 0.3s ease;  /* 添加过渡效果 */
 }
 
-/* 修改步骤样式 */
 .step {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  opacity: 1;  /* 取消透明度 */
+  opacity: 1;
   transition: all 0.3s ease;
   position: relative;
   white-space: nowrap;
-  overflow: hidden;
+  flex: 0 0 auto;  /* 防止步骤被压缩 */
 }
 
 /* 当前步骤样式 */
@@ -409,9 +450,8 @@ h2 {
 
 /* 非当前步骤样式 */
 .step:not(.active) {
-  opacity: 1;  /* 取消非激活状态的透明度 */
-  max-width: 50px;  /* 限制非活动步骤的宽度 */
-  overflow: hidden;
+  max-width: none;  /* 移除宽度限制，让所有步骤完全显示 */
+  overflow: visible;
 }
 
 /* 步骤数字样式 */
@@ -437,10 +477,10 @@ h2 {
 
 /* 连接线样式 */
 .step-line {
-  width: 60px;
+  width: 80px;  /* 增加连接线的宽度 */
   height: 2px;
   background: #e5e7eb;
-  flex: 0 0 auto;  /* 不允许压缩 */
+  flex: 0 0 auto;
 }
 
 /* 移除之前的 visible 相关样式 */
@@ -763,5 +803,9 @@ select.input-field {
 .login-text:hover {
   color: #c43c3c;
   text-decoration: underline;
+}
+
+.input-error {
+  border-color: #dc2626 !important;
 }
 </style>
