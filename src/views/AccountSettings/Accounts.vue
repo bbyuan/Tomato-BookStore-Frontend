@@ -1,7 +1,7 @@
 <template>
   <div class="account-details">
     <h2>个人信息</h2>
-    
+
     <div v-if="errorMessage" class="error-message">
       {{ errorMessage }}
     </div>
@@ -14,25 +14,14 @@
         <button class="upload-btn" @click="handleUploadClick">上传新头像</button>
         <button class="reset-btn" @click="handleReset">重置</button>
         <div class="upload-hint">支持 JPG, GIF 或 PNG, 文件大小 800K 以内</div>
-        <input
-          type="file"
-          ref="fileInput"
-          style="display: none"
-          accept="image/*"
-          @change="handleFileChange"
-        >
+        <input type="file" ref="fileInput" style="display: none" accept="image/*" @change="handleFileChange">
       </div>
     </div>
 
     <form @submit.prevent="handleSubmit" class="form-grid">
       <div class="form-group">
         <label>用户名<span class="required">*</span></label>
-        <input 
-          v-model="userInfo.userName" 
-          type="text" 
-          placeholder="请输入用户名"
-          :class="{ 'input-error': userNameError }"
-        >
+        <input v-model="userInfo.userName" type="text" placeholder="请输入用户名" :class="{ 'input-error': userNameError }">
         <div v-if="userNameError" class="error-message">
           用户名不能为空
         </div>
@@ -40,12 +29,7 @@
 
       <div class="form-group">
         <label>姓名<span class="required">*</span></label>
-        <input 
-          v-model="userInfo.realName" 
-          type="text" 
-          placeholder="请输入姓名"
-          :class="{ 'input-error': realNameError }"
-        >
+        <input v-model="userInfo.realName" type="text" placeholder="请输入姓名" :class="{ 'input-error': realNameError }">
         <div v-if="realNameError" class="error-message">
           姓名不能为空
         </div>
@@ -53,12 +37,7 @@
 
       <div class="form-group">
         <label>邮箱<span class="required">*</span></label>
-        <input 
-          v-model="userInfo.email" 
-          type="email" 
-          placeholder="请输入邮箱"
-          :class="{ 'input-error': emailError }"
-        >
+        <input v-model="userInfo.email" type="email" placeholder="请输入邮箱" :class="{ 'input-error': emailError }">
         <div v-if="emailError" class="error-message">
           {{ emailErrorMessage }}
         </div>
@@ -66,12 +45,8 @@
 
       <div class="form-group">
         <label>手机号码<span class="required">*</span></label>
-        <input 
-          v-model="userInfo.phoneNumber" 
-          type="text" 
-          placeholder="请输入手机号码"
-          :class="{ 'input-error': phoneNumberError }"
-        >
+        <input v-model="userInfo.phoneNumber" type="text" placeholder="请输入手机号码"
+          :class="{ 'input-error': phoneNumberError }">
         <div v-if="phoneNumberError" class="error-message">
           {{ phoneNumberErrorMessage }}
         </div>
@@ -84,23 +59,14 @@
 
       <div class="form-group">
         <label>地址<span class="required">*</span></label>
-        <input 
-          v-model="userInfo.address" 
-          type="text" 
-          placeholder="请输入地址"
-          :class="{ 'input-error': addressError }"
-        >
+        <input v-model="userInfo.address" type="text" placeholder="请输入地址" :class="{ 'input-error': addressError }">
         <div v-if="addressError" class="error-message">
           地址不能为空
         </div>
       </div>
 
       <div class="form-actions">
-        <button 
-          type="submit" 
-          class="save-btn"
-          :disabled="hasErrors"
-        >保存更改</button>
+        <button type="submit" class="save-btn" :disabled="hasErrors">保存更改</button>
         <button type="button" class="reset-btn" @click="resetForm">重置</button>
       </div>
     </form>
@@ -111,6 +77,7 @@
 import { ref, onMounted, computed } from 'vue'
 import defaultAvatar from '@/assets/logo.png'
 import { v4 as uuidv4 } from 'uuid'
+import axios from 'axios'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -158,7 +125,7 @@ const fetchUserInfo = async () => {
   try {
     const token = sessionStorage.getItem('token')
     const username = sessionStorage.getItem('username')
-    
+
     if (!token || !username) {
       console.error('未找到token或用户名')
       return
@@ -171,9 +138,9 @@ const fetchUserInfo = async () => {
         'Content-Type': 'application/json'
       }
     })
-    
+
     const data = await response.json()
-    
+
     if (data.code === '200') {
       userInfo.value = {
         avatar: data.data.avatar,
@@ -213,7 +180,7 @@ const handleUploadClick = () => {
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
-  
+
   if (file) {
     try {
       // 检查文件大小（800KB限制）
@@ -230,12 +197,13 @@ const handleFileChange = async (event: Event) => {
       formData.append('file', file, randomFileName)
 
       // 调用上传接口
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, {
-        method: 'POST',
-        body: formData
+      const response = await axios.post('/api/upload/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       })
 
-      const data = await response.json()
+      const data = await response.data
       console.log('上传响应:', data)
 
       if (data.code === '200') {
@@ -246,6 +214,7 @@ const handleFileChange = async (event: Event) => {
           avatar: data.data  // 使用返回的临时URL进行预览
         }
         console.log('更新后的用户信息:', userInfo.value)
+        handleSubmit()
       } else {
         throw new Error(data.msg || '上传失败')
       }
@@ -326,16 +295,16 @@ const addressError = computed(() => {
 })
 
 const hasErrors = computed(() => {
-  return userNameError.value || 
-         realNameError.value || 
-         emailError.value || 
-         phoneNumberError.value || 
-         addressError.value ||
-         !userInfo.value.userName ||
-         !userInfo.value.realName ||
-         !userInfo.value.email ||
-         !userInfo.value.phoneNumber ||
-         !userInfo.value.address
+  return userNameError.value ||
+    realNameError.value ||
+    emailError.value ||
+    phoneNumberError.value ||
+    addressError.value ||
+    !userInfo.value.userName ||
+    !userInfo.value.realName ||
+    !userInfo.value.email ||
+    !userInfo.value.phoneNumber ||
+    !userInfo.value.address
 })
 
 const handleSubmit = async () => {
@@ -346,7 +315,7 @@ const handleSubmit = async () => {
 
     const token = sessionStorage.getItem('token')
     const username = sessionStorage.getItem('username')
-    
+
     if (!token || !username) {
       console.error('未找到token或用户名')
       return
@@ -413,7 +382,8 @@ const resetForm = async () => {
 <style scoped>
 .account-details {
   margin: 0 auto;
-  height: 100%; /* 改为100%以适应父容器 */
+  height: 100%;
+  /* 改为100%以适应父容器 */
   overflow-y: auto;
   padding: 20px;
 }
@@ -555,6 +525,7 @@ button {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -584,7 +555,8 @@ button:disabled {
 
 /* 优化滚动条样式 */
 .account-details::-webkit-scrollbar {
-  width: 6px; /* 稍微调小滚动条宽度 */
+  width: 6px;
+  /* 稍微调小滚动条宽度 */
 }
 
 .account-details::-webkit-scrollbar-track {
@@ -601,5 +573,3 @@ button:disabled {
   background: #b83c3c;
 }
 </style>
-
-

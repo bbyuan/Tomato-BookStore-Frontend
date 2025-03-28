@@ -1,51 +1,19 @@
 <template>
   <div class="security-settings">
     <h2>修改密码</h2>
-    
+
     <form @submit.prevent="handleSubmit" class="password-form">
-      <div class="form-row">
-        <div class="form-group">
-          <label>当前密码</label>
-          <div class="input-wrapper">
-            <input 
-              v-model="passwordForm.currentPassword" 
-              :type="showCurrentPassword ? 'text' : 'password'" 
-              placeholder="请输入当前密码"
-              :class="{ 'input-error': currentPasswordError }"
-            >
-            <button type="button" class="toggle-password" @click="showCurrentPassword = !showCurrentPassword">
-              <img 
-                :src="showCurrentPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
-                alt="toggle password visibility"
-                class="eye-icon"
-              >
-            </button>
-          </div>
-          <div v-if="currentPasswordError" class="error-message">
-            当前密码不能为空
-          </div>
-        </div>
-        <div class="form-group">
-          <!-- 空的form-group用于占位，保持布局一致 -->
-        </div>
-      </div>
+
 
       <div class="form-row">
         <div class="form-group">
           <label>新密码</label>
           <div class="input-wrapper">
-            <input 
-              v-model="passwordForm.newPassword" 
-              :type="showNewPassword ? 'text' : 'password'" 
-              placeholder="请输入新密码"
-              :class="{ 'input-error': newPasswordError }"
-            >
+            <input v-model="passwordForm.newPassword" :type="showNewPassword ? 'text' : 'password'" placeholder="请输入新密码"
+              :class="{ 'input-error': newPasswordError }">
             <button type="button" class="toggle-password" @click="showNewPassword = !showNewPassword">
-              <img 
-                :src="showNewPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
-                alt="toggle password visibility"
-                class="eye-icon"
-              >
+              <img :src="showNewPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
+                alt="toggle password visibility" class="eye-icon">
             </button>
           </div>
           <div v-if="newPasswordError" class="error-message">
@@ -56,18 +24,11 @@
         <div class="form-group">
           <label>确认新密码</label>
           <div class="input-wrapper">
-            <input 
-              v-model="passwordForm.confirmPassword" 
-              :type="showConfirmPassword ? 'text' : 'password'" 
-              placeholder="请再次输入新密码"
-              :class="{ 'input-error': confirmPasswordError }"
-            >
+            <input v-model="passwordForm.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
+              placeholder="请再次输入新密码" :class="{ 'input-error': confirmPasswordError }">
             <button type="button" class="toggle-password" @click="showConfirmPassword = !showConfirmPassword">
-              <img 
-                :src="showConfirmPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
-                alt="toggle password visibility"
-                class="eye-icon"
-              >
+              <img :src="showConfirmPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
+                alt="toggle password visibility" class="eye-icon">
             </button>
           </div>
           <div v-if="confirmPasswordError" class="error-message">
@@ -85,11 +46,7 @@
       </div>
 
       <div class="form-actions">
-        <button 
-          type="submit" 
-          class="save-btn"
-          :disabled="hasErrors"
-        >保存修改</button>
+        <button type="submit" class="save-btn" :disabled="hasErrors">保存修改</button>
         <button type="button" class="reset-btn" @click="resetForm">重置</button>
       </div>
     </form>
@@ -98,16 +55,12 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import eyeIcon from '@/assets/images/眼睛_显示.svg'
-import eyeOffIcon from '@/assets/images/眼睛_隐藏.svg'
 
 const passwordForm = ref({
-  currentPassword: '',
   newPassword: '',
   confirmPassword: ''
 })
 
-const showCurrentPassword = ref(false)
 const showNewPassword = ref(false)
 const showConfirmPassword = ref(false)
 
@@ -139,19 +92,16 @@ const validatePassword = (password: string) => {
   const hasLowerCase = /[a-z]/.test(password)
   const hasNumbers = /\d/.test(password)
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
-  
+
   return {
     isValid: hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar,
     message: !hasUpperCase ? '密码必须包含大写字母' :
-             !hasLowerCase ? '密码必须包含小写字母' :
-             !hasNumbers ? '密码必须包含数字' :
-             !hasSpecialChar ? '密码必须包含特殊字符' : ''
+      !hasLowerCase ? '密码必须包含小写字母' :
+        !hasNumbers ? '密码必须包含数字' :
+          !hasSpecialChar ? '密码必须包含特殊字符' : ''
   }
 }
 
-const currentPasswordError = computed(() => {
-  return passwordForm.value.currentPassword !== '' && !passwordForm.value.currentPassword
-})
 
 const newPasswordError = computed(() => {
   if (passwordForm.value.newPassword === '') return false
@@ -161,9 +111,9 @@ const newPasswordError = computed(() => {
 })
 
 const newPasswordErrorMessage = computed(() => {
-  if (!passwordForm.value.newPassword && passwordForm.value.newPassword !== '') 
+  if (!passwordForm.value.newPassword && passwordForm.value.newPassword !== '')
     return '新密码不能为空'
-  if (passwordForm.value.newPassword.length < 8) 
+  if (passwordForm.value.newPassword.length < 8)
     return '新密码长度必须至少为8个字符'
   const validation = validatePassword(passwordForm.value.newPassword)
   if (!validation.isValid) return validation.message
@@ -177,7 +127,7 @@ const confirmPasswordError = computed(() => {
 })
 
 const confirmPasswordErrorMessage = computed(() => {
-  if (!passwordForm.value.confirmPassword && passwordForm.value.confirmPassword !== '') 
+  if (!passwordForm.value.confirmPassword && passwordForm.value.confirmPassword !== '')
     return '请确认新密码'
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword)
     return '新密码与确认密码不匹配'
@@ -185,12 +135,10 @@ const confirmPasswordErrorMessage = computed(() => {
 })
 
 const hasErrors = computed(() => {
-  return currentPasswordError.value ||
-         newPasswordError.value ||
-         confirmPasswordError.value ||
-         !passwordForm.value.currentPassword ||
-         !passwordForm.value.newPassword ||
-         !passwordForm.value.confirmPassword
+  return newPasswordError.value ||
+    confirmPasswordError.value ||
+    !passwordForm.value.newPassword ||
+    !passwordForm.value.confirmPassword
 })
 
 const handleSubmit = async () => {
@@ -201,7 +149,7 @@ const handleSubmit = async () => {
   try {
     const token = sessionStorage.getItem('token')
     const username = sessionStorage.getItem('username')
-    
+
     if (!token || !username) {
       console.error('未找到token或用户名')
       return
@@ -209,8 +157,7 @@ const handleSubmit = async () => {
 
     const requestData = {
       username: username,
-      oldPassword: passwordForm.value.currentPassword,
-      newPassword: passwordForm.value.newPassword
+      password: passwordForm.value.newPassword
     }
 
     console.log('发送的数据:', requestData)
@@ -248,7 +195,6 @@ const handleSubmit = async () => {
 
 const resetForm = () => {
   passwordForm.value = {
-    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   }
@@ -417,6 +363,7 @@ button {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
