@@ -7,8 +7,9 @@ import Accounts from '@/views/AccountSettings/Accounts.vue'
 import Security from '@/views/AccountSettings/Security.vue'
 import ProductShow from '@/views/HomePage/ProductShow.vue'
 import Header from '@/views/HomePage/Header.vue'
-import Aside from '@/views/HomePage/Aside.vue'
+import AsideLeft from '@/views/HomePage/Aside-left.vue'
 import Slides from '@/views/HomePage/Slides.vue'
+import BookRanking from '@/views/HomePage/BookRanking.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -33,8 +34,9 @@ const router = createRouter({
           components: {
             default: ProductShow,
             header: Header,
-            aside: Aside,
-            slides: Slides
+            asideleft: AsideLeft,
+            slides: Slides,
+            bookranking: BookRanking
           }
         },
         {
@@ -42,8 +44,9 @@ const router = createRouter({
           components: {
             default: ProductShow,
             header: Header,
-            aside: Aside,
-            slides: Slides
+            asideleft: AsideLeft,
+            slides: Slides,
+            bookranking: BookRanking
           },
           props: true
         }
