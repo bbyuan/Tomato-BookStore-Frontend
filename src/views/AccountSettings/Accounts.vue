@@ -383,13 +383,12 @@ const resetForm = async () => {
 .account-details {
   margin: 0 auto;
   height: 100%;
-  /* 改为100%以适应父容器 */
   overflow-y: auto;
   padding: 20px;
 }
 
 h2 {
-  margin-bottom: 24px;
+  margin-bottom: 15px;
   color: #333;
 }
 
@@ -397,7 +396,7 @@ h2 {
   display: flex;
   align-items: flex-start;
   gap: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   padding: 24px 0;
 }
 
@@ -487,7 +486,7 @@ h2 {
   grid-column: span 2;
   display: flex;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 15px;
 }
 
 button {
@@ -553,23 +552,4 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* 优化滚动条样式 */
-.account-details::-webkit-scrollbar {
-  width: 6px;
-  /* 稍微调小滚动条宽度 */
-}
-
-.account-details::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.account-details::-webkit-scrollbar-thumb {
-  background: #d44c4c;
-  border-radius: 3px;
-}
-
-.account-details::-webkit-scrollbar-thumb:hover {
-  background: #b83c3c;
-}
 </style>
