@@ -5,6 +5,10 @@ import HomePage from '@/pages/HomePage.vue'
 import AccountSettings from '@/pages/AccountSettings.vue'
 import Accounts from '@/views/AccountSettings/Accounts.vue'
 import Security from '@/views/AccountSettings/Security.vue'
+import ProductShow from '@/views/HomePage/ProductShow.vue'
+import Header from '@/views/HomePage/Header.vue'
+import Aside from '@/views/HomePage/Aside.vue'
+import Slides from '@/views/HomePage/Slides.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,6 +27,27 @@ const router = createRouter({
       path: '/homepage',
       name: 'homepage',
       component: HomePage,
+      children: [
+        {
+          path: '',
+          components: {
+            default: ProductShow,
+            header: Header,
+            aside: Aside,
+            slides: Slides
+          }
+        },
+        {
+          path: 'category/:id',
+          components: {
+            default: ProductShow,
+            header: Header,
+            aside: Aside,
+            slides: Slides
+          },
+          props: true
+        }
+      ]
     },
     {
       path: '/account-settings',

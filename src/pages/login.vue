@@ -130,7 +130,7 @@
         sessionStorage.setItem('token', data.data)
         sessionStorage.setItem('username', username.value)
         
-        router.push('/account-settings')
+        router.push('/homepage')
       } else {
         errorMessage.value = data.msg || '登录失败，请重试'
         clearErrorAndForm()
