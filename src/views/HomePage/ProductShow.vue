@@ -1,106 +1,77 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
 
 const router = useRouter();
-
-const technicalBooks = [
-  {
-    id: 1,
-    title: '凤凰架构：构建可靠的大型分布式系统',
-    price: '¥0.00',
-    originalPrice: '¥79.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '这是一部以"如何构建一套可靠的分布式大型软件系统"为贯穿主线的开源文档，是一幅帮助开发人员提升系统架构能力的知识地图。'
-  },
-  {
-    id: 2,
-    title: '深入理解Java虚拟机（第3版）',
-    price: '¥129.00',
-    originalPrice: '¥159.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '这是一部从工作原理和工程实践两个维度深入分析新版JVM的著作，通过算机领域公认的经典，繁体版在台湾地区上市后连续多月占据程序语言类畅销榜前两位。'
-  },
-  {
-    id: 3,
-    title: '智慧的疆界',
-    price: '¥69.00',
-    originalPrice: '¥89.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '这是一部对人工智能充满敬畏之心的近心之作，由《深入理解Java虚拟机》作者历时一年完成，它将带你认识真正的人工智能。'
-  },
-  {
-    id: 4,
-    title: 'Java虚拟机规范（Java SE 8）',
-    price: '¥79.00',
-    originalPrice: '¥99.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '本书完整而精确地阐释了Java虚拟机各个方面细节，包括Java虚拟机架构、类文件格式、加载、链接、初始化，类与接口，常量池等。'
-  },
-  {
-    id: 5,
-    title: '代码整洁之道',
-    price: '¥59.00',
-    originalPrice: '¥79.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '软件工程领域的经典之作，讲述如何编写整洁、可维护的代码，提升代码质量和开发效率。'
-  },
-  {
-    id: 6,
-    title: '重构：改善既有代码的设计',
-    price: '¥68.00',
-    originalPrice: '¥88.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '软件开发领域的经典著作，揭示重构的原理和最佳实践，帮助改善代码设计'
-  },
-  {
-    id: 7,
-    title: '算法导论',
-    price: '¥128.00',
-    originalPrice: '¥168.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '全球公认的算法经典教材，全面论述算法设计与分析技术'
-  },
-  {
-    id: 8,
-    title: '设计模式：可复用面向对象软件的基础',
-    price: '¥55.00',
-    originalPrice: '¥75.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: 'GoF经典著作，深入讲解23种设计模式'
-  },
-  {
-    id: 9,
-    title: '人月神话',
-    price: '¥45.00',
-    originalPrice: '¥65.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '软件工程领域的经典作品，探讨软件开发项目管理之道'
-  },
-  {
-    id: 10,
-    title: '黑客与画家',
-    price: '¥49.00',
-    originalPrice: '¥69.00',
-    image: '/src/assets/images/BookTemplate.avif',
-    description: '硅谷创业教父Paul Graham的文集，探讨编程与创新的关系'
-  }
-]
-
-const rankings = [
-  { id: 1, title: '生死场', price: '¥12.1', originalPrice: '¥36.0' },
-  { id: 2, title: '我的心看起来很冷', price: '¥18.5', originalPrice: '¥42.0' },
-  { id: 3, title: '时空迷途：刘慈欣作品集', price: '¥25.8', originalPrice: '¥58.0' },
-  { id: 4, title: '公主之死：你所不知道的中国', price: '¥29.9', originalPrice: '¥68.0' },
-  { id: 5, title: '我在史料生', price: '¥19.5', originalPrice: '¥45.0' },
-]
+// 使用ref创建响应式数据
+const technicalBooks = ref<any[]>([]);
+const loading = ref(false);
+const error = ref('');
 
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
   const currentPrice = parseFloat(price.replace('¥', ''))
   const original = parseFloat(originalPrice.replace('¥', ''))
   if (original === 0) return 0
-  return Math.round(currentPrice / original * 10)
+  return Math.round((currentPrice / original) * 10)
 }
+
+// 获取商品列表数据
+const fetchBooks = async () => {
+  loading.value = true;
+  error.value = '';
+  
+  try {
+    const token = sessionStorage.getItem('token');
+    
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      console.error('未找到token，用户可能未登录');
+      return;
+    }
+    
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
+    
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.data && response.data.code === '200') {
+      // 处理API返回的数据格式
+      technicalBooks.value = response.data.data.map((item: any) => {
+        // 将价格转换为数字
+        const currentPrice = parseFloat(item.price);
+        // 计算原价 = 当前价格 + 20元
+        const originalPrice = currentPrice + 20;
+        
+        return {
+          id: item.id,
+          title: item.title,
+          price: `¥${currentPrice.toFixed(2)}`,
+          originalPrice: `¥${originalPrice.toFixed(2)}`,
+          image: item.cover || '/src/assets/images/BookTemplate.avif',
+          description: item.description || '暂无描述',
+        };
+      });
+    } else {
+      error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+    }
+  } catch (err: any) {
+    console.error('获取商品列表出错:', err);
+    // 区分网络错误和认证错误
+    if (err.response && err.response.status === 401) {
+      error.value = '认证失败，请重新登录';
+    } else {
+      error.value = `网络请求错误: ${err.message || '未知错误'}`;
+    }
+  } finally {
+    loading.value = false;
+  }
+};
 
 const goToDetail = (bookId: number) => {
   router.push({
@@ -108,6 +79,12 @@ const goToDetail = (bookId: number) => {
     params: { id: bookId.toString() }
   });
 }
+
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchBooks();
+});
+
 </script>
 
 <template>
@@ -117,7 +94,20 @@ const goToDetail = (bookId: number) => {
       <div class="view-more">查看更多 <i class="arrow-right">›</i></div>
     </div>
     
-    <div class="hot-books-list">
+    <!-- 添加加载状态显示 -->
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>正在加载商品数据...</p>
+    </div>
+    
+    <!-- 添加错误状态显示 -->
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+      <button @click="fetchBooks" class="retry-btn">重试</button>
+    </div>
+    
+    <!-- 商品列表 -->
+    <div v-else class="hot-books-list">
       <div v-for="book in technicalBooks" 
            :key="book.id" 
            class="book-card"
@@ -479,6 +469,52 @@ const goToDetail = (bookId: number) => {
   .book-card::after {
     display: none;
   }
+}
+
+/* 添加加载和错误状态的样式 */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 107, 107, 0.1);
+  border-left-color: #ff6b6b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state p {
+  color: #ff6b6b;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.retry-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.retry-btn:hover {
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
+  transform: translateY(-2px);
 }
 </style>
 
