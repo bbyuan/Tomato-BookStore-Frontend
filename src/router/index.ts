@@ -10,6 +10,7 @@ import Header from '@/views/HomePage/Header.vue'
 import AsideLeft from '@/views/HomePage/Aside-left.vue'
 import Slides from '@/views/HomePage/Slides.vue'
 import BookRanking from '@/views/HomePage/BookRanking.vue'
+import Detail from '@/pages/Detail.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -49,8 +50,13 @@ const router = createRouter({
             bookranking: BookRanking
           },
           props: true
-        }
+        },
       ]
+    },
+    {
+      path: '/detail/:id',
+      name: 'Detail',
+      component: Detail
     },
     {
       path: '/account-settings',
