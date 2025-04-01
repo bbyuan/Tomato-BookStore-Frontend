@@ -13,6 +13,7 @@ interface Book {
   price: string
   originalPrice: string
   image: string
+  images?: string[]
   description: string
   rating?: number
   author?: string
@@ -40,6 +41,11 @@ const fetchBookDetail = async (id: number): Promise<Book> => {
         price: '¥59.00',
         originalPrice: '¥79.00',
         image: '/src/assets/images/BookTemplate.avif',
+        images: [
+          '/src/assets/images/BookTemplate.avif',
+          '/src/assets/logo.png',
+          '/src/assets/images/login_background.png'
+        ],
         description: '这是这本书的详细描述，讲述了书的内容、特点以及其它相关信息。',
         rating: 4.8,
         author: '张三',
@@ -132,8 +138,9 @@ onMounted(async () => {
   left: 0;
   right: 0;
   display: flex;
-  margin-top: 60px;
+  margin-top: 100px;
   width: 100%;
+  padding: 0 20px;
   max-width: 100%;
   gap: 6px;
   flex-wrap: wrap;
