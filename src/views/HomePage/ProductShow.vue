@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
 const technicalBooks = [
   {
     id: 1,
@@ -97,6 +101,13 @@ const calculateDiscount = (price: string, originalPrice: string) => {
   if (original === 0) return 0
   return Math.round(currentPrice / original * 10)
 }
+
+const goToDetail = (bookId: number) => {
+  router.push({
+    name: 'Detail',
+    params: { id: bookId.toString() }
+  });
+}
 </script>
 
 <template>
@@ -107,7 +118,10 @@ const calculateDiscount = (price: string, originalPrice: string) => {
     </div>
     
     <div class="hot-books-list">
-      <div v-for="book in technicalBooks" :key="book.id" class="book-card">
+      <div v-for="book in technicalBooks" 
+           :key="book.id" 
+           class="book-card"
+           @click="goToDetail(book.id)">
         <div class="book-image">
           <img :src="book.image" :alt="book.title">
         </div>
@@ -233,6 +247,7 @@ const calculateDiscount = (price: string, originalPrice: string) => {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(0,0,0,0.05);
+  cursor: pointer;
 }
 
 .book-card:hover {
