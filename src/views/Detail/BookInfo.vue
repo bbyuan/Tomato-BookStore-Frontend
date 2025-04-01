@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { defineProps, ref } from 'vue'
+import RatingStars from './RatingStars.vue'
 
 const props = defineProps({
   bookInfo: {
@@ -15,6 +16,16 @@ const selectedImage = ref(props.bookInfo.image)
 const changeImage = (image: string) => {
   selectedImage.value = image
 }
+
+const bookDetails = {
+  作者: props.bookInfo.author,
+  副标题: props.bookInfo.subtitle,
+  ISBN: props.bookInfo.isbn,
+  装帧: props.bookInfo.binding,
+  页数: props.bookInfo.pages,
+  出版社: props.bookInfo.publisher,
+  出版日期: props.bookInfo.publishDate
+};
 </script>
 
 <template>
@@ -50,23 +61,20 @@ const changeImage = (image: string) => {
 
       <!-- 评分 -->
       <div class="rating-section">
-        <span class="rating-stars">⭐⭐⭐⭐⭐</span>
-        <span class="rating-score">{{ bookInfo.rating }}/5.0</span>
+        <!-- 传参方式：直接将 bookInfo.rating 传给 RatingStars 组件 -->
+        <RatingStars :rating="bookInfo.rating" />
       </div>
 
       <!-- 描述 -->
       <p class="description">{{ bookInfo.description }}</p>
 
       <!-- 书籍细节信息 -->
-      <ul class="details-list">
-        <li><strong>作者：</strong>{{ bookInfo.author }}</li>
-        <li><strong>副标题：</strong>{{ bookInfo.subtitle }}</li>
-        <li><strong>ISBN：</strong>{{ bookInfo.isbn }}</li>
-        <li><strong>装帧：</strong>{{ bookInfo.binding }}</li>
-        <li><strong>页数：</strong>{{ bookInfo.pages }}</li>
-        <li><strong>出版社：</strong>{{ bookInfo.publisher }}</li>
-        <li><strong>出版日期：</strong>{{ bookInfo.publishDate }}</li>
-      </ul>
+      <div class="details-card">
+        <div class="detail-item" v-for="(value, key) in bookDetails" :key="key">
+          <strong>{{ key }}：</strong>
+          <span>{{ value || '暂无' }}</span>
+        </div>
+      </div>
 
       <!-- 购买按钮 -->
       <div class="button-section">
@@ -88,6 +96,7 @@ const changeImage = (image: string) => {
   width: 100%;
   box-sizing: border-box;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  align-items: stretch; /* 确保子元素高度一致 */
 }
 
 .book-info-container:hover {
@@ -97,22 +106,22 @@ const changeImage = (image: string) => {
 
 .cover-wrapper {
   flex-shrink: 0;
-  width: 400px;
+  width: 350px; /* 缩小宽度 */
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   position: relative;
 
-  padding:20px;
+  padding: 15px; /* 缩小内边距 */
   display: flex;
   flex-direction: column;
   align-items: center;
-
+  height: auto; /* 自动调整高度 */
 }
 
 .book-cover {
-  width: 330px;          /* 或者 max-width: 300px; */
-  height: 440px;         /* 或者 max-height: 400px; */
+  width: 280px; /* 缩小封面图片宽度 */
+  height: 370px; /* 缩小封面图片高度 */
   object-fit: contain;
   object-position: center;
   border-radius: 8px;
@@ -154,6 +163,8 @@ const changeImage = (image: string) => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between; /* 保证内容均匀分布 */
+  height: 100%; /* 设置两者高度一致 */
 }
 
 .book-title {
@@ -190,16 +201,6 @@ const changeImage = (image: string) => {
   margin-bottom: 15px;
 }
 
-.rating-stars {
-  font-size: 20px;
-  color: #ffcc00;
-}
-
-.rating-score {
-  font-size: 16px;
-  color: #666;
-}
-
 .description {
   font-size: 16px;
   line-height: 1.8;
@@ -207,16 +208,27 @@ const changeImage = (image: string) => {
   margin-bottom: 20px;
 }
 
-.details-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 20px;
-  font-size: 15px;
-  color: #666;
+.details-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 两列布局 */
+  gap: 10px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
 }
 
-.details-list li {
-  margin-bottom: 10px;
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #333;
+}
+
+.detail-item strong {
+  font-weight: bold;
+  color: #555;
 }
 
 .button-section {

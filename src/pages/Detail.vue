@@ -80,6 +80,30 @@ const fetchRelatedBooks = async (id: number): Promise<Book[]> => {
           originalPrice: '¥59.00',
           image: '/src/assets/images/BookTemplate.avif',
           description: '相关书籍的描述信息。'
+        },
+        {
+          id: id + 3,
+          title: '相关书籍 3',
+          price: '¥39.00',
+          originalPrice: '¥59.00',
+          image: '/src/assets/images/BookTemplate.avif',
+          description: '相关书籍的描述信息。'
+        },
+        {
+          id: id + 4,
+          title: '相关书籍 4',
+          price: '¥39.00',
+          originalPrice: '¥59.00',
+          image: '/src/assets/images/BookTemplate.avif',
+          description: '相关书籍的描述信息。'
+        },
+        {
+          id: id + 5,
+          title: '相关书籍 5',
+          price: '¥39.00',
+          originalPrice: '¥59.00',
+          image: '/src/assets/images/BookTemplate.avif',
+          description: '相关书籍的描述信息。'
         }
       ])
     }, 800)
