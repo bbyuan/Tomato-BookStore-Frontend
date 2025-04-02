@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, ref } from 'vue'
+import { defineProps, ref, computed } from 'vue'
 import RatingStars from './RatingStars.vue'
 
 const props = defineProps({
@@ -26,6 +26,16 @@ const bookDetails = {
   出版社: props.bookInfo.publisher,
   出版日期: props.bookInfo.publishDate
 };
+
+// 添加计算属性检查库存是否低
+const isLowStock = computed(() => {
+  return (props.bookInfo.amount || 0) < 50;
+});
+
+// 添加计算属性检查库存是否为 0
+const isOutOfStock = computed(() => {
+  return (props.bookInfo.amount || 0) === 0;
+});
 </script>
 
 <template>
@@ -51,17 +61,22 @@ const bookDetails = {
     <div class="info-wrapper">
       <h2 class="book-title">{{ bookInfo.title }}</h2>
 
-      <!-- 价格 -->
-      <div class="price-section">
-        <span class="current-price">¥{{ bookInfo.price }}</span>
-        <span v-if="bookInfo.originalPrice && bookInfo.originalPrice > bookInfo.price" class="original-price">
-          ¥{{ bookInfo.originalPrice }}
-        </span>
+      <!-- 价格和库存并排显示 -->
+      <div class="price-stock-row">
+        <div class="price-section">
+          <span class="current-price">¥{{ bookInfo.price }}</span>
+          <span v-if="bookInfo.originalPrice && bookInfo.originalPrice > bookInfo.price" class="original-price">
+            ¥{{ bookInfo.originalPrice }}
+          </span>
+        </div>
+
+        <div class="stock-badge" :class="{ 'low-stock': isLowStock }">
+          库存: {{ bookInfo.amount || 0 }}
+        </div>
       </div>
 
       <!-- 评分 -->
       <div class="rating-section">
-        <!-- 传参方式：直接将 bookInfo.rating 传给 RatingStars 组件 -->
         <RatingStars :rating="bookInfo.rating" />
       </div>
 
@@ -78,8 +93,10 @@ const bookDetails = {
 
       <!-- 购买按钮 -->
       <div class="button-section">
-        <button class="add-cart-btn">加入购物车</button>
-        <button class="buy-now-btn">立即购买</button>
+        <button class="add-cart-btn" :disabled="isOutOfStock">加入购物车</button>
+        <button class="buy-now-btn">
+          {{ isOutOfStock ? '补货提醒' : '立即购买' }}
+        </button>
       </div>
     </div>
   </div>
@@ -175,10 +192,16 @@ const bookDetails = {
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
+.price-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
 .price-section {
   display: flex;
   align-items: center;
-  margin-bottom: 15px;
 }
 
 .current-price {
@@ -192,6 +215,45 @@ const bookDetails = {
   font-size: 18px;
   color: #999;
   text-decoration: line-through;
+}
+
+.stock-badge {
+  display: inline-block;
+  padding: 8px 15px;  /* 增大内边距 */
+  border-radius: 20px;
+  font-size: 16px;  /* 增大字体 */
+  font-weight: bold;
+  background-color: #e0f2e9;
+  color: #2e8b57;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stock-badge.low-stock {
+  background-color: #fff0f0;
+  color: #ff6b6b;
+  border-left: 2px solid #ff6b6b; /* 调整左边框宽度 */
+  padding-left: 10px; /* 调整内边距 */
+  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.stock-badge.low-stock::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shine 1.5s infinite;
+}
+
+@keyframes shine {
+  to {
+    left: 100%;
+  }
 }
 
 .rating-section {
@@ -255,6 +317,12 @@ const bookDetails = {
 
 .add-cart-btn:hover {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
+}
+
+.add-cart-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .buy-now-btn {

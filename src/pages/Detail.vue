@@ -23,6 +23,7 @@ interface Book {
   pages?: number
   publisher?: string
   publishDate?: string
+  amount?: number
 }
 
 const route = useRoute()
@@ -54,7 +55,8 @@ const fetchBookDetail = async (id: number): Promise<Book> => {
         binding: '平装',
         pages: 320,
         publisher: '示例出版社',
-        publishDate: '2022-01-01'
+        publishDate: '2022-01-01',
+        amount: 0
       })
     }, 800)
   })
