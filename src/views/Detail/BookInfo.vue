@@ -310,13 +310,13 @@ const isOutOfStock = computed(() => {
 }
 
 .add-cart-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  background: #ffcc00; /* 改为黄色背景 */
   color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
 }
 
 .add-cart-btn:hover {
-  background: linear-gradient(90deg, #ff5252, #ff8a65);
+  background: #ffb700;
 }
 
 .add-cart-btn:disabled {
@@ -326,13 +326,13 @@ const isOutOfStock = computed(() => {
 }
 
 .buy-now-btn {
-  background: #ffcc00;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d); /* 改为红色渐变背景 */
   color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
 .buy-now-btn:hover {
-  background: #ffb700;
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
 }
 
 /* 响应式布局 */

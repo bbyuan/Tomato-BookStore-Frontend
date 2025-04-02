@@ -56,7 +56,7 @@ const fetchBookDetail = async (id: number): Promise<Book> => {
         pages: 320,
         publisher: '示例出版社',
         publishDate: '2022-01-01',
-        amount: 0
+        amount: 30
       })
     }, 800)
   })
