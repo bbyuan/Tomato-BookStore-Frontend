@@ -11,6 +11,7 @@ import AsideLeft from '@/views/HomePage/Aside-left.vue'
 import Slides from '@/views/HomePage/Slides.vue'
 import BookRanking from '@/views/HomePage/BookRanking.vue'
 import Detail from '@/pages/Detail.vue'
+import AdminProductManagement from '@/pages/AdminProductManagement.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -75,6 +76,11 @@ const router = createRouter({
           component: Security
         }
       ]
+    },
+    {
+      path: '/admin/product-management',
+      name: 'AdminProductManagement',
+      component: AdminProductManagement
     },
   ],
 })
