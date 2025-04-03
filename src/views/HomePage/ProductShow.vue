@@ -328,11 +328,9 @@ onMounted(() => {
   font-weight: bold;
   margin-right: 8px;
   position: relative;
-  padding-left: 18px;
 }
 
 .price::before {
-  content: "¥";
   position: absolute;
   left: 0;
   top: 2px;
