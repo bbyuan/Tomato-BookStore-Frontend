@@ -62,10 +62,6 @@ const handleCommand = (command: string) => {
 <template>
   <el-header class="header">
     <div class="header-left">
-      <div class="logo">
-        <img src="@/assets/logo.png" alt="Logo" height="30">
-        <span class="platform-name">番茄书城 Tomato BookStore</span>
-      </div>
       <div class="custom-tabs">
         <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
         <label class="tab" for="tab-1">主页</label>
