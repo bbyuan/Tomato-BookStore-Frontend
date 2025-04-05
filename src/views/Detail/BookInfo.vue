@@ -9,69 +9,97 @@ const props = defineProps({
   }
 })
 
+//处理规格信息
+const specifications = computed(() => {
+  return props.bookInfo.specifications?.reduce((acc:Record<string, any>, spec: any) => {
+    acc[spec.name] = spec.value;
+    return acc
+  }, {}) || {}
+})
+
+//处理图片显示
+const images = computed(() => {
+  return props.bookInfo.covers?.length ? props.bookInfo.covers : props.bookInfo.cover_name ? [props.bookInfo.cover_name] : []
+})
+
 // 当前选中的图片
-const selectedImage = ref(props.bookInfo.image)
+const selectedImage = ref(images.value[0] || '');
 
-// 切换图片
-const changeImage = (image: string) => {
-  selectedImage.value = image
-}
+// 构建书籍详情
+const bookDetails = computed(() => {
+  const detailMap = {
+    '作者': specifications.value.作者,
+    '副标题': specifications.value.副标题,
+    'ISBN': specifications.value.ISBN,
+    '装帧': specifications.value.装帧,
+    '页数': specifications.value.页数,
+    '出版社': specifications.value.出版社,
+    '出版日期': specifications.value.出版日期
+  }
 
-const bookDetails = {
-  作者: props.bookInfo.author,
-  副标题: props.bookInfo.subtitle,
-  ISBN: props.bookInfo.isbn,
-  装帧: props.bookInfo.binding,
-  页数: props.bookInfo.pages,
-  出版社: props.bookInfo.publisher,
-  出版日期: props.bookInfo.publishDate
-};
+  return Object.entries(detailMap).map(([key, value]) => {
+    let displayValue = value ?? '暂无';
 
-// 添加计算属性检查库存是否低
+    if (key === '页数') {
+      displayValue = value > 0 ? value : '暂无';
+    }
+
+    if (key === '出版日期' && value) {
+      displayValue = new Date(value).toLocaleDateString();
+    }
+
+    return {key, value: displayValue}
+  })
+})
+
+// 库存状态计算
 const isLowStock = computed(() => {
-  return (props.bookInfo.amount || 0) < 50;
-});
+  return (props.bookInfo.stock?.amount || 0) < 50
+})
 
-// 添加计算属性检查库存是否为 0
 const isOutOfStock = computed(() => {
-  return (props.bookInfo.amount || 0) === 0;
-});
+  return (props.bookInfo.stock?.amount || 0) === 0
+})
 </script>
 
 <template>
   <div class="book-info-container">
     <!-- 封面 -->
     <div class="cover-wrapper">
-      <img :src="selectedImage" alt="书籍封面" class="book-cover" />
+      <img 
+        :src="selectedImage" 
+        alt="书籍封面" 
+        class="book-cover"  
+        v-if="images.length > 0"
+      />
       <!-- 图片选择区域 -->
-      <div class="image-selector">
+      <div class="image-selector" v-if="images.length > 0">
         <img 
-          v-for="(image, index) in bookInfo.images" 
+          v-for="(image, index) in images" 
           :key="index" 
           :src="image" 
-          :alt="'图片 ' + (index + 1)" 
           class="thumbnail" 
           :class="{ active: selectedImage === image }" 
-          @click="changeImage(image)" 
+          @click="selectedImage = image" 
         />
       </div>
     </div>
 
     <!-- 书籍信息 -->
     <div class="info-wrapper">
-      <h2 class="book-title">{{ bookInfo.title }}</h2>
+      <h2 class="book-title">{{ bookInfo.title || '未知书名' }}</h2>
 
       <!-- 价格和库存并排显示 -->
       <div class="price-stock-row">
         <div class="price-section">
-          <span class="current-price">¥{{ bookInfo.price }}</span>
+          <span class="current-price">¥{{ bookInfo.price?.toFixed(2) || '0.00' }}</span>
           <span v-if="bookInfo.originalPrice && bookInfo.originalPrice > bookInfo.price" class="original-price">
             ¥{{ bookInfo.originalPrice }}
           </span>
         </div>
 
         <div class="stock-badge" :class="{ 'low-stock': isLowStock }">
-          库存: {{ bookInfo.amount || 0 }}
+          库存: {{ bookInfo.stock?.amount || 0 }}
         </div>
       </div>
 
@@ -85,16 +113,25 @@ const isOutOfStock = computed(() => {
 
       <!-- 书籍细节信息 -->
       <div class="details-card">
-        <div class="detail-item" v-for="(value, key) in bookDetails" :key="key">
-          <strong>{{ key }}：</strong>
-          <span>{{ value || '暂无' }}</span>
+        <div 
+          class="detail-item" 
+          v-for="detail in bookDetails" 
+          :key="detail.key">
+          <strong>{{ detail.key }}：</strong>
+          <span>{{ detail.value }}</span>
         </div>
       </div>
 
       <!-- 购买按钮 -->
       <div class="button-section">
-        <button class="add-cart-btn" :disabled="isOutOfStock">加入购物车</button>
-        <button class="buy-now-btn">
+        <button 
+          class="add-cart-btn"
+          :disabled="isOutOfStock"
+        >
+          {{ isOutOfStock ? '已售罄' : '加入购物车' }}
+        </button>
+        <button 
+          class="buy-now-btn">
           {{ isOutOfStock ? '补货提醒' : '立即购买' }}
         </button>
       </div>

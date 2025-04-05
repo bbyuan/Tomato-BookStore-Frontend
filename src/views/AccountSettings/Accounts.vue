@@ -141,6 +141,8 @@ const fetchUserInfo = async () => {
 
     const data = await response.json()
 
+    console.log(data.data)
+
     if (data.code === '200') {
       userInfo.value = {
         avatar: data.data.avatar,

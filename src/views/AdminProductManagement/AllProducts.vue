@@ -3,18 +3,18 @@ import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import AddProductModal from './AddProductModal.vue';
-import EditProductModal from './EditProductModal.vue'; // 添加导入EditProductModal组件
+import EditProductModal from './EditProductModal.vue'; 
 
 const router = useRouter();
-// 使用ref创建响应式数据
+
 const technicalBooks = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
 const showDeleteModal = ref(false);
 const bookToDelete = ref<any>(null);
 const showAddProductModal = ref(false);
-const showEditProductModal = ref(false); // 添加编辑弹窗状态
-const currentEditBook = ref<any>(null); // 添加当前正在编辑的书籍
+const showEditProductModal = ref(false); 
+const currentEditBook = ref<any>(null); 
 
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
@@ -59,6 +59,7 @@ const fetchBooks = async () => {
         const totalStock = item.stock || Math.floor(Math.random() * 100) + 1;
         const frozenStock = Math.floor(Math.random() * 10) + 1; // 生成1-10的随机冻结库存
         
+        console.log(response.data.data);
         return {
           id: item.id,
           title: item.title,

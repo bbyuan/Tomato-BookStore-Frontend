@@ -12,9 +12,9 @@
         </div>
         <h3 class="related-name">{{ book.title }}</h3>
         <div class="related-pricing">
-          <span class="current-price">{{ book.price }}</span>
-          <span class="original-price">{{ book.originalPrice }}</span>
-          <span class="discount">{{ calculateDiscount(book.price, book.originalPrice) }}折</span>
+          <span class="current-price">¥{{ formatPrice(book.price) }}</span>
+          <span class="original-price">¥{{ formatPrice(book.price + 20) }}</span>
+          <span class="discount">{{ calculateDiscount(book.price) }}折</span>
         </div>
       </div>
     </div>
@@ -31,12 +31,15 @@ const props = defineProps({
   }
 })
 
+const formatPrice = (price) => {
+  return Number(price).toFixed(2)
+}
+
 // 计算折扣
-const calculateDiscount = (price, originalPrice) => {
-  const current = parseFloat(price.replace('¥', ''))
-  const original = parseFloat(originalPrice.replace('¥', ''))
-  if (original === 0) return 0
-  return Math.round((current / original) * 10)
+const calculateDiscount = (currentPrice) => {
+  const originalPrice = currentPrice + 20
+  if (originalPrice === 0) return 0
+  return Math.round((currentPrice / originalPrice) * 10)
 }
 </script>
 
