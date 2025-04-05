@@ -2,6 +2,8 @@
 import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import AddProductModal from './AddProductModal.vue';
+import EditProductModal from './EditProductModal.vue'; // 添加导入EditProductModal组件
 
 const router = useRouter();
 // 使用ref创建响应式数据
@@ -10,6 +12,9 @@ const loading = ref(false);
 const error = ref('');
 const showDeleteModal = ref(false);
 const bookToDelete = ref<any>(null);
+const showAddProductModal = ref(false);
+const showEditProductModal = ref(false); // 添加编辑弹窗状态
+const currentEditBook = ref<any>(null); // 添加当前正在编辑的书籍
 
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
@@ -50,6 +55,10 @@ const fetchBooks = async () => {
         // 计算原价 = 当前价格 + 20元
         const originalPrice = currentPrice + 20;
         
+        // 生成随机的冻结库存数据（因为API中可能没有此字段）
+        const totalStock = item.stock || Math.floor(Math.random() * 100) + 1;
+        const frozenStock = Math.floor(Math.random() * 10) + 1; // 生成1-10的随机冻结库存
+        
         return {
           id: item.id,
           title: item.title,
@@ -57,7 +66,8 @@ const fetchBooks = async () => {
           originalPrice: `¥${originalPrice.toFixed(2)}`,
           image: item.cover || '/src/assets/images/BookTemplate.avif',
           description: item.description || '暂无描述',
-          stock: item.stock || Math.floor(Math.random() * 100) + 1, // 添加库存信息，如果API没有则随机生成
+          stock: totalStock, 
+          frozenStock: frozenStock, // 添加冻结库存字段
         };
       });
     } else {
@@ -84,11 +94,72 @@ const goToDetail = (bookId: number) => {
   });
 }
 
-// 跳转到新增商品页面
+// 打开新增商品弹窗
+const openAddProductModal = () => {
+  showAddProductModal.value = true;
+};
+
+// 关闭新增商品弹窗
+const closeAddProductModal = () => {
+  showAddProductModal.value = false;
+};
+
+// 处理商品添加成功
+const handleProductAdded = (productData: any) => {
+  // 商品添加成功后重新获取商品列表
+  fetchBooks();
+};
+
+// 跳转到新增商品页面 - 修改为打开弹窗
 const goToAddProduct = () => {
-  router.push({
-    name: 'AddProduct'
-  });
+  openAddProductModal();
+};
+
+// 打开编辑商品弹窗
+const openEditProductModal = (event: Event, book: any) => {
+  event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
+  currentEditBook.value = book.id; // 只存储商品ID
+  showEditProductModal.value = true;
+}
+
+// 关闭编辑商品弹窗
+const closeEditProductModal = () => {
+  showEditProductModal.value = false;
+  currentEditBook.value = null;
+}
+
+// 保存编辑的商品信息
+const saveEditedProduct = async (editedBook: any) => {
+  try {
+    loading.value = true;
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      return;
+    }
+    
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${editedBook.id}`;
+    
+    const response = await axios.put(apiUrl, editedBook, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.data && response.data.code === '200') {
+      // 更新成功后重新获取商品列表
+      await fetchBooks();
+      closeEditProductModal(); // 关闭弹窗
+    } else {
+      error.value = '更新失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+    }
+  } catch (err: any) {
+    console.error('更新商品信息出错:', err);
+    error.value = `更新失败: ${err.message || '未知错误'}`;
+  } finally {
+    loading.value = false;
+  }
 }
 
 // 跳转到编辑商品页面
@@ -158,7 +229,7 @@ onMounted(() => {
   <div class="all-books-container">
     <div class="all-books-header">
       <h2>商品管理</h2>
-      <button class="add-product-btn" @click="goToAddProduct">
+      <button class="add-product-btn" @click="openAddProductModal">
         <i class="plus-icon">+</i> 新增商品
       </button>
     </div>
@@ -197,22 +268,26 @@ onMounted(() => {
               {{ calculateDiscount(book.price, book.originalPrice) }}折
             </span>
           </div>
-          <div class="stock-indicator">
-            <div class="stock-bar">
-              <div class="stock-progress" :style="{width: `${Math.min(book.stock, 100)}%`}" 
-                   :class="{'low-stock-progress': book.stock < 10}"></div>
-            </div>
-            <span class="stock-text" :class="{'low-stock-text': book.stock < 10}">
+          
+          <!-- 库存和冻结库存信息 -->
+          <div class="stock-info">
+            <div class="stock-badge" :class="{ 'low-stock': book.stock < 50 }">
               库存: {{ book.stock }}
-            </span>
+            </div>
+            <div class="frozen-stock-badge">
+              冻结: {{ book.frozenStock }}
+            </div>
           </div>
+          
           <div class="book-actions admin-actions">
-            <button class="edit-btn" @click="(event) => goToEditProduct(event, book.id)">
-              <i class="edit-icon">✏️</i> 编辑
-            </button>
-            <button class="delete-btn" @click="(event) => showDeleteConfirm(event, book)">
-              <i class="delete-icon">🗑️</i> 删除
-            </button>
+            <div class="edit-btn" @click="openEditProductModal($event, book)">
+              <img src="/src/assets/icons/edit-box-fill.svg" alt="编辑" class="action-icon">
+              编辑
+            </div>
+            <div class="delete-btn" @click="showDeleteConfirm($event, book)">
+              <img src="/src/assets/icons/delete-bin-6-fill.svg" alt="删除" class="action-icon">
+              删除
+            </div>
           </div>
         </div>
       </div>
@@ -229,6 +304,25 @@ onMounted(() => {
           <button class="cancel-btn" @click="cancelDelete">取消</button>
           <button class="confirm-delete-btn" @click="deleteProduct">确认删除</button>
         </div>
+      </div>
+    </div>
+
+    <!-- 新增商品弹窗 -->
+    <AddProductModal 
+      v-if="showAddProductModal"
+      @close="closeAddProductModal"
+      @product-added="handleProductAdded"
+    />
+
+    <!-- 编辑商品弹窗 -->
+    <div v-if="showEditProductModal" class="edit-modal-overlay" @click="closeEditProductModal">
+      <div class="edit-modal-container" @click.stop>
+        <EditProductModal
+          v-if="currentEditBook"
+          :bookId="currentEditBook"
+          @save="saveEditedProduct"
+          @close="closeEditProductModal"
+        />
       </div>
     </div>
   </div>
@@ -423,7 +517,6 @@ onMounted(() => {
 
 .book-title {
   font-size: 16px;
-  margin: 0 0 15px 0;
   font-weight: 600;
   line-height: 1.4;
   height: 45px;
@@ -469,61 +562,99 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.stock-indicator {
-  margin-bottom: 20px;
+/* 重新布局库存和冻结库存样式 */
+.stock-info {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.stock-bar {
-  height: 6px;
-  background-color: #f0f0f0;
-  border-radius: 3px;
+.stock-badge, .frozen-stock-badge {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.stock-badge {
+  background-color: #e0f2e9;
+  color: #2e8b57;
+}
+
+.stock-badge.low-stock {
+  background-color: #fff0f0;
+  color: #ff6b6b;
+  border-left: 2px solid #ff6b6b;
+  padding-left: 10px;
+  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.25);
+  position: relative;
   overflow: hidden;
 }
 
-.stock-progress {
+.stock-badge.low-stock::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, #4CAF50, #8BC34A);
-  border-radius: 3px;
-  transition: width 0.5s ease;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shine 1.5s infinite;
 }
 
-.low-stock-progress {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+.frozen-stock-badge {
+  background-color: #e6f0ff;
+  color: #4a6fa5;
+  
 }
 
-.stock-text {
-  font-size: 13px;
-  color: #555;
+/* 修改闪光动画以使其更慢更明显 */
+@keyframes shine {
+  0% { left: -100%; }
+  40% { left: 100%; }
+  100% { left: 100%; }
 }
 
-.low-stock-text {
-  color: #ff6b6b;
-  font-weight: 500;
+/* 删除旧的库存指示器样式 */
+.stock-indicator, .stock-bar, .stock-progress, .stock-text, .low-stock-progress, .low-stock-text {
+  display: none;
 }
 
-/* 管理员操作按钮 */
+/* 修改管理员操作按钮样式，与库存样式保持一致 */
 .admin-actions {
   display: flex;
   gap: 10px;
   margin-top: auto;
+  width: 100%;
 }
 
 .edit-btn, .delete-btn {
   flex: 1;
-  padding: 10px 0;
-  border: none;
-  border-radius: 25px;
+  padding: 8px 10px;
+  border-radius: 20px;
   font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  font-weight: bold;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 5px;
+  cursor: pointer;
+}
+
+.action-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .edit-btn {
@@ -538,19 +669,19 @@ onMounted(() => {
 }
 
 .delete-btn {
-  background: #fff0f0;
-  color: #ff6b6b;
+  background: #f2f2f2;
+  color: #333;
 }
 
 .delete-btn:hover {
-  background: #ffe0e0;
+  background: #e6e6e6;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(255,107,107,0.15);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 }
 
+/* 删除旧的图标样式，不再需要 */
 .edit-icon, .delete-icon {
-  font-style: normal;
-  font-size: 16px;
+  display: none;
 }
 
 /* 删除确认弹窗 */
@@ -734,6 +865,33 @@ onMounted(() => {
   .book-details {
     padding: 15px;
   }
+}
+
+/* 添加编辑弹窗样式 */
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(3px);
+}
+
+.edit-modal-container {
+  width: 98%;
+  max-width: 1400px;
+  max-height: 95vh;
+  overflow-y: auto;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: scaleIn 0.3s ease;
 }
 </style>
 
