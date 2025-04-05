@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 // 定义菜单项数据，可根据需要修改/扩展
 const menuItems = ref([
-  { name: '商品管理', route: '/admin/products' },
-  { name: '订单管理', route: '/admin/orders' },
-  { name: '用户管理', route: '/admin/users' },
+  { name: '商品管理', route: '/admin/product-management' },
+  { name: '订单管理', route: '/admin/order-management' },
+  { name: '用户管理', route: '/admin/user-management' },
   { name: '数据统计', route: '/admin/stats' },
   { name: '系统设置', route: '/admin/settings' }
 ])
 
 const router = useRouter()
+const route = useRoute()
 
 function navigateTo(route: string) {
   router.push(route)
 }
+
+// 计算当前激活的菜单项
+const activeMenu = computed(() => route.path)
 </script>
 
 <template>
@@ -32,6 +36,7 @@ function navigateTo(route: string) {
         v-for="(item, index) in menuItems"
         :key="index"
         class="menu-item"
+        :class="{ active: activeMenu === item.route }"
         @click="navigateTo(item.route)"
       >
         <span class="menu-text">{{ item.name }}</span>

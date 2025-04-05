@@ -52,7 +52,6 @@
                 :class="{ 'input-error': titleError }"
               >
               <label for="title" :class="{ 'label-float': form.title }">书名</label>
-              <span class="error-message" v-if="titleError">请输入书名</span>
             </div>
             
             <div class="form-field">
@@ -80,7 +79,7 @@
                 step="0.1"
                 :class="{ 'input-error': ratingError }"
               >
-              <label for="rating" :class="{ 'label-float': form.rating !== null }">评分 (0-10)</label>
+              <label for="rating" :class="{ 'label-float': form.rating !== null }">书籍评分 (0-10)</label>
               <span class="error-message" v-if="ratingError">评分必须在0-10之间</span>
             </div>
             
@@ -196,8 +195,15 @@
             </div>
             
             <div class="form-field">
-              <input type="date" v-model="form.publishDate" id="publishDate" class="input-field">
+              <input 
+                type="date" 
+                v-model="form.publishDate" 
+                id="publishDate" 
+                class="input-field"
+                placeholder="2025-01-01"
+              >
               <label for="publishDate" :class="{ 'label-float': form.publishDate }">出版日期</label>
+              
             </div>
           </div>
         </div>
@@ -244,7 +250,7 @@ const form = reactive({
   title: '',
   price: null as number | null,
   rating: null as number | null,
-  stock: 0,
+  stock: null as number | null,
   description: '',
   details: '',
   images: [] as string[],
@@ -618,7 +624,7 @@ const closeModal = () => {
   font-size: 16px;
   background-color: white;
   transition: all 0.3s ease;
-  color: #1a1a1a;
+  color: #333;
   outline: none;
   box-sizing: border-box; /* 确保内边距和边框不会影响宽度 */
 }
