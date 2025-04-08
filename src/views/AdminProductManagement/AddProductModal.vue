@@ -145,6 +145,7 @@
                   ref="fileInput"
                   @change="handleImageUpload"
                   accept="image/*"
+                  multiple
                   style="display: none;"
                 >
               </div>
@@ -253,8 +254,8 @@ const form = reactive({
   stock: null as number | null,
   description: '',
   details: '',
-  images: [] as string[],
-  imagesNames: [] as string[], // 添加图片名称数组
+  images: [] as string[], // 用于预览的图片URL
+  imagesNames: [] as string[], // 用于提交的图片文件名
   author: '',
   subtitle: '',
   isbn: '',
@@ -338,61 +339,62 @@ const triggerFileUpload = () => {
 // 处理图片上传
 const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  
-  if (file) {
-    try {
-      // 检查文件大小
-      if (file.size > 5 * 1024 * 1024) { // 5MB
-        throw new Error('文件大小不能超过5MB');
-      }
+  const files = target.files;
 
-      // 生成随机文件名，避免在OSS上文件名冲突
-      const fileExt = file.name.split('.').pop(); // 获取文件扩展名
-      const randomFileName = `${uuidv4()}.${fileExt}`; // 生成随机文件名
-
-      // 创建 FormData
-      const formData = new FormData();
-      formData.append('file', file, randomFileName);
-
-      // 调用上传API
-      const token = sessionStorage.getItem('token');
-      if (!token) {
-        throw new Error('未登录或登录已过期');
-      }
-      
-      const response = await axios.post('/api/upload/images', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'token': token
+  if (files) {
+    for (const file of files) {
+      try {
+        // 检查文件大小
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+          throw new Error('文件大小不能超过5MB');
         }
-      });
 
-      if (response.data && response.data.code === '200') {
-        // 保存文件名，并使用返回的URL仅用于前端预览
-        const imageUrl = response.data.data;
-        
-        // 保存文件名用于提交时传递给后端
-        form.imagesNames.push(randomFileName);
-        
-        // 保存返回的URL仅用于前端预览图片
-        form.images.push(imageUrl);
-        
-        console.log('图片上传成功:', { 
-          url: imageUrl,  // 仅用于前端预览
-          name: randomFileName  // 保存到数据库
+        // 生成随机文件名，避免在OSS上文件名冲突
+        const fileExt = file.name.split('.').pop(); // 获取文件扩展名
+        const randomFileName = `${uuidv4()}.${fileExt}`; // 生成随机文件名
+
+        // 创建 FormData
+        const formData = new FormData();
+        formData.append('file', file, randomFileName);
+
+        // 调用上传API
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+          throw new Error('未登录或登录已过期');
+        }
+
+        const response = await axios.post('/api/upload/images', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'token': token
+          }
         });
-        
-        // 重置文件输入框
-        if (fileInput.value) {
-          fileInput.value.value = '';
+
+        if (response.data && response.data.code === '200') {
+          // 保存文件名和返回的URL
+          const imageUrl = response.data.data;
+          form.imagesNames.push(randomFileName); // 保存文件名
+          form.images.push(imageUrl); // 保存URL用于预览
+
+          console.log('图片上传成功:', { 
+            url: imageUrl,  // 仅用于前端预览
+            name: randomFileName  // 保存到数据库
+          });
+        } else {
+          console.log(response.data);
+          throw new Error(response.data?.msg || '上传图片失败');
+          
         }
-      } else {
-        throw new Error(response.data?.msg || '上传图片失败');
+      } catch (error: any) {
+        console.error('上传图片错误:', error);
+        alert(error.message || '上传图片失败');
+        
       }
-    } catch (error: any) {
-      console.error('上传图片错误:', error);
-      alert(error.message || '上传图片失败');
+    }
+
+    // 重置文件输入框
+    if (fileInput.value) {
+      fileInput.value.value = '';
     }
   }
 };
@@ -480,14 +482,13 @@ const createSpecifications = (productId: number) => {
 const submitProduct = async () => {
   try {
     const token = sessionStorage.getItem('token');
-    
     if (!token) {
       throw new Error('未登录或登录已过期');
     }
-    
+
     // 生成临时商品ID (数字类型)
     const tempProductId = Math.floor(Date.now() / 1000); // 使用时间戳作为临时ID
-    
+
     // 准备商品数据
     const productData = {
       id: tempProductId, // 使用数字类型的ID
@@ -495,67 +496,38 @@ const submitProduct = async () => {
       price: form.price || 0,
       rate: form.rating || 0,
       description: form.description || '',
-      // 不需要提供URL，后端会根据cover_name自行处理
-      cover: '', 
-      // 提供文件名，这是后端真正需要的数据
-      cover_name: form.imagesNames.length > 0 ? form.imagesNames[0] : '',
-      // 不传递多图的URL数组，后端不需要
-      covers: [],
+      cover: '', // 不需要提供URL，后端会根据cover_name自行处理
+      cover_name: form.imagesNames.length > 0 ? form.imagesNames[0] : '', // 第一张图片文件名
+      covers_name: form.imagesNames, // 所有图片文件名
+      covers: [], // 不传递多图的URL数组，后端不需要
       detail: form.details || '',
       specifications: createSpecifications(tempProductId) // 传入数字类型ID
     };
-    
+
     console.log('提交的商品数据:', productData);
-    
+
     // 调用创建商品API
     const apiUrl = '/api/products';
-    
-    // 添加重试逻辑
-    let retryCount = 0;
-    const maxRetries = 2;
-    let success = false;
-    let response;
-    
-    while (!success && retryCount <= maxRetries) {
-      try {
-        response = await axios.post(apiUrl, productData, {
-          headers: {
-            'token': token,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.data && response.data.code === '200') {
-          success = true;
-        } else {
-          throw new Error(response.data?.msg || '添加商品失败');
-        }
-      } catch (err) {
-        retryCount++;
-        if (retryCount > maxRetries) {
-          throw err;
-        }
-        console.log(`重试添加商品 (${retryCount}/${maxRetries})...`);
-        // 等待一小段时间再重试
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    const response = await axios.post(apiUrl, productData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
       }
-    }
-    
-    if (success && response) {
-      // 获取返回的商品ID
+    });
+
+    if (response.data && response.data.code === '200') {
       const productId = response.data.data.id;
       console.log('商品创建成功，ID:', productId);
-      
+
       // 如果用户填写了库存，则更新库存
       if (form.stock !== null && productId) {
         await updateProductStock(productId, form.stock);
       }
-      
-      // 显示成功消息
+
       alert('商品添加成功!');
       return response.data.data;
     } else {
-      throw new Error('添加商品失败，请重试');
+      throw new Error(response.data?.msg || '添加商品失败');
     }
   } catch (error: any) {
     console.error('添加商品错误:', error);
@@ -575,7 +547,7 @@ const updateProductStock = async (productId: string, stock: number) => {
     
     const apiUrl = `/api/products/stockpile/${productId}`;
     
-    const response = await axios.post(apiUrl, { stock }, {
+    const response = await axios.patch(apiUrl, { amount: stock }, { // 修改字段为 amount
       headers: {
         'token': token,
         'Content-Type': 'application/json'
