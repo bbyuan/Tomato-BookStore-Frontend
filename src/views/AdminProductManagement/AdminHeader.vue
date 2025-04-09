@@ -55,6 +55,8 @@ const handleCommand = (command: string) => {
     // 处理登出逻辑
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management') 
+  } else if (command === 'homepage') {
+    router.push('/homepage')
   }
 }
 </script>
@@ -63,8 +65,8 @@ const handleCommand = (command: string) => {
   <el-header class="header">
     <div class="header-left">
       <div class="custom-tabs">
-        <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
-        <label class="tab" for="tab-1">主页</label>
+        <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab"/>
+        <label class="tab" for="tab-1" @click="handleCommand('/homepage')">主页</label>
         <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
         <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
@@ -77,7 +79,7 @@ const handleCommand = (command: string) => {
         <label class="tab" for="tab-6">客户服务</label>
         <input type="radio" id="tab-7" name="tabs" value="7" v-model="activeTab" />
         <label class="tab" for="tab-7">个人中心</label>
-        <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" />
+        <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" checked/>
         <label class="tab" for="tab-8" @click="handleCommand('admin-dashboard')">管理员后台</label>
         <span class="glider"></span>
       </div>

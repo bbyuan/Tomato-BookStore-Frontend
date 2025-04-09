@@ -20,6 +20,7 @@ const editingBook = ref<any>({
   originalPrice: '',
   image: '',
   description: '',
+  details: '', // 新增字段
   author: '',
   subtitle: '',
   isbn: '',
@@ -28,6 +29,7 @@ const editingBook = ref<any>({
   publisher: '',
   publishDate: '',
   stock: 0,
+  frozenStock: 0, // 冻结库存
   rating: 0,
 });
 
@@ -88,35 +90,35 @@ const fetchProductDetail = async () => {
     }
     
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${props.bookId}`;
+    const stockUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${props.bookId}`;
     
-    const response = await axios.get(apiUrl, {
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === '200') {
-      const productData = response.data.data;
-      
-      // 处理价格格式
-      const price = productData.price ? 
-        productData.price.toString().startsWith('¥') ? 
-        productData.price.substring(1) : productData.price 
-        : '0.00';
-        
-      const originalPrice = productData.originalPrice ? 
-        productData.originalPrice.toString().startsWith('¥') ? 
-        productData.originalPrice.substring(1) : productData.originalPrice
-        : '0.00';
-      
+    const [productRes, stockRes] = await Promise.all([
+      axios.get(apiUrl, {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }),
+      axios.get(stockUrl, {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+    ]);
+
+    if (productRes.data.code === '200' && stockRes.data.code === '200') {
+      const productData = productRes.data.data;
+      const stockData = stockRes.data.data;
+
       editingBook.value = {
         id: productData.id,
         title: productData.title || '',
-        price: price,
-        originalPrice: originalPrice,
-        image: productData.cover || '/src/assets/images/BookTemplate.avif',
+        price: productData.price || 0,
+        originalPrice: productData.price + 20,
+        image: productData.covers[0] || '/src/assets/logo.png',
         description: productData.description || '',
+        details: productData.details || '',
         author: productData.author || '',
         subtitle: productData.subtitle || '',
         isbn: productData.isbn || '',
@@ -124,17 +126,15 @@ const fetchProductDetail = async () => {
         pages: productData.pages || 0,
         publisher: productData.publisher || '',
         publishDate: productData.publishDate || '',
-        stock: productData.stock || 0,
-        rating: productData.rating || 0,
-        // 如果API返回的有图片数组，则使用，否则创建包含当前图片的数组
-        images: productData.images || [productData.cover || '/src/assets/images/BookTemplate.avif']
+        stock: stockData.amount || 0,
+        frozenStock: stockData.frozen || 0, // 冻结库存
+        rating: productData.rate || 0,
+        images: productData.covers || []
       };
-      
-      // 设置当前显示的图片
+
       selectedImage.value = editingBook.value.image;
-      
     } else {
-      error.value = '获取商品详情失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+      error.value = '获取商品详情失败';
     }
   } catch (err: any) {
     console.error('获取商品详情出错:', err);
@@ -215,6 +215,15 @@ onMounted(() => {
           class="thumbnail" 
           :class="{ active: selectedImage === image }" 
           @click="changeImage(image)" 
+        />
+      </div>
+      <div class="image-selector" v-else>
+        <img 
+          :src="'/src/assets/logo.png'" 
+          alt="默认图片" 
+          class="thumbnail" 
+          :class="{ active: selectedImage === '/src/assets/logo.png' }" 
+          @click="changeImage('/src/assets/logo.png')" 
         />
       </div>
       
@@ -299,13 +308,9 @@ onMounted(() => {
             min="0"
           />
           <label>冻结库存：</label>
-          <input 
-            type="number" 
-            v-model="editingBook.stock" 
-            placeholder="冻结库存数量" 
-            class="stock-input"
-            min="0"
-          />
+          <div class="frozen-stock-badge">
+            {{ editingBook.frozenStock }}
+          </div>
         </div>
       </div>
 
@@ -313,14 +318,17 @@ onMounted(() => {
       <div class="rating-section">
         <span>评分：</span>
         <RatingStars :rating="editingBook.rating" />
-        <input 
-          type="number" 
-          v-model="editingBook.rating" 
-          step="0.1"
-          min="0"
-          max="5"
-          class="rating-input"
-        />
+        <div class="rating-input-wrapper">
+          <input 
+            type="number" 
+            v-model="editingBook.rating" 
+            step="0.1"
+            min="0"
+            max="10"
+            class="rating-input"
+          />
+          <span class="rating-hint">（满分为 10 分）</span>
+        </div>
       </div>
 
       <!-- 描述 -->
@@ -331,7 +339,19 @@ onMounted(() => {
           v-model="editingBook.description" 
           placeholder="输入描述" 
           class="description-input"
-          rows="4"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- 详细说明 -->
+      <div class="details-section">
+        <label for="details">详细说明：</label>
+        <textarea 
+          id="details"
+          v-model="editingBook.details" 
+          placeholder="输入详细说明" 
+          class="details-input"
+          rows="5"
         ></textarea>
       </div>
 
@@ -571,6 +591,29 @@ onMounted(() => {
   margin-top: 8px;
 }
 
+.book-title-input,
+.price-input,
+.stock-input,
+.rating-input,
+.detail-input,
+.description-input,
+.details-input {
+  border: 1px solid #e0e0e0; /* 默认边框颜色 */
+  transition: all 0.3s;
+}
+
+.book-title-input:focus,
+.price-input:focus,
+.stock-input:focus,
+.rating-input:focus,
+.detail-input:focus,
+.description-input:focus,
+.details-input:focus {
+  border-color: #d44c4c; /* 修改为AddProduct的红色 */
+  box-shadow: 0 0 0 1px rgba(212, 76, 76, 0.1); /* 添加红色阴影 */
+  outline: none;
+}
+
 .book-title-input {
   font-size: 28px;
   font-weight: bold;
@@ -578,7 +621,6 @@ onMounted(() => {
   color: #333;
   padding: 12px 16px;
   border-radius: 10px;
-  border: 1px solid #e0e0e0;
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -587,14 +629,12 @@ onMounted(() => {
 
 .book-title-input:focus {
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
-  border-color: #ff9e7d;
   outline: none;
 }
 
 .price-input, .stock-input, .rating-input {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   margin: 0 8px;
   width: 100px;
   font-size: 16px;
@@ -602,23 +642,30 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.price-input:focus, .stock-input:focus, .rating-input:focus, .detail-input:focus, .description-input:focus, .form-input:focus {
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
-  border-color: #ff9e7d;
-  outline: none;
-}
-
 .description-input {
   width: 100%;
   border-radius: 10px;
-  border: 1px solid #e0e0e0;
   padding: 16px;
   font-family: inherit;
   font-size: 16px;
   line-height: 1.8;
   resize: vertical;
   box-sizing: border-box;
-  min-height: 150px;
+  min-height: 80px; /* 调整描述最小高度 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+}
+
+.details-input {
+  width: 100%;
+  border-radius: 10px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.8;
+  resize: vertical;
+  box-sizing: border-box;
+  min-height: 200px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -627,11 +674,14 @@ onMounted(() => {
   margin-bottom: 30px;
 }
 
+.details-section {
+  margin-bottom: 30px;
+}
+
 .detail-input {
   flex: 1;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -645,7 +695,6 @@ onMounted(() => {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   margin-top: 8px;
   box-sizing: border-box;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
@@ -697,6 +746,20 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+.frozen-stock-badge {
+  display: inline-block;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #f0f0f0;
+  color: #555;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ddd;
 }
 
 /* 响应式样式 */

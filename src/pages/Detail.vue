@@ -32,7 +32,7 @@ interface Book {
   price: number
   rate: number
   description: string
-  cover_name: string
+  cover: string
   covers: string[]
   specifications: Specification[]
   stock: StockVO
@@ -98,8 +98,8 @@ const fetchBookDetail = async (id: string) => {
       price: productData.price,
       rate: productData.rate,
       description: productData.description,
-      cover_name: productData.cover_name,
-      covers: [productData.cover], // 注意这里返回的是单字段 cover
+      cover: productData.cover,
+      covers: productData.covers, // 注意这里返回的是单字段 cover
       specifications: productData.specifications?.map((s: BackendSpecification) => ({
         name: s.item,
         value: s.value
@@ -140,9 +140,6 @@ const fetchRelatedBooks = async (id: string) => {
         'token': token,
         'Content-Type': 'application/json'
       },
-      params: {
-          pageSize: 5 // 根据后端API是否支持分页参数调整
-      }
     });
 
     // 验证响应状态
@@ -154,11 +151,13 @@ const fetchRelatedBooks = async (id: string) => {
       ? response.data.data.slice(0, 5) 
       : [];
 
+    console.log('相关书籍数据:', rawData);
+
     return rawData.map((item: any) => ({
       id: item.id || '无ID',
       title: item.title?.trim() || '未知书名',
       price: Number(item.price) || 0,
-      image: item.cover || '/src/assets/images/BookTemplate.avif',
+      image: item.covers[0] || '/src/assets/logo.png',
       description: item.description || '暂无描述',
       rate: Number(item.rate) || 0
     }));

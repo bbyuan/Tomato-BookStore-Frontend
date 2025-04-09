@@ -53,7 +53,7 @@ const fetchBooks = async () => {
           title: item.title,
           price: `¥${currentPrice.toFixed(2)}`,
           originalPrice: `¥${originalPrice.toFixed(2)}`,
-          image: item.cover || '/src/assets/images/BookTemplate.avif',
+          image: item.covers[0] || '/src/assets/logo.png',
           description: item.description || '暂无描述',
         };
       });

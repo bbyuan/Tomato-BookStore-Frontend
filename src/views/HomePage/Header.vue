@@ -55,6 +55,8 @@ const handleCommand = (command: string) => {
     // 处理登出逻辑
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management') 
+  } else if (command === 'homepage') {
+    router.push('/homepage')
   }
 }
 </script>
@@ -68,7 +70,7 @@ const handleCommand = (command: string) => {
       </div>
       <div class="custom-tabs">
         <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
-        <label class="tab" for="tab-1">主页</label>
+        <label class="tab" for="tab-1" @click="handleCommand('/homepage')">主页</label>
         <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
         <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />

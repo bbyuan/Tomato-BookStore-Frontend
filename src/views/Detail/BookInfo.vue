@@ -19,7 +19,7 @@ const specifications = computed(() => {
 
 //处理图片显示
 const images = computed(() => {
-  return props.bookInfo.covers?.length ? props.bookInfo.covers : props.bookInfo.cover_name ? [props.bookInfo.cover_name] : []
+  return props.bookInfo.covers.length > 0 ? props.bookInfo.covers : ["/src/assets/logo.png"]
 })
 
 // 当前选中的图片
@@ -92,9 +92,14 @@ const isOutOfStock = computed(() => {
       <!-- 价格和库存并排显示 -->
       <div class="price-stock-row">
         <div class="price-section">
-          <span class="current-price">¥{{ bookInfo.price?.toFixed(2) || '0.00' }}</span>
-          <span v-if="bookInfo.originalPrice && bookInfo.originalPrice > bookInfo.price" class="original-price">
-            ¥{{ bookInfo.originalPrice }}
+          <span class="current-price">
+            ¥{{ Number(bookInfo.price || 0).toFixed(2) }}
+          </span>
+          <span 
+            v-if="bookInfo.originalPrice && bookInfo.originalPrice > bookInfo.price" 
+            class="original-price"
+          >
+            ¥{{ Number(bookInfo.originalPrice).toFixed(2) }}
           </span>
         </div>
 
@@ -105,7 +110,7 @@ const isOutOfStock = computed(() => {
 
       <!-- 评分 -->
       <div class="rating-section">
-        <RatingStars :rating="bookInfo.rating" />
+        <RatingStars :rating="bookInfo.rate" />
       </div>
 
       <!-- 描述 -->

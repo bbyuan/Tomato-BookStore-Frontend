@@ -75,29 +75,22 @@ const fetchBooks = async () => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
       technicalBooks.value = response.data.data.map((item: any) => {
-        // 将价格转换为数字
         const currentPrice = parseFloat(item.price);
-        // 计算原价 = 当前价格 + 20元
-        const originalPrice = currentPrice + 20;
-        
-        // 生成随机的冻结库存数据（因为API中可能没有此字段）
-        const totalStock = item.stock || Math.floor(Math.random() * 100) + 1;
-        const frozenStock = Math.floor(Math.random() * 10) + 1; // 生成1-10的随机冻结库存
-        
-        console.log(response.data.data);
+        const originalPrice = parseFloat(item.originalPrice) || currentPrice;
+
         return {
           id: item.id,
           title: item.title,
           price: `¥${currentPrice.toFixed(2)}`,
           originalPrice: `¥${originalPrice.toFixed(2)}`,
-          image: item.covers[0] || '/src/assets/images/BookTemplate.avif',
+          image: item.covers[0] || '/src/assets/logo.png',
           description: item.description || '暂无描述',
-          stock: totalStock, 
-          frozenStock: frozenStock, // 添加冻结库存字段
+          stock: item.stock?.amount || 0, // 使用 stock.amount
+          frozenStock: item.stock?.frozen || 0, // 使用 stock.frozen
         };
       });
     } else {

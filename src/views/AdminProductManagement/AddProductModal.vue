@@ -71,6 +71,18 @@
             <div class="form-field">
               <input 
                 type="number" 
+                v-model="form.originalPrice" 
+                id="originalPrice" 
+                class="input-field"
+                min="0"
+                step="0.01"
+              >
+              <label for="originalPrice" :class="{ 'label-float': form.originalPrice !== null }">原价</label>
+            </div>
+
+            <div class="form-field">
+              <input 
+                type="number" 
                 v-model="form.rating" 
                 id="rating" 
                 class="input-field"
@@ -250,6 +262,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const form = reactive({
   title: '',
   price: null as number | null,
+  originalPrice: null as number | null,
   rating: null as number | null,
   stock: null as number | null,
   description: '',
@@ -494,6 +507,7 @@ const submitProduct = async () => {
       id: tempProductId, // 使用数字类型的ID
       title: form.title,
       price: form.price || 0,
+      originalPrice: form.originalPrice || form.price,
       rate: form.rating || 0,
       description: form.description || '',
       cover: '', // 不需要提供URL，后端会根据cover_name自行处理

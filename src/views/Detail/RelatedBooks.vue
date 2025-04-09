@@ -3,7 +3,7 @@
     <h3 class="related-title">相关书籍</h3>
     <div class="related-books-list">
       <div
-        v-for="(book, index) in relatedBooks"
+        v-for="(book, index) in sortedRelatedBooks"
         :key="index"
         class="related-book-item"
       >
@@ -13,7 +13,7 @@
         <h3 class="related-name">{{ book.title }}</h3>
         <div class="related-pricing">
           <span class="current-price">¥{{ formatPrice(book.price) }}</span>
-          <span class="original-price">¥{{ formatPrice(book.price + 20) }}</span>
+          <span class="original-price">¥{{ formatPrice(book.originalPrice) }}</span>
           <span class="discount">{{ calculateDiscount(book.price) }}折</span>
         </div>
       </div>
@@ -22,15 +22,20 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue'
+import { defineProps, computed } from 'vue'
 
 const props = defineProps({
   relatedBooks: {
     type: Array,
     default: () => []
+  },
+  currentBookId: {
+    type: Number,
+    required: true
   }
-})
+});
 
+// 格式化价格
 const formatPrice = (price) => {
   return Number(price).toFixed(2)
 }
@@ -41,6 +46,17 @@ const calculateDiscount = (currentPrice) => {
   if (originalPrice === 0) return 0
   return Math.round((currentPrice / originalPrice) * 10)
 }
+
+// 根据当前书籍ID筛选相关书籍
+const sortedRelatedBooks = computed(() => {
+  return [...props.relatedBooks]
+    .map(book => ({
+      ...book,
+      idDifference: Math.abs(book.id - props.currentBookId)
+    }))
+    .sort((a, b) => a.idDifference - b.idDifference) // 按差值排序
+    .slice(0, 5); // 取前五个
+});
 </script>
 
 <style scoped>
