@@ -2,6 +2,7 @@
 import { defineProps, ref, computed, defineEmits, onMounted } from 'vue'
 import RatingStars from '/src/views/Detail/RatingStars.vue'
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 const props = defineProps({
   bookId: {
@@ -37,40 +38,71 @@ const editingBook = ref<any>({
 const selectedImage = ref('')
 
 // 处理文件上传
-const handleFileUpload = (event: Event, mode: 'add' | 'replace') => {
+const handleFileUpload = async (event: Event, mode: 'add' | 'replace') => {
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
 
   const files = Array.from(input.files);
-  const newImages: string[] = [];
 
-  if(mode === 'replace') {
+  if (mode === 'replace') {
     // 清空之前的图片
     editingBook.value.images = [];
+    editingBook.value.images_name = [];
   }
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataURL = e.target?.result as string;
-      newImages.push(dataURL);
 
-      // 最后一个图片加载完成时更新
-      if (newImages.length === files.length) {
+  for (const file of files) {
+    try {
+      // 检查文件大小
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        throw new Error('文件大小不能超过5MB');
+      }
+
+      // 生成随机文件名
+      const fileExt = file.name.split('.').pop(); // 获取文件扩展名
+      const randomFileName = `${uuidv4()}.${fileExt}`; // 生成唯一文件名
+
+      // 创建 FormData
+      const formData = new FormData();
+      formData.append('file', file, randomFileName);
+
+      // 调用上传API
+      const token = sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('未登录或登录已过期');
+      }
+
+      const response = await axios.post('/api/upload/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'token': token
+        }
+      });
+
+      if (response.data && response.data.code === '200') {
+        // 保存文件名和返回的URL
+        const imageUrl = response.data.data;
+        editingBook.value.images_name = [
+          ...(mode === 'add' ? editingBook.value.images_name || [] : []),
+          randomFileName
+        ];
         editingBook.value.images = [
           ...(mode === 'add' ? editingBook.value.images || [] : []),
-          ...newImages
+          imageUrl
         ];
 
         // 自动选择第一个新图片（如果是替换模式）
-        if (mode === 'replace' && newImages.length > 0) {
-          selectedImage.value = newImages[0];
-          editingBook.value.image = newImages[0];
+        if (mode === 'replace' && editingBook.value.images.length > 0) {
+          selectedImage.value = editingBook.value.images[0];
+          editingBook.value.image = editingBook.value.images[0];
         }
+      } else {
+        throw new Error(response.data?.msg || '上传图片失败');
       }
-    
-    };
-    reader.readAsDataURL(file);
-  });
+    } catch (error: any) {
+      console.error('上传图片错误:', error);
+      alert(error.message || '上传图片失败');
+    }
+  }
 }
 
 // 加载状态和错误信息
@@ -107,9 +139,17 @@ const fetchProductDetail = async () => {
       })
     ]);
 
+    console.log(productRes.data.data);
+
     if (productRes.data.code === '200' && stockRes.data.code === '200') {
       const productData = productRes.data.data;
       const stockData = stockRes.data.data;
+
+      // 从 specifications 中提取字段
+      const specifications = productData.specifications?.reduce((acc: Record<string, any>, spec: any) => {
+        acc[spec.item] = spec.value;
+        return acc;
+      }, {}) || {};
 
       editingBook.value = {
         id: productData.id,
@@ -117,19 +157,21 @@ const fetchProductDetail = async () => {
         price: productData.price || 0,
         originalPrice: productData.price + 20,
         image: productData.covers[0] || '/src/assets/logo.png',
+        image_name: productData.cover_name,
+        images: productData.covers || [],
+        images_name: productData.covers_name,
         description: productData.description || '',
         details: productData.details || '',
-        author: productData.author || '',
-        subtitle: productData.subtitle || '',
-        isbn: productData.isbn || '',
-        binding: productData.binding || '',
-        pages: productData.pages || 0,
-        publisher: productData.publisher || '',
-        publishDate: productData.publishDate || '',
+        author: specifications['作者'] || '',
+        subtitle: specifications['副标题'] || '',
+        isbn: specifications['ISBN'] || '',
+        binding: specifications['装帧'] || '',
+        pages: parseInt(specifications['页数']) || 0,
+        publisher: specifications['出版社'] || '',
+        publishDate: specifications['出版日期'] || '',
         stock: stockData.amount || 0,
         frozenStock: stockData.frozen || 0, // 冻结库存
-        rating: productData.rate || 0,
-        images: productData.covers || []
+        rating: productData.rate || 0
       };
 
       selectedImage.value = editingBook.value.image;
@@ -151,19 +193,78 @@ const changeImage = (image: string) => {
 }
 
 // 保存编辑
-const saveChanges = () => {
-  // 处理提交的数据格式
-  const productData = {
-    ...editingBook.value,
-    // 确保价格格式正确
-    price: editingBook.value.price.toString().replace('¥', ''),
-    originalPrice: editingBook.value.originalPrice.toString().replace('¥', ''),
-    // 添加其他需要的字段
-    cover: editingBook.value.image
-  };
-  
-  emit('save', productData);
-}
+const saveChanges = async () => {
+  const token = sessionStorage.getItem('token');
+  if (!token) {
+    error.value = '您尚未登录或登录已过期，请重新登录';
+    closeModal(); // 无论成功或失败都关闭弹窗
+    return;
+  }
+
+  try {
+    // 准备商品数据
+    const specifications = [
+      { id: '1', item: '作者', value: editingBook.value.author, productId: editingBook.value.id },
+      { id: '2', item: '副标题', value: editingBook.value.subtitle, productId: editingBook.value.id },
+      { id: '3', item: 'ISBN', value: editingBook.value.isbn, productId: editingBook.value.id },
+      { id: '4', item: '装帧', value: editingBook.value.binding, productId: editingBook.value.id },
+      { id: '5', item: '页数', value: (editingBook.value.pages ? editingBook.value.pages : 0) > 0 ?.toString(), productId: editingBook.value.id },
+      { id: '6', item: '出版社', value: editingBook.value.publisher, productId: editingBook.value.id },
+      { id: '7', item: '出版日期', value: editingBook.value.publishDate, productId: editingBook.value.id }
+    ].filter(spec => spec.value); // 过滤掉空值
+
+    const productData = {
+      id: editingBook.value.id,
+      title: editingBook.value.title,
+      price: parseFloat(editingBook.value.price),
+      originalPrice: parseFloat(editingBook.value.originalPrice),
+      rate: editingBook.value.rating,
+      description: editingBook.value.description,
+      cover: '', // 不需要提供URL，后端会根据 cover_name 自行处理
+      cover_name: editingBook.value.image_name,
+      covers: [], // 不传递多图的URL数组，后端不需要
+      covers_name: editingBook.value.images_name,
+      detail: editingBook.value.details,
+      specifications
+    };
+
+    // 调用更新商品信息的 API
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
+    const productResponse = await axios.put(apiUrl, productData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (productResponse.data.code !== '200') {
+      throw new Error(productResponse.data?.msg || '更新商品信息失败');
+    }
+
+    // 调用更新库存的 API
+    const stockUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${editingBook.value.id}`;
+    const stockData = { amount: editingBook.value.stock };
+    const stockResponse = await axios.patch(stockUrl, stockData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (stockResponse.data.code !== '200') {
+      throw new Error(stockResponse.data?.msg || '更新库存失败');
+    }
+
+    alert('商品信息和库存更新成功');
+    emit('save', productData);
+  } catch (err: any) {
+    console.error('保存修改出错:', err);
+    error.value = `保存修改失败: ${err.message || '未知错误'}`;
+  } finally {
+    console.log("Close Modal");
+    closeModal(); // 无论成功或失败都关闭弹窗
+  }
+};
 
 // 关闭弹窗
 const closeModal = () => {

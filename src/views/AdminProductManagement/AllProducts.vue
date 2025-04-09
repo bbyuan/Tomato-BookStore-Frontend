@@ -151,40 +151,6 @@ const closeEditProductModal = () => {
   currentEditBook.value = null;
 }
 
-// 保存编辑的商品信息
-const saveEditedProduct = async (editedBook: any) => {
-  try {
-    loading.value = true;
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      error.value = '您尚未登录或登录已过期，请重新登录';
-      return;
-    }
-    
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${editedBook.id}`;
-    
-    const response = await axios.put(apiUrl, editedBook, {
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === '200') {
-      // 更新成功后重新获取商品列表
-      await fetchBooks();
-      closeEditProductModal(); // 关闭弹窗
-    } else {
-      error.value = '更新失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
-    }
-  } catch (err: any) {
-    console.error('更新商品信息出错:', err);
-    error.value = `更新失败: ${err.message || '未知错误'}`;
-  } finally {
-    loading.value = false;
-  }
-}
-
 // 跳转到编辑商品页面
 const goToEditProduct = (event: Event, bookId: number) => {
   event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
@@ -353,7 +319,7 @@ onMounted(() => {
         <EditProductModal
           v-if="currentEditBook"
           :bookId="currentEditBook"
-          @save="saveEditedProduct"
+          @save="fetchBooks" 
           @close="closeEditProductModal"
         />
       </div>
