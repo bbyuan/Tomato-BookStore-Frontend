@@ -1,20 +1,49 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import AddProductModal from './AddProductModal.vue';
-import EditProductModal from './EditProductModal.vue'; // 添加导入EditProductModal组件
+import EditProductModal from './EditProductModal.vue'; 
 
 const router = useRouter();
-// 使用ref创建响应式数据
+
 const technicalBooks = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
 const showDeleteModal = ref(false);
 const bookToDelete = ref<any>(null);
 const showAddProductModal = ref(false);
-const showEditProductModal = ref(false); // 添加编辑弹窗状态
-const currentEditBook = ref<any>(null); // 添加当前正在编辑的书籍
+const showEditProductModal = ref(false); 
+const currentEditBook = ref<any>(null); 
+
+const currentPage = ref(1);
+const itemsPerPage = 12;
+
+// 计算当前页显示的商品
+const paginatedBooks = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return technicalBooks.value.slice(start, end);
+});
+
+// 计算总页数
+const totalPages = computed(() => {
+  return Math.ceil(technicalBooks.value.length / itemsPerPage);
+});
+
+// 切换到上一页
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+  }
+};
+
+// 切换到下一页
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+  }
+};
 
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
@@ -46,28 +75,22 @@ const fetchBooks = async () => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
       technicalBooks.value = response.data.data.map((item: any) => {
-        // 将价格转换为数字
         const currentPrice = parseFloat(item.price);
-        // 计算原价 = 当前价格 + 20元
-        const originalPrice = currentPrice + 20;
-        
-        // 生成随机的冻结库存数据（因为API中可能没有此字段）
-        const totalStock = item.stock || Math.floor(Math.random() * 100) + 1;
-        const frozenStock = Math.floor(Math.random() * 10) + 1; // 生成1-10的随机冻结库存
-        
+        const originalPrice = parseFloat(item.originalPrice) || currentPrice;
+
         return {
           id: item.id,
           title: item.title,
           price: `¥${currentPrice.toFixed(2)}`,
           originalPrice: `¥${originalPrice.toFixed(2)}`,
-          image: item.cover || '/src/assets/images/BookTemplate.avif',
+          image: item.covers[0] || '/src/assets/logo.png',
           description: item.description || '暂无描述',
-          stock: totalStock, 
-          frozenStock: frozenStock, // 添加冻结库存字段
+          stock: item.stock?.amount || 0, // 使用 stock.amount
+          frozenStock: item.stock?.frozen || 0, // 使用 stock.frozen
         };
       });
     } else {
@@ -128,40 +151,6 @@ const closeEditProductModal = () => {
   currentEditBook.value = null;
 }
 
-// 保存编辑的商品信息
-const saveEditedProduct = async (editedBook: any) => {
-  try {
-    loading.value = true;
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      error.value = '您尚未登录或登录已过期，请重新登录';
-      return;
-    }
-    
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${editedBook.id}`;
-    
-    const response = await axios.put(apiUrl, editedBook, {
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === '200') {
-      // 更新成功后重新获取商品列表
-      await fetchBooks();
-      closeEditProductModal(); // 关闭弹窗
-    } else {
-      error.value = '更新失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
-    }
-  } catch (err: any) {
-    console.error('更新商品信息出错:', err);
-    error.value = `更新失败: ${err.message || '未知错误'}`;
-  } finally {
-    loading.value = false;
-  }
-}
-
 // 跳转到编辑商品页面
 const goToEditProduct = (event: Event, bookId: number) => {
   event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
@@ -181,35 +170,38 @@ const showDeleteConfirm = (event: Event, book: any) => {
 // 删除商品
 const deleteProduct = async () => {
   if (!bookToDelete.value) return;
-  
+
+  console.log('准备删除商品:', bookToDelete.value);
+
   try {
     const token = sessionStorage.getItem('token');
     if (!token) {
       error.value = '您尚未登录或登录已过期，请重新登录';
       return;
     }
-    
+
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${bookToDelete.value.id}`;
-    
+
     const response = await axios.delete(apiUrl, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (response.data && response.data.code === '200') {
       // 从列表中移除已删除的商品
       technicalBooks.value = technicalBooks.value.filter(item => item.id !== bookToDelete.value.id);
-      // 关闭确认框
-      showDeleteModal.value = false;
-      bookToDelete.value = null;
     } else {
-      error.value = '删除失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+      error.value = response.data.msg || '删除失败';
     }
   } catch (err: any) {
     console.error('删除商品出错:', err);
     error.value = `删除失败: ${err.message || '未知错误'}`;
+  } finally {
+    // 无论成功或失败都关闭弹窗
+    showDeleteModal.value = false;
+    bookToDelete.value = null;
   }
 }
 
@@ -248,7 +240,7 @@ onMounted(() => {
     
     <!-- 商品列表 -->
     <div v-else class="all-books-list">
-      <div v-for="book in technicalBooks" 
+      <div v-for="book in paginatedBooks" 
            :key="book.id" 
            class="book-card"
            @click="goToDetail(book.id)">
@@ -293,6 +285,13 @@ onMounted(() => {
       </div>
     </div>
     
+    <!-- 分页控件 -->
+    <div class="pagination" v-if="totalPages > 1">
+      <button :disabled="currentPage === 1" @click="prevPage">上一页</button>
+      <span>第 {{ currentPage }} 页 / 共 {{ totalPages }} 页</span>
+      <button :disabled="currentPage === totalPages" @click="nextPage">下一页</button>
+    </div>
+
     <!-- 删除确认弹窗 -->
     <div v-if="showDeleteModal" class="delete-modal-overlay" @click="cancelDelete">
       <div class="delete-modal" @click.stop>
@@ -320,7 +319,7 @@ onMounted(() => {
         <EditProductModal
           v-if="currentEditBook"
           :bookId="currentEditBook"
-          @save="saveEditedProduct"
+          @save="fetchBooks" 
           @close="closeEditProductModal"
         />
       </div>
@@ -830,6 +829,34 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
   transform: translateY(-3px);
   box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pagination button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ff6b6b;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pagination button:disabled {
+  background-color: #f0f0f0;
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #ff5252;
 }
 
 @media (max-width: 768px) {

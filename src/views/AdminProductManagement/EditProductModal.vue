@@ -2,6 +2,7 @@
 import { defineProps, ref, computed, defineEmits, onMounted } from 'vue'
 import RatingStars from '/src/views/Detail/RatingStars.vue'
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 const props = defineProps({
   bookId: {
@@ -20,6 +21,7 @@ const editingBook = ref<any>({
   originalPrice: '',
   image: '',
   description: '',
+  details: '', // 新增字段
   author: '',
   subtitle: '',
   isbn: '',
@@ -28,6 +30,7 @@ const editingBook = ref<any>({
   publisher: '',
   publishDate: '',
   stock: 0,
+  frozenStock: 0, // 冻结库存
   rating: 0,
 });
 
@@ -35,40 +38,71 @@ const editingBook = ref<any>({
 const selectedImage = ref('')
 
 // 处理文件上传
-const handleFileUpload = (event: Event, mode: 'add' | 'replace') => {
+const handleFileUpload = async (event: Event, mode: 'add' | 'replace') => {
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
 
   const files = Array.from(input.files);
-  const newImages: string[] = [];
 
-  if(mode === 'replace') {
+  if (mode === 'replace') {
     // 清空之前的图片
     editingBook.value.images = [];
+    editingBook.value.images_name = [];
   }
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataURL = e.target?.result as string;
-      newImages.push(dataURL);
 
-      // 最后一个图片加载完成时更新
-      if (newImages.length === files.length) {
+  for (const file of files) {
+    try {
+      // 检查文件大小
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        throw new Error('文件大小不能超过5MB');
+      }
+
+      // 生成随机文件名
+      const fileExt = file.name.split('.').pop(); // 获取文件扩展名
+      const randomFileName = `${uuidv4()}.${fileExt}`; // 生成唯一文件名
+
+      // 创建 FormData
+      const formData = new FormData();
+      formData.append('file', file, randomFileName);
+
+      // 调用上传API
+      const token = sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('未登录或登录已过期');
+      }
+
+      const response = await axios.post('/api/upload/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'token': token
+        }
+      });
+
+      if (response.data && response.data.code === '200') {
+        // 保存文件名和返回的URL
+        const imageUrl = response.data.data;
+        editingBook.value.images_name = [
+          ...(mode === 'add' ? editingBook.value.images_name || [] : []),
+          randomFileName
+        ];
         editingBook.value.images = [
           ...(mode === 'add' ? editingBook.value.images || [] : []),
-          ...newImages
+          imageUrl
         ];
 
         // 自动选择第一个新图片（如果是替换模式）
-        if (mode === 'replace' && newImages.length > 0) {
-          selectedImage.value = newImages[0];
-          editingBook.value.image = newImages[0];
+        if (mode === 'replace' && editingBook.value.images.length > 0) {
+          selectedImage.value = editingBook.value.images[0];
+          editingBook.value.image = editingBook.value.images[0];
         }
+      } else {
+        throw new Error(response.data?.msg || '上传图片失败');
       }
-    
-    };
-    reader.readAsDataURL(file);
-  });
+    } catch (error: any) {
+      console.error('上传图片错误:', error);
+      alert(error.message || '上传图片失败');
+    }
+  }
 }
 
 // 加载状态和错误信息
@@ -88,53 +122,61 @@ const fetchProductDetail = async () => {
     }
     
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${props.bookId}`;
+    const stockUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${props.bookId}`;
     
-    const response = await axios.get(apiUrl, {
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === '200') {
-      const productData = response.data.data;
-      
-      // 处理价格格式
-      const price = productData.price ? 
-        productData.price.toString().startsWith('¥') ? 
-        productData.price.substring(1) : productData.price 
-        : '0.00';
-        
-      const originalPrice = productData.originalPrice ? 
-        productData.originalPrice.toString().startsWith('¥') ? 
-        productData.originalPrice.substring(1) : productData.originalPrice
-        : '0.00';
-      
+    const [productRes, stockRes] = await Promise.all([
+      axios.get(apiUrl, {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }),
+      axios.get(stockUrl, {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+    ]);
+
+    console.log(productRes.data.data);
+
+    if (productRes.data.code === '200' && stockRes.data.code === '200') {
+      const productData = productRes.data.data;
+      const stockData = stockRes.data.data;
+
+      // 从 specifications 中提取字段
+      const specifications = productData.specifications?.reduce((acc: Record<string, any>, spec: any) => {
+        acc[spec.item] = spec.value;
+        return acc;
+      }, {}) || {};
+
       editingBook.value = {
         id: productData.id,
         title: productData.title || '',
-        price: price,
-        originalPrice: originalPrice,
-        image: productData.cover || '/src/assets/images/BookTemplate.avif',
+        price: productData.price || 0,
+        originalPrice: productData.price + 20,
+        image: productData.covers[0] || '/src/assets/logo.png',
+        image_name: productData.cover_name,
+        images: productData.covers || [],
+        images_name: productData.covers_name,
         description: productData.description || '',
-        author: productData.author || '',
-        subtitle: productData.subtitle || '',
-        isbn: productData.isbn || '',
-        binding: productData.binding || '',
-        pages: productData.pages || 0,
-        publisher: productData.publisher || '',
-        publishDate: productData.publishDate || '',
-        stock: productData.stock || 0,
-        rating: productData.rating || 0,
-        // 如果API返回的有图片数组，则使用，否则创建包含当前图片的数组
-        images: productData.images || [productData.cover || '/src/assets/images/BookTemplate.avif']
+        details: productData.details || '',
+        author: specifications['作者'] || '',
+        subtitle: specifications['副标题'] || '',
+        isbn: specifications['ISBN'] || '',
+        binding: specifications['装帧'] || '',
+        pages: parseInt(specifications['页数']) || 0,
+        publisher: specifications['出版社'] || '',
+        publishDate: specifications['出版日期'] || '',
+        stock: stockData.amount || 0,
+        frozenStock: stockData.frozen || 0, // 冻结库存
+        rating: productData.rate || 0
       };
-      
-      // 设置当前显示的图片
+
       selectedImage.value = editingBook.value.image;
-      
     } else {
-      error.value = '获取商品详情失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+      error.value = '获取商品详情失败';
     }
   } catch (err: any) {
     console.error('获取商品详情出错:', err);
@@ -151,19 +193,78 @@ const changeImage = (image: string) => {
 }
 
 // 保存编辑
-const saveChanges = () => {
-  // 处理提交的数据格式
-  const productData = {
-    ...editingBook.value,
-    // 确保价格格式正确
-    price: editingBook.value.price.toString().replace('¥', ''),
-    originalPrice: editingBook.value.originalPrice.toString().replace('¥', ''),
-    // 添加其他需要的字段
-    cover: editingBook.value.image
-  };
-  
-  emit('save', productData);
-}
+const saveChanges = async () => {
+  const token = sessionStorage.getItem('token');
+  if (!token) {
+    error.value = '您尚未登录或登录已过期，请重新登录';
+    closeModal(); // 无论成功或失败都关闭弹窗
+    return;
+  }
+
+  try {
+    // 准备商品数据
+    const specifications = [
+      { id: '1', item: '作者', value: editingBook.value.author, productId: editingBook.value.id },
+      { id: '2', item: '副标题', value: editingBook.value.subtitle, productId: editingBook.value.id },
+      { id: '3', item: 'ISBN', value: editingBook.value.isbn, productId: editingBook.value.id },
+      { id: '4', item: '装帧', value: editingBook.value.binding, productId: editingBook.value.id },
+      { id: '5', item: '页数', value: (editingBook.value.pages ? editingBook.value.pages : 0) > 0 ?.toString(), productId: editingBook.value.id },
+      { id: '6', item: '出版社', value: editingBook.value.publisher, productId: editingBook.value.id },
+      { id: '7', item: '出版日期', value: editingBook.value.publishDate, productId: editingBook.value.id }
+    ].filter(spec => spec.value); // 过滤掉空值
+
+    const productData = {
+      id: editingBook.value.id,
+      title: editingBook.value.title,
+      price: parseFloat(editingBook.value.price),
+      originalPrice: parseFloat(editingBook.value.originalPrice),
+      rate: editingBook.value.rating,
+      description: editingBook.value.description,
+      cover: '', // 不需要提供URL，后端会根据 cover_name 自行处理
+      cover_name: editingBook.value.image_name,
+      covers: [], // 不传递多图的URL数组，后端不需要
+      covers_name: editingBook.value.images_name,
+      detail: editingBook.value.details,
+      specifications
+    };
+
+    // 调用更新商品信息的 API
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
+    const productResponse = await axios.put(apiUrl, productData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (productResponse.data.code !== '200') {
+      throw new Error(productResponse.data?.msg || '更新商品信息失败');
+    }
+
+    // 调用更新库存的 API
+    const stockUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${editingBook.value.id}`;
+    const stockData = { amount: editingBook.value.stock };
+    const stockResponse = await axios.patch(stockUrl, stockData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (stockResponse.data.code !== '200') {
+      throw new Error(stockResponse.data?.msg || '更新库存失败');
+    }
+
+    alert('商品信息和库存更新成功');
+    emit('save', productData);
+  } catch (err: any) {
+    console.error('保存修改出错:', err);
+    error.value = `保存修改失败: ${err.message || '未知错误'}`;
+  } finally {
+    console.log("Close Modal");
+    closeModal(); // 无论成功或失败都关闭弹窗
+  }
+};
 
 // 关闭弹窗
 const closeModal = () => {
@@ -215,6 +316,15 @@ onMounted(() => {
           class="thumbnail" 
           :class="{ active: selectedImage === image }" 
           @click="changeImage(image)" 
+        />
+      </div>
+      <div class="image-selector" v-else>
+        <img 
+          :src="'/src/assets/logo.png'" 
+          alt="默认图片" 
+          class="thumbnail" 
+          :class="{ active: selectedImage === '/src/assets/logo.png' }" 
+          @click="changeImage('/src/assets/logo.png')" 
         />
       </div>
       
@@ -299,13 +409,9 @@ onMounted(() => {
             min="0"
           />
           <label>冻结库存：</label>
-          <input 
-            type="number" 
-            v-model="editingBook.stock" 
-            placeholder="冻结库存数量" 
-            class="stock-input"
-            min="0"
-          />
+          <div class="frozen-stock-badge">
+            {{ editingBook.frozenStock }}
+          </div>
         </div>
       </div>
 
@@ -313,14 +419,17 @@ onMounted(() => {
       <div class="rating-section">
         <span>评分：</span>
         <RatingStars :rating="editingBook.rating" />
-        <input 
-          type="number" 
-          v-model="editingBook.rating" 
-          step="0.1"
-          min="0"
-          max="5"
-          class="rating-input"
-        />
+        <div class="rating-input-wrapper">
+          <input 
+            type="number" 
+            v-model="editingBook.rating" 
+            step="0.1"
+            min="0"
+            max="10"
+            class="rating-input"
+          />
+          <span class="rating-hint">（满分为 10 分）</span>
+        </div>
       </div>
 
       <!-- 描述 -->
@@ -331,7 +440,19 @@ onMounted(() => {
           v-model="editingBook.description" 
           placeholder="输入描述" 
           class="description-input"
-          rows="4"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- 详细说明 -->
+      <div class="details-section">
+        <label for="details">详细说明：</label>
+        <textarea 
+          id="details"
+          v-model="editingBook.details" 
+          placeholder="输入详细说明" 
+          class="details-input"
+          rows="5"
         ></textarea>
       </div>
 
@@ -571,6 +692,29 @@ onMounted(() => {
   margin-top: 8px;
 }
 
+.book-title-input,
+.price-input,
+.stock-input,
+.rating-input,
+.detail-input,
+.description-input,
+.details-input {
+  border: 1px solid #e0e0e0; /* 默认边框颜色 */
+  transition: all 0.3s;
+}
+
+.book-title-input:focus,
+.price-input:focus,
+.stock-input:focus,
+.rating-input:focus,
+.detail-input:focus,
+.description-input:focus,
+.details-input:focus {
+  border-color: #d44c4c; /* 修改为AddProduct的红色 */
+  box-shadow: 0 0 0 1px rgba(212, 76, 76, 0.1); /* 添加红色阴影 */
+  outline: none;
+}
+
 .book-title-input {
   font-size: 28px;
   font-weight: bold;
@@ -578,7 +722,6 @@ onMounted(() => {
   color: #333;
   padding: 12px 16px;
   border-radius: 10px;
-  border: 1px solid #e0e0e0;
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -587,14 +730,12 @@ onMounted(() => {
 
 .book-title-input:focus {
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
-  border-color: #ff9e7d;
   outline: none;
 }
 
 .price-input, .stock-input, .rating-input {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   margin: 0 8px;
   width: 100px;
   font-size: 16px;
@@ -602,23 +743,30 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.price-input:focus, .stock-input:focus, .rating-input:focus, .detail-input:focus, .description-input:focus, .form-input:focus {
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
-  border-color: #ff9e7d;
-  outline: none;
-}
-
 .description-input {
   width: 100%;
   border-radius: 10px;
-  border: 1px solid #e0e0e0;
   padding: 16px;
   font-family: inherit;
   font-size: 16px;
   line-height: 1.8;
   resize: vertical;
   box-sizing: border-box;
-  min-height: 150px;
+  min-height: 80px; /* 调整描述最小高度 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+}
+
+.details-input {
+  width: 100%;
+  border-radius: 10px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.8;
+  resize: vertical;
+  box-sizing: border-box;
+  min-height: 200px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -627,11 +775,14 @@ onMounted(() => {
   margin-bottom: 30px;
 }
 
+.details-section {
+  margin-bottom: 30px;
+}
+
 .detail-input {
   flex: 1;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -645,7 +796,6 @@ onMounted(() => {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
   margin-top: 8px;
   box-sizing: border-box;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
@@ -697,6 +847,20 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+.frozen-stock-badge {
+  display: inline-block;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #f0f0f0;
+  color: #555;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ddd;
 }
 
 /* 响应式样式 */

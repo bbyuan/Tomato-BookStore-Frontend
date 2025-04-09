@@ -71,6 +71,18 @@
             <div class="form-field">
               <input 
                 type="number" 
+                v-model="form.originalPrice" 
+                id="originalPrice" 
+                class="input-field"
+                min="0"
+                step="0.01"
+              >
+              <label for="originalPrice" :class="{ 'label-float': form.originalPrice !== null }">原价</label>
+            </div>
+
+            <div class="form-field">
+              <input 
+                type="number" 
                 v-model="form.rating" 
                 id="rating" 
                 class="input-field"
@@ -145,6 +157,7 @@
                   ref="fileInput"
                   @change="handleImageUpload"
                   accept="image/*"
+                  multiple
                   style="display: none;"
                 >
               </div>
@@ -249,11 +262,13 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const form = reactive({
   title: '',
   price: null as number | null,
+  originalPrice: null as number | null,
   rating: null as number | null,
   stock: null as number | null,
   description: '',
   details: '',
-  images: [] as string[],
+  images: [] as string[], // 用于预览的图片URL
+  imagesNames: [] as string[], // 用于提交的图片文件名
   author: '',
   subtitle: '',
   isbn: '',
@@ -337,51 +352,206 @@ const triggerFileUpload = () => {
 // 处理图片上传
 const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  
-  if (file) {
-    try {
-      // 检查文件大小
-      if (file.size > 5 * 1024 * 1024) { // 5MB
-        throw new Error('文件大小不能超过5MB');
+  const files = target.files;
+
+  if (files) {
+    for (const file of files) {
+      try {
+        // 检查文件大小
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+          throw new Error('文件大小不能超过5MB');
+        }
+
+        // 生成随机文件名，避免在OSS上文件名冲突
+        const fileExt = file.name.split('.').pop(); // 获取文件扩展名
+        const randomFileName = `${uuidv4()}.${fileExt}`; // 生成随机文件名
+
+        // 创建 FormData
+        const formData = new FormData();
+        formData.append('file', file, randomFileName);
+
+        // 调用上传API
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+          throw new Error('未登录或登录已过期');
+        }
+
+        const response = await axios.post('/api/upload/images', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'token': token
+          }
+        });
+
+        if (response.data && response.data.code === '200') {
+          // 保存文件名和返回的URL
+          const imageUrl = response.data.data;
+          form.imagesNames.push(randomFileName); // 保存文件名
+          form.images.push(imageUrl); // 保存URL用于预览
+
+          console.log('图片上传成功:', { 
+            url: imageUrl,  // 仅用于前端预览
+            name: randomFileName  // 保存到数据库
+          });
+        } else {
+          console.log(response.data);
+          throw new Error(response.data?.msg || '上传图片失败');
+          
+        }
+      } catch (error: any) {
+        console.error('上传图片错误:', error);
+        alert(error.message || '上传图片失败');
+        
       }
+    }
 
-      // 生成随机文件名
-      const fileExt = file.name.split('.').pop(); // 获取文件扩展名
-      const randomFileName = `${uuidv4()}.${fileExt}`; // 生成随机文件名
-
-      // 创建 FormData
-      const formData = new FormData();
-      formData.append('file', file, randomFileName);
-
-      // 模拟API上传，实际项目中应该调用真实API
-      // const response = await axios.post('/api/upload/images', formData, {
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data'
-      //   }
-      // });
-
-      // 模拟上传成功
-      const imageUrl = URL.createObjectURL(file);
-      form.images.push(imageUrl);
-      
-      // 重置文件输入框
-      if (fileInput.value) {
-        fileInput.value.value = '';
-      }
-    } catch (error: any) {
-      alert(error.message || '上传图片失败');
+    // 重置文件输入框
+    if (fileInput.value) {
+      fileInput.value.value = '';
     }
   }
 };
 
 // 移除图片
 const removeImage = (index: number) => {
+  // 同时移除预览URL和文件名
   form.images.splice(index, 1);
+  form.imagesNames.splice(index, 1);
+};
+
+// 创建规格数组
+const createSpecifications = (productId: number) => {
+  const specs = [];
+  let specId = 1; // 规格ID从1开始递增
+  
+  // 只添加用户填写的字段
+  if (form.author) {
+    specs.push({
+      id: specId++,
+      item: "作者",
+      value: form.author,
+      productId: productId
+    });
+  }
+  
+  if (form.subtitle) {
+    specs.push({
+      id: specId++,
+      item: "副标题",
+      value: form.subtitle,
+      productId: productId
+    });
+  }
+  
+  if (form.isbn) {
+    specs.push({
+      id: specId++,
+      item: "ISBN",
+      value: form.isbn,
+      productId: productId
+    });
+  }
+  
+  if (form.binding) {
+    specs.push({
+      id: specId++,
+      item: "装帧",
+      value: form.binding,
+      productId: productId
+    });
+  }
+  
+  if (form.pages !== null) {
+    specs.push({
+      id: specId++,
+      item: "页数",
+      value: form.pages.toString(),
+      productId: productId
+    });
+  }
+  
+  if (form.publisher) {
+    specs.push({
+      id: specId++,
+      item: "出版社",
+      value: form.publisher,
+      productId: productId
+    });
+  }
+  
+  if (form.publishDate) {
+    specs.push({
+      id: specId++,
+      item: "出版日期",
+      value: form.publishDate,
+      productId: productId
+    });
+  }
+  
+  return specs;
 };
 
 // 提交商品
 const submitProduct = async () => {
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      throw new Error('未登录或登录已过期');
+    }
+
+    // 生成临时商品ID (数字类型)
+    const tempProductId = Math.floor(Date.now() / 1000); // 使用时间戳作为临时ID
+
+    // 准备商品数据
+    const productData = {
+      id: tempProductId, // 使用数字类型的ID
+      title: form.title,
+      price: form.price || 0,
+      originalPrice: form.originalPrice || form.price,
+      rate: form.rating || 0,
+      description: form.description || '',
+      cover: '', // 不需要提供URL，后端会根据cover_name自行处理
+      cover_name: form.imagesNames.length > 0 ? form.imagesNames[0] : '', // 第一张图片文件名
+      covers_name: form.imagesNames, // 所有图片文件名
+      covers: [], // 不传递多图的URL数组，后端不需要
+      detail: form.details || '',
+      specifications: createSpecifications(tempProductId) // 传入数字类型ID
+    };
+
+    console.log('提交的商品数据:', productData);
+
+    // 调用创建商品API
+    const apiUrl = '/api/products';
+    const response = await axios.post(apiUrl, productData, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.data && response.data.code === '200') {
+      const productId = response.data.data.id;
+      console.log('商品创建成功，ID:', productId);
+
+      // 如果用户填写了库存，则更新库存
+      if (form.stock !== null && productId) {
+        await updateProductStock(productId, form.stock);
+      }
+
+      alert('商品添加成功!');
+      return response.data.data;
+    } else {
+      throw new Error(response.data?.msg || '添加商品失败');
+    }
+  } catch (error: any) {
+    console.error('添加商品错误:', error);
+    alert(`添加商品失败: ${error.message || '未知错误'}`);
+    throw error;
+  }
+};
+
+// 更新商品库存
+const updateProductStock = async (productId: string, stock: number) => {
   try {
     const token = sessionStorage.getItem('token');
     
@@ -389,27 +559,9 @@ const submitProduct = async () => {
       throw new Error('未登录或登录已过期');
     }
     
-    const productData = {
-      title: form.title,
-      price: form.price,
-      rating: form.rating,
-      stock: form.stock,
-      description: form.description,
-      details: form.details,
-      cover: form.images.length > 0 ? form.images[0] : '',
-      images: form.images,
-      author: form.author,
-      subtitle: form.subtitle,
-      isbn: form.isbn,
-      binding: form.binding,
-      pages: form.pages,
-      publisher: form.publisher,
-      publishDate: form.publishDate
-    };
+    const apiUrl = `/api/products/stockpile/${productId}`;
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
-    
-    const response = await axios.post(apiUrl, productData, {
+    const response = await axios.patch(apiUrl, { amount: stock }, { // 修改字段为 amount
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -417,13 +569,15 @@ const submitProduct = async () => {
     });
     
     if (response.data && response.data.code === '200') {
-      return response.data.data;
+      console.log(`库存更新成功，数量: ${stock}`);
+      return true;
     } else {
-      throw new Error(response.data?.msg || '添加商品失败');
+      throw new Error(response.data?.msg || '更新库存失败');
     }
   } catch (error: any) {
-    console.error('添加商品错误:', error);
-    throw new Error(error.message || '添加商品失败');
+    console.error('更新库存错误:', error);
+    alert(`更新库存失败: ${error.message || '未知错误'}`);
+    throw error;
   }
 };
 

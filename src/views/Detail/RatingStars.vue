@@ -27,7 +27,7 @@
       />
   
       <!-- 显示评分文本 -->
-      <span class="rating-score">{{ rating }}/5.0</span>
+      <span class="rating-score">{{ normalizedRating.toFixed(1) }}/5.0</span>
     </div>
   </template>
   
@@ -42,11 +42,14 @@
     }
   })
   
+  // 将 10 分制的评分转换为 5 分制
+  const normalizedRating = computed(() => props.rating / 2)
+  
   // 计算实心星数量：向下取整
-  const fullStars = computed(() => Math.floor(props.rating))
+  const fullStars = computed(() => Math.floor(normalizedRating.value))
   
   // 如果小数部分 >= 0.5 则需要显示半星
-  const hasHalfStar = computed(() => (props.rating - fullStars.value) >= 0.5)
+  const hasHalfStar = computed(() => (normalizedRating.value - fullStars.value) >= 0.5)
   
   // 剩余的空心星数量（总共5颗星）
   const emptyStars = computed(() => 5 - fullStars.value - (hasHalfStar.value ? 1 : 0))
