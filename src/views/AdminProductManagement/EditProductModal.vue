@@ -21,7 +21,7 @@ const editingBook = ref<any>({
   originalPrice: '',
   image: '',
   description: '',
-  details: '', // 新增字段
+  details: '', 
   author: '',
   subtitle: '',
   isbn: '',
@@ -30,7 +30,7 @@ const editingBook = ref<any>({
   publisher: '',
   publishDate: '',
   stock: 0,
-  frozenStock: 0, // 冻结库存
+  frozenStock: 0, 
   rating: 0,
 });
 
@@ -81,20 +81,8 @@ const handleFileUpload = async (event: Event, mode: 'add' | 'replace') => {
       if (response.data && response.data.code === '200') {
         // 保存文件名和返回的URL
         const imageUrl = response.data.data;
-        editingBook.value.images_name = [
-          ...(mode === 'add' ? editingBook.value.images_name || [] : []),
-          randomFileName
-        ];
-        editingBook.value.images = [
-          ...(mode === 'add' ? editingBook.value.images || [] : []),
-          imageUrl
-        ];
-
-        // 自动选择第一个新图片（如果是替换模式）
-        if (mode === 'replace' && editingBook.value.images.length > 0) {
-          selectedImage.value = editingBook.value.images[0];
-          editingBook.value.image = editingBook.value.images[0];
-        }
+        editingBook.value.images_name.push(randomFileName);
+        editingBook.value.images.push(imageUrl);
       } else {
         throw new Error(response.data?.msg || '上传图片失败');
       }
@@ -102,6 +90,12 @@ const handleFileUpload = async (event: Event, mode: 'add' | 'replace') => {
       console.error('上传图片错误:', error);
       alert(error.message || '上传图片失败');
     }
+  }
+
+  // 自动选择第一张新图片（如果是替换模式）
+  if (mode === 'replace' && editingBook.value.images.length > 0) {
+    selectedImage.value = editingBook.value.images[0];
+    editingBook.value.image = editingBook.value.images[0];
   }
 }
 
