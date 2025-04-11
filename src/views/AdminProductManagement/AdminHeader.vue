@@ -50,15 +50,15 @@ onMounted(() => {
 
 const handleCommand = (command: string) => {
   if (command === 'account-settings') {
-    router.push('/account-settings')
+    router.push('/account-settings');
   } else if (command === 'logout') {
     // 处理登出逻辑
   } else if (command === 'admin-dashboard') {
-    router.push('/admin/product-management') 
+    router.push('/admin/product-management');
   } else if (command === 'homepage') {
-    router.push('/homepage')
+    router.push('/homepage'); // 修复主页跳转路径
   }
-}
+};
 </script>
 
 <template>
@@ -66,7 +66,7 @@ const handleCommand = (command: string) => {
     <div class="header-left">
       <div class="custom-tabs">
         <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab"/>
-        <label class="tab" for="tab-1" @click="handleCommand('/homepage')">主页</label>
+        <label class="tab" for="tab-1" @click="handleCommand('homepage')">主页</label> <!-- 修复点击主页跳转 -->
         <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
         <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
