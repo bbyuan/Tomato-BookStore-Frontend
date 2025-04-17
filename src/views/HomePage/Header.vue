@@ -57,6 +57,8 @@ const handleCommand = (command: string) => {
     router.push('/admin/product-management') 
   } else if (command === 'homepage') {
     router.push('/homepage')
+  } else if (command === 'cart') {
+    router.push('/cart')  // 修改为小写，保持一致的路由格式
   }
 }
 </script>
@@ -70,11 +72,11 @@ const handleCommand = (command: string) => {
       </div>
       <div class="custom-tabs">
         <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
-        <label class="tab" for="tab-1" @click="handleCommand('/homepage')">主页</label>
+        <label class="tab" for="tab-1" @click="handleCommand('homepage')">主页</label>
         <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
         <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
-        <label class="tab" for="tab-3">购物车</label>
+        <label class="tab" for="tab-3" @click="handleCommand('cart')">购物车</label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
         <label class="tab" for="tab-4">我的订单</label>
         <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
