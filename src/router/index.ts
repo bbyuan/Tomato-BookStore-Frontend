@@ -13,6 +13,8 @@ import BookRanking from '@/views/HomePage/BookRanking.vue'
 import Detail from '@/pages/Detail.vue'
 import AdminProductManagement from '@/pages/AdminProductManagement.vue'
 import AdminAdverManagement from '@/pages/AdminAdverManagement.vue'
+import Cart from '@/pages/Cart.vue'; 
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -86,6 +88,11 @@ const router = createRouter({
       path: '/admin/adver-management',
       name: 'AdminAdverManagement',
       component: AdminAdverManagement
+    },
+    {
+      path: '/cart',
+      name: 'Cart',
+      component: Cart
     },
   ],
 })

@@ -4,12 +4,12 @@ import RatingStars from '/src/views/Detail/RatingStars.vue'
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
-const props = ({
+const props = defineProps({
   bookId: {
     type: [Number, String],
     required: true
   }
-})
+});
 
 const emit = defineEmits(['save', 'close'])
 
@@ -114,6 +114,9 @@ const fetchProductDetail = async () => {
       error.value = '您尚未登录或登录已过期，请重新登录';
       return;
     }
+
+    console.log('props:', props);
+    console.log('props.bookId:', props.bookId);
     
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${props.bookId}`;
     const stockUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${props.bookId}`;

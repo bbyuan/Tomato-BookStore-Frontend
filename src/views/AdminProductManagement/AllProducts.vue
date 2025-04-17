@@ -75,6 +75,7 @@ const fetchBooks = async () => {
         'Content-Type': 'application/json'
       }
     });
+    console.log(response.data.data);
 
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
@@ -140,24 +141,17 @@ const goToAddProduct = () => {
 
 // 打开编辑商品弹窗
 const openEditProductModal = (event: Event, book: any) => {
+  
   event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
   currentEditBook.value = book.id; // 只存储商品ID
   showEditProductModal.value = true;
+  console.log(currentEditBook.value);
 }
 
 // 关闭编辑商品弹窗
 const closeEditProductModal = () => {
   showEditProductModal.value = false;
   currentEditBook.value = null;
-}
-
-// 跳转到编辑商品页面
-const goToEditProduct = (event: Event, bookId: number) => {
-  event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
-  router.push({
-    name: 'EditProduct',
-    params: { id: bookId.toString() }
-  });
 }
 
 // 显示删除确认框
