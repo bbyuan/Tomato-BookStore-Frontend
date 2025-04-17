@@ -8,6 +8,12 @@ const router = useRouter();
 const technicalBooks = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
+// 添加购物车相关状态
+const addingToCartId = ref<number | null>(null);
+const cartMessage = ref('');
+const showCartResult = ref(false);
+const isCartSuccess = ref(false);
+const lastAddedBook = ref(''); 
 
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
@@ -80,6 +86,61 @@ const goToDetail = (bookId: number) => {
   });
 }
 
+// 加入购物车
+const addToCart = async (event: Event, bookId: number, bookTitle: string) => {
+  // 阻止事件冒泡，避免触发卡片的点击事件
+  event.stopPropagation();
+  
+  // 如果正在添加，则不重复操作
+  if (addingToCartId.value !== null) return;
+  
+  addingToCartId.value = bookId;
+  cartMessage.value = '';
+  showCartResult.value = false;
+  lastAddedBook.value = bookTitle; // 记录当前添加的书名
+  
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      throw new Error('请先登录');
+    }
+    
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/api/cart`,
+      {
+        productId: bookId,
+        quantity: 1  // 默认数量为1
+      },
+      {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log('加入购物车响应:', response.data);
+    if (response.data && response.data.code === '200') {
+      isCartSuccess.value = true;
+      cartMessage.value = `《${bookTitle}》已成功加入购物车！`;
+    } else {
+      isCartSuccess.value = false;
+      cartMessage.value = response.data?.msg || '加入购物车失败';
+    }
+  } catch (error: any) {
+    console.error('加入购物车出错:', error);
+    isCartSuccess.value = false;
+    cartMessage.value = error.message || '加入购物车失败';
+  } finally {
+    addingToCartId.value = null;
+    showCartResult.value = true;
+    
+    
+    setTimeout(() => {
+      showCartResult.value = false;
+    }, 1000);
+  }
+};
+
 // 组件挂载时获取数据
 onMounted(() => {
   fetchBooks();
@@ -89,6 +150,16 @@ onMounted(() => {
 
 <template>
   <div class="hot-books-container">
+    <!-- 添加全局购物车提示 -->
+    <div 
+      v-if="showCartResult" 
+      class="global-cart-result" 
+      :class="{ 'success': isCartSuccess, 'error': !isCartSuccess }"
+    >
+      <div class="cart-icon">{{ isCartSuccess ? '✓' : '✗' }}</div>
+      <div class="cart-message">{{ cartMessage }}</div>
+    </div>
+    
     <div class="hot-books-header">
       <h2>热销书籍</h2>
       <div class="view-more">查看更多 <i class="arrow-right">›</i></div>
@@ -126,8 +197,14 @@ onMounted(() => {
           </div>
           <p class="book-description">{{ book.description }}</p>
           <div class="book-actions">
-            <button class="add-cart-btn">加入购物车</button>
-            <button class="favorite-btn">❤</button>
+            <button 
+              class="add-cart-btn" 
+              @click="(e) => addToCart(e, book.id, book.title)"
+              :disabled="addingToCartId === book.id"
+            >
+              {{ addingToCartId === book.id ? '添加中...' : '加入购物车' }}
+            </button>
+            <button class="favorite-btn" @click.stop>❤</button>
           </div>
         </div>
       </div>
@@ -405,6 +482,12 @@ onMounted(() => {
   box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
 }
 
+.add-cart-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .favorite-btn {
   width: 40px;
   background: #f5f5f5;
@@ -422,6 +505,77 @@ onMounted(() => {
 .favorite-btn:hover {
   background: #ffeded;
   color: #ff6b6b;
+}
+
+/* 全局购物车提示样式 */
+.global-cart-result {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  min-width: 300px;
+  max-width: 90%;
+}
+
+.global-cart-result.success {
+  border-left: 5px solid #ff6b6b;
+}
+
+.global-cart-result.error {
+  border-left: 5px solid #ff6b6b;
+}
+
+.cart-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.global-cart-result.success .cart-icon {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+}
+
+.global-cart-result.error .cart-icon {
+  background-color: #fff0f0;
+  color: #ff6b6b;
+}
+
+.cart-message {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.global-cart-result.success .cart-message {
+  color: #ff6b6b;
+}
+
+.global-cart-result.error .cart-message {
+  color: #ff6b6b;
+}
+
+@keyframes popIn {
+  0% { 
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.8);
+  }
+  100% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 @media (max-width: 1400px) {
