@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import RatingStars from './RatingStars.vue'
+import axios from 'axios'
 
 const props = defineProps({
   bookInfo: {
@@ -60,10 +61,91 @@ const isLowStock = computed(() => {
 const isOutOfStock = computed(() => {
   return (props.bookInfo.stock?.amount || 0) === 0
 })
+
+// 购买相关状态
+const quantity = ref(1)
+const isAddingToCart = ref(false)
+const addCartMessage = ref('')
+const showAddCartResult = ref(false)
+const isSuccess = ref(false)
+
+// 增加数量
+const increaseQuantity = () => {
+  if (quantity.value < 99) {
+    quantity.value++
+  }
+}
+
+// 减少数量
+const decreaseQuantity = () => {
+  if (quantity.value > 1) {
+    quantity.value--
+  }
+}
+
+// 加入购物车
+const addToCart = async () => {
+  if (isOutOfStock.value || isAddingToCart.value) return
+
+  isAddingToCart.value = true
+  addCartMessage.value = ''
+  showAddCartResult.value = false
+
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) {
+      throw new Error('请先登录')
+    }
+
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/api/cart`,
+      {
+        productId: props.bookInfo.id,
+        quantity: quantity.value
+      },
+      {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (response.data && response.data.code === '200') {
+      isSuccess.value = true
+      addCartMessage.value = `《${props.bookInfo.title || '未知书名'}》已成功加入购物车！`
+    } else {
+      isSuccess.value = false
+      addCartMessage.value = response.data?.msg || '加入购物车失败'
+    }
+  } catch (error: any) {
+    console.error('加入购物车出错:', error)
+    isSuccess.value = false
+    addCartMessage.value = error.message || '加入购物车失败'
+  } finally {
+    isAddingToCart.value = false
+    showAddCartResult.value = true
+    
+    // 3秒后自动隐藏提示
+    setTimeout(() => {
+      showAddCartResult.value = false
+    }, 1000)
+  }
+}
 </script>
 
 <template>
   <div class="book-info-container">
+    <!-- 添加全局购物车提示，与ProductShow保持一致 -->
+    <div 
+      v-if="showAddCartResult" 
+      class="global-cart-result" 
+      :class="{ 'success': isSuccess, 'error': !isSuccess }"
+    >
+      <div class="cart-icon">{{ isSuccess ? '✓' : '✗' }}</div>
+      <div class="cart-message">{{ addCartMessage }}</div>
+    </div>
+    
     <!-- 封面 -->
     <div class="cover-wrapper">
       <img 
@@ -111,6 +193,20 @@ const isOutOfStock = computed(() => {
       <!-- 评分 -->
       <div class="rating-section">
         <RatingStars :rating="bookInfo.rate" />
+        
+        <!-- 将数量选择器移到这里 -->
+        <div class="quantity-selector" v-if="!isOutOfStock">
+          <span class="quantity-label">数量:</span>
+          <div class="quantity-control">
+            <button class="quantity-btn" @click="decreaseQuantity">
+              <span class="btn-icon">−</span>
+            </button>
+            <input type="number" v-model="quantity" min="1" max="99" />
+            <button class="quantity-btn" @click="increaseQuantity">
+              <span class="btn-icon">+</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 描述 -->
@@ -131,9 +227,11 @@ const isOutOfStock = computed(() => {
       <div class="button-section">
         <button 
           class="add-cart-btn"
-          :disabled="isOutOfStock"
+          :disabled="isOutOfStock || isAddingToCart"
+          @click="addToCart"
         >
-          {{ isOutOfStock ? '已售罄' : '加入购物车' }}
+          <span v-if="isAddingToCart">加入中...</span>
+          <span v-else>{{ isOutOfStock ? '已售罄' : '加入购物车' }}</span>
         </button>
         <button 
           class="buy-now-btn">
@@ -301,8 +399,10 @@ const isOutOfStock = computed(() => {
 .rating-section {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20px; /* 增加间距以容纳数量选择器 */
   margin-bottom: 15px;
+  justify-content: space-between; /* 左右两端对齐 */
+  flex-wrap: wrap; /* 在小屏幕上允许换行 */
 }
 
 .description {
@@ -338,6 +438,89 @@ const isOutOfStock = computed(() => {
 .button-section {
   display: flex;
   gap: 20px;
+  align-items: center;
+}
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  height: 36px;
+}
+
+.quantity-label {
+  margin-right: 12px;
+  font-size: 15px;
+  color: #555;
+  font-weight: 500;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e8e8e8;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.quantity-control:hover {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  border-color: #ddd;
+}
+
+.quantity-selector input {
+  width: 45px;
+  height: 36px;
+  text-align: center;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  -moz-appearance: textfield;
+  background: transparent;
+  border-left: 1px solid #f0f0f0;
+  border-right: 1px solid #f0f0f0;
+}
+
+.quantity-selector input::-webkit-outer-spin-button,
+.quantity-selector input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quantity-btn {
+  width: 36px;
+  height: 36px;
+  background-color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #666;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-btn:hover {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d); /* 修改为与立即购买按钮一致的渐变色 */
+  color: white;
+}
+
+.quantity-btn:active {
+  transform: scale(0.95);
+  background: linear-gradient(90deg, #ff5252, #ff8a65); /* 点击时使用更深的渐变色 */
+}
+
+.btn-icon {
+  font-size: 18px;
+  line-height: 1;
+  position: relative;
+  top: -1px;
 }
 
 .add-cart-btn,
@@ -352,7 +535,7 @@ const isOutOfStock = computed(() => {
 }
 
 .add-cart-btn {
-  background: #ffcc00; /* 改为黄色背景 */
+  background: #ffcc00; /* 保持黄色背景 */
   color: #fff;
   box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
 }
@@ -368,7 +551,7 @@ const isOutOfStock = computed(() => {
 }
 
 .buy-now-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d); /* 改为红色渐变背景 */
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d); /* 保持红色渐变背景 */
   color: #fff;
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
@@ -377,7 +560,83 @@ const isOutOfStock = computed(() => {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
 }
 
-/* 响应式布局 */
+/* 全局购物车提示样式 - 与ProductShow保持一致 */
+.global-cart-result {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  min-width: 300px;
+  max-width: 90%;
+}
+
+.global-cart-result.success {
+  border-left: 5px solid #ff6b6b;
+}
+
+.global-cart-result.error {
+  border-left: 5px solid #ff6b6b;
+}
+
+.cart-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.global-cart-result.success .cart-icon {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+}
+
+.global-cart-result.error .cart-icon {
+  background-color: #fff0f0;
+  color: #ff6b6b;
+}
+
+.cart-message {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.global-cart-result.success .cart-message {
+  color: #ff6b6b;
+}
+
+.global-cart-result.error .cart-message {
+  color: #ff6b6b;
+}
+
+@keyframes popIn {
+  0% { 
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.8);
+  }
+  100% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* 可以移除旧的局部提示样式 */
+.cart-result {
+  display: none; /* 隐藏旧的提示样式 */
+}
+
+/* 响应式布局 - 调整数量选择器在移动端的显示 */
 @media (max-width: 768px) {
   .book-info-container {
     flex-direction: column;
@@ -396,6 +655,25 @@ const isOutOfStock = computed(() => {
 
   .button-section {
     flex-direction: column;
+    width: 100%;
+  }
+  
+  .rating-section {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .quantity-selector {
+    margin: 0 auto;
+    flex-direction: column;
+    gap: 8px;
+    height: auto;
+  }
+  
+  .quantity-label {
+    margin-right: 0;
+    margin-bottom: 5px;
   }
 }
 </style>
