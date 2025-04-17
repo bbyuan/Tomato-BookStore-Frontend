@@ -1,42 +1,126 @@
 <script setup lang="ts">
 import Header from '@/views/HomePage/Header.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import axios from 'axios'
 
-// 购物车项类型定义
+// 购物车项类型定义，根据后端返回调整
 interface CartItem {
-  id: number;
-  image: string;
-  title: string;
-  price: number;
-  quantity: number;
-  selected: boolean; // 添加选中状态
-  discount?: string; // 增加折扣信息
-  originalPrice?: number; // 原价
+  id: number | string;  // cartItemId
+  productId: string;    // 产品ID
+  image: string;        // 从productInfo中获取封面
+  title: string;        // 从productInfo中获取标题
+  price: number;        // 现价
+  originalPrice: number;// 原价
+  quantity: number;     // 数量
+  selected: boolean;    // 选中状态（前端维护）
 }
 
 // 使用ref创建响应式数据
-const cartItems = ref<CartItem[]>([
-  {
-    id: 1,
-    image: '/src/assets/images/BookTemplate.avif',
-    title: '智慧的疆界',
-    price: 69,
-    originalPrice: 79, // 添加原价
-    quantity: 1,
-    selected: false, // 默认不选中
-    discount: '限时8.8折', // 添加折扣信息
-  },
-  {
-    id: 2,
-    image: '/src/assets/logo.png',
-    title: '小王子',
-    price: 49,
-    originalPrice: 59, // 添加原价
-    quantity: 1,
-    selected: false, // 默认不选中
-    discount: '双11特惠', // 添加折扣信息
-  },
-]);
+const cartItems = ref<CartItem[]>([]);
+const loading = ref(false);
+const error = ref('');
+const updatingItems = ref<Set<number | string>>(new Set()); // 跟踪正在更新的商品
+const showDeleteModal = ref(false); // 控制删除确认弹窗显示
+const itemToDelete = ref<CartItem | null>(null); // 要删除的购物车项
+
+// 获取购物车数据
+const fetchCartItems = async () => {
+  loading.value = true;
+  error.value = '';
+  
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      return;
+    }
+    
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_BASE_URL}/api/cart`,
+      {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.data && response.data.code === '200') {
+      // 处理API返回的数据
+      const cartData = response.data.data.items || [];
+      
+      cartItems.value = cartData.map((item: any) => {
+        // 确保有productInfo，若无则提供默认值
+        const productInfo = item.productInfo || {};
+        
+        return {
+          id: item.cartItemId || item.id, // 使用cartItemId作为购物车项ID
+          productId: item.productId || '',
+          image: productInfo.cover || '/src/assets/logo.png', // 使用第一张图片作为封面
+          title: productInfo.title || '未知商品',
+          price: parseFloat(productInfo.price) || 0,
+          originalPrice: parseFloat(productInfo.originalPrice) || 0,
+          quantity: item.quantity || 1,
+          selected: false // 默认不选中
+        };
+      });
+      
+      console.log('购物车数据:', cartItems.value);
+    } else {
+      error.value = response.data?.msg || '获取购物车数据失败';
+    }
+  } catch (err: any) {
+    console.error('获取购物车出错:', err);
+    error.value = err.message || '网络请求失败';
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 更新购物车项数量
+const updateCartItemQuantity = async (itemId: number | string, newQuantity: number) => {
+  if (updatingItems.value.has(itemId)) return; // 如果正在更新，则跳过
+
+  updatingItems.value.add(itemId);
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      return;
+    }
+    
+    const response = await axios.patch(
+      `${import.meta.env.VITE_API_BASE_URL}/api/cart/${itemId}`,
+      { quantity: newQuantity },
+      {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.data && response.data.code === '200') {
+      console.log(`商品 ${itemId} 数量更新成功: ${newQuantity}`);
+    } else {
+      console.error('更新购物车数量失败:', response.data?.msg);
+      // 恢复之前的数量，在UI上反馈更新失败
+      const item = cartItems.value.find(item => item.id === itemId);
+      if (item) {
+        item.quantity = item.quantity; // 保持原来的值
+      }
+    }
+  } catch (err: any) {
+    console.error('更新购物车数量出错:', err);
+    // 恢复之前的数量
+    const item = cartItems.value.find(item => item.id === itemId);
+    if (item) {
+      item.quantity = item.quantity; // 保持原来的值
+    }
+  } finally {
+    updatingItems.value.delete(itemId);
+  }
+};
 
 // 全选状态 - 简化计算和设置逻辑
 const allSelected = computed(() => {
@@ -52,17 +136,68 @@ const selectedCount = computed(() => {
 const decreaseQuantity = (item: CartItem) => {
   if (item.quantity > 1) {
     item.quantity--;
+    updateCartItemQuantity(item.id, item.quantity);
   }
 };
 
 // 增加数量方法
 const increaseQuantity = (item: CartItem) => {
-  item.quantity++;
+  if (item.quantity < 99) {
+    item.quantity++;
+    updateCartItemQuantity(item.id, item.quantity);
+  }
+};
+
+// 显示删除确认框
+const showDeleteConfirm = (event: Event, item: CartItem) => {
+  event.stopPropagation(); // 阻止事件冒泡
+  itemToDelete.value = item;
+  showDeleteModal.value = true;
+};
+
+// 取消删除
+const cancelDelete = () => {
+  showDeleteModal.value = false;
+  itemToDelete.value = null;
 };
 
 // 删除购物车项
-const removeItem = (itemId: number) => {
-  cartItems.value = cartItems.value.filter(item => item.id !== itemId);
+const removeItem = async () => {
+  if (!itemToDelete.value) return;
+
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      return;
+    }
+
+    const cartItemId = itemToDelete.value.id;
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/cart/${cartItemId}`;
+
+    const response = await axios.delete(apiUrl, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.data && response.data.code === '200') {
+      // 删除成功，从列表中移除
+      cartItems.value = cartItems.value.filter(item => item.id !== cartItemId);
+      console.log(`成功删除购物车商品 ${cartItemId}`);
+    } else {
+      console.error('删除购物车商品失败:', response.data?.msg);
+      error.value = response.data?.msg || '删除失败';
+    }
+  } catch (err: any) {
+    console.error('删除购物车商品出错:', err);
+    error.value = `删除失败: ${err.message || '未知错误'}`;
+  } finally {
+    // 无论成功或失败都关闭弹窗
+    showDeleteModal.value = false;
+    itemToDelete.value = null;
+  }
 };
 
 // 切换商品选中状态 - 简化逻辑，不使用外部函数，由v-model自动处理
@@ -97,8 +232,8 @@ const calculateTotal = () => {
 // 计算总优惠金额
 const calculateDiscount = () => {
   return cartItems.value
-    .filter(item => item.selected && item.originalPrice)
-    .reduce((sum, item) => sum + (item.originalPrice! - item.price) * item.quantity, 0)
+    .filter(item => item.selected && item.originalPrice > item.price)
+    .reduce((sum, item) => sum + (item.originalPrice - item.price) * item.quantity, 0)
     .toFixed(2);
 };
 
@@ -122,6 +257,17 @@ const calculateFinalTotal = () => {
   const shipping = isFreeShipping.value ? 0 : 12;
   return (total + shipping).toFixed(2);
 };
+
+// 计算折扣百分比
+const calculateDiscountPercentage = (price: number, originalPrice: number) => {
+  if (originalPrice <= 0 || price >= originalPrice) return null;
+  return Math.round((price / originalPrice) * 10);
+};
+
+// 组件挂载时获取购物车数据
+onMounted(() => {
+  fetchCartItems();
+});
 </script>
 
 <template>
@@ -133,7 +279,19 @@ const calculateFinalTotal = () => {
         <span class="cart-count">{{ cartItems.length }} 件商品</span>
       </div>
       
-      <div class="cart-main">
+      <!-- 添加加载状态显示 -->
+      <div v-if="loading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>正在加载购物车数据...</p>
+      </div>
+      
+      <!-- 添加错误状态显示 -->
+      <div v-else-if="error" class="error-state">
+        <p>{{ error }}</p>
+        <button @click="fetchCartItems" class="retry-btn">重试</button>
+      </div>
+      
+      <div v-else class="cart-main">
         <div class="cart-header">
           <div class="checkbox-cell">
             <input type="checkbox" id="select-all" v-model="allSelected" @change="toggleAllSelection" />
@@ -150,7 +308,7 @@ const calculateFinalTotal = () => {
           <div v-if="cartItems.length === 0" class="empty-cart">
             <div class="empty-cart-icon">🛒</div>
             <p>购物车空空如也，去添加一些商品吧！</p>
-            <button class="shop-now-btn">去逛逛</button>
+            <button class="shop-now-btn" @click="$router.push('/homepage')">去逛逛</button>
           </div>
           
           <div v-else class="cart-item" v-for="item in cartItems" :key="item.id" :class="{ 'selected': item.selected }">
@@ -172,7 +330,7 @@ const calculateFinalTotal = () => {
             </div>
             
             <div class="price-cell">
-              <span class="item-price">¥{{ item.price.toFixed(2) }}</span>
+              <span class="item-price">¥{{ item.originalPrice.toFixed(2) }}</span>
             </div>
             
             <div class="quantity-cell">
@@ -185,12 +343,15 @@ const calculateFinalTotal = () => {
             
             <div class="subtotal-cell">
               <span class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
-              <div v-if="item.discount" class="discount-tag">{{ item.discount }}</div>
-              <div v-if="item.originalPrice" class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
+              <!-- 仅当有折扣时显示原价和折扣标签 -->
+              <template v-if="item.originalPrice > item.price">
+                <div class="discount-tag">限时{{ calculateDiscountPercentage(item.price, item.originalPrice) }}折</div>
+                <div class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
+              </template>
             </div>
             
             <div class="action-cell">
-              <button class="delete-btn" @click.stop.prevent="removeItem(item.id)">
+              <button class="delete-btn" @click.stop.prevent="showDeleteConfirm($event, item)">
                 <img src="/src/assets/icons/delete-bin-6-fill.svg" alt="删除" class="delete-icon" />
                 <span class="delete-text">删除</span>
               </button>
@@ -227,6 +388,19 @@ const calculateFinalTotal = () => {
             </div>
             <div class="btn-background"></div>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteModal" class="delete-modal-overlay" @click="cancelDelete">
+      <div class="delete-modal" @click.stop>
+        <div class="delete-modal-icon">🗑️</div>
+        <h3>确认删除</h3>
+        <p>您确定要将《{{ itemToDelete?.title }}》从购物车中移除吗？</p>
+        <div class="delete-modal-actions">
+          <button class="cancel-btn" @click="cancelDelete">取消</button>
+          <button class="confirm-delete-btn" @click="removeItem">确认删除</button>
         </div>
       </div>
     </div>
@@ -798,6 +972,167 @@ const calculateFinalTotal = () => {
 
 .checkout-btn.pulse {
   animation: pulse 2s infinite;
+}
+
+/* 添加加载和错误状态的样式 */
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  text-align: center;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 107, 107, 0.1);
+  border-left-color: #ff6b6b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state p {
+  color: #ff6b6b;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.retry-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.retry-btn:hover {
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
+  transform: translateY(-2px);
+}
+
+/* 删除确认弹窗样式 */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(3px);
+}
+
+.delete-modal {
+  background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
+  border-radius: 20px;
+  padding: 35px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: scaleIn 0.4s ease;
+  text-align: center;
+  border: 1px solid rgba(255, 107, 107, 0.1);
+}
+
+.delete-modal-icon {
+  font-size: 50px;
+  margin-bottom: 20px;
+  animation: wobble 1s;
+  display: inline-block;
+}
+
+@keyframes wobble {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-15px) rotate(-5deg); }
+  30% { transform: translateX(10px) rotate(3deg); }
+  45% { transform: translateX(-10px) rotate(-3deg); }
+  60% { transform: translateX(5px) rotate(2deg); }
+  75% { transform: translateX(-5px) rotate(-1deg); }
+}
+
+.delete-modal h3 {
+  margin: 0 0 15px;
+  color: #ff6b6b;
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.delete-modal p {
+  color: #555;
+  line-height: 1.6;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.cancel-btn, .confirm-delete-btn {
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+.cancel-btn {
+  background: #f2f2f2;
+  color: #555;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.cancel-btn:hover {
+  background: #e8e8e8;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.confirm-delete-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+}
+
+.confirm-delete-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* 响应式设计 */
