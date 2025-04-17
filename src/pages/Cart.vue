@@ -265,7 +265,15 @@ const calculateFinalTotal = () => {
 // 计算折扣百分比
 const calculateDiscountPercentage = (price: number, originalPrice: number) => {
   if (originalPrice <= 0 || price >= originalPrice) return null;
-  return Math.round((price / originalPrice) * 10);
+  
+  // 计算折扣比例
+  const ratio = price / originalPrice;
+  
+  // 如果折扣比例大于0.95（即大于9.5折），则不显示折扣
+  if (ratio > 0.95) return null;
+  
+  // 返回折扣，四舍五入到整数
+  return Math.round(ratio * 10);
 };
 
 // 跳转到商品详情页
@@ -361,9 +369,13 @@ onMounted(() => {
             
             <div class="subtotal-cell">
               <span class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
-              <!-- 仅当有折扣时显示原价和折扣标签 -->
+              <!-- 修改显示逻辑：只要原价和现价不同就显示原价，但折扣标签只在明显折扣时显示 -->
               <template v-if="item.originalPrice > item.price">
-                <div class="discount-tag">限时{{ calculateDiscountPercentage(item.price, item.originalPrice) }}折</div>
+                <!-- 折扣标签只在折扣明显时显示 -->
+                <div class="discount-tag" v-if="calculateDiscountPercentage(item.price, item.originalPrice)">
+                  限时{{ calculateDiscountPercentage(item.price, item.originalPrice) }}折
+                </div>
+                <!-- 原价总是在不相等时显示 -->
                 <div class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
               </template>
             </div>
