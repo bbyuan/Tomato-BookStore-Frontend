@@ -130,11 +130,15 @@ const handleCommand = (command: string) => {
   justify-content: space-between;
   align-items: center;
   background-color: white;
-  padding: 0 20px;
+  padding: 0 40px;
   height: 60px;
   min-height: 40px;
   border-bottom: 1px solid #f0f0f0;
   flex-wrap: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .header-left {
@@ -142,13 +146,15 @@ const handleCommand = (command: string) => {
   align-items: center;
   flex: 2;
   min-width: 0;
+  gap: 30px;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  margin-right: 40px;
+  margin-right: 20px;
   flex-shrink: 0;
+  min-width: 220px;
 }
 
 .platform-name {
@@ -166,11 +172,12 @@ const handleCommand = (command: string) => {
   position: relative;
   background-color: #fff;
   box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.15), 0 6px 12px 0 rgba(212, 76, 76, 0.15);
-  margin-left: 50px;
   padding: 5px;
   height: 40px;
   border-radius: 99px;
-  width: 900px;
+  width: auto;
+  min-width: 800px;
+  max-width: 900px;
   overflow: hidden;
   flex-shrink: 1;
 }
@@ -182,6 +189,7 @@ const handleCommand = (command: string) => {
   height: 100%;
   width: 100px;
   font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   padding: 0;
   position: relative;
@@ -189,6 +197,7 @@ const handleCommand = (command: string) => {
   cursor: pointer;
   color: #666;
   transition: color 0.15s ease-in;
+  user-select: none;
 }
 
 .glider {
@@ -201,7 +210,7 @@ const handleCommand = (command: string) => {
   background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
   z-index: 1;
   border-radius: 99px;
-  transition: 0.25s ease-out;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .custom-tabs input[type="radio"] {
@@ -248,9 +257,9 @@ const handleCommand = (command: string) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 20px;
   flex: 1;
-  min-width: 0;
+  min-width: 350px;
   justify-content: flex-end;
 }
 
