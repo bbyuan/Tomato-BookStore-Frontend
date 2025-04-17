@@ -68,19 +68,19 @@ const fetchAdverts = async () => {
       }
     });
 
-    if (response.data && response.data.code === '200') {
-      // 处理API返回的数据格式
+    // 兼容处理不同类型的状态码
+    const isSuccess = response.data && 
+                     (response.data.code === 200 || response.data.code === '200');
+
+    if (isSuccess) {
+      // 处理API返回的广告数据
       advertisements.value = response.data.data.map((item: any) => {
         return {
           id: item.id,
           title: item.title,
-          image: item.imageUrl || '/src/assets/logo.png',
-          link: item.link || '#',
-          position: item.position || '未指定',
-          startTime: item.startTime ? new Date(item.startTime).toLocaleDateString() : '未指定',
-          endTime: item.endTime ? new Date(item.endTime).toLocaleDateString() : '未指定',
-          status: item.status || 'inactive',
-          description: item.description || '暂无描述'
+          content: item.content,
+          image: item.imgUrl || '/src/assets/logo.png',
+          productId: item.productId || ''
         };
       });
     } else {
@@ -165,7 +165,11 @@ const deleteAdver = async () => {
       }
     });
 
-    if (response.data && response.data.code === '200') {
+    // 兼容处理不同类型的状态码
+    const isSuccess = response.data && 
+                     (response.data.code === 200 || response.data.code === '200');
+
+    if (isSuccess) {
       // 从列表中移除已删除的广告
       advertisements.value = advertisements.value.filter(item => item.id !== adverToDelete.value.id);
     } else {
@@ -220,7 +224,6 @@ onMounted(() => {
            :key="adver.id" 
            class="adver-card"
            @click="goToDetail(adver.id)">
-        <div class="ribbon" v-if="adver.status === 'active'">正在展示</div>
         <div class="adver-image">
           <img :src="adver.image" :alt="adver.title">
           <div class="hover-info">
@@ -228,25 +231,17 @@ onMounted(() => {
           </div>
         </div>
         <div class="adver-details">
-          <h3 class="adver-title">{{ adver.title }}</h3>
+          <h3 class="adver-title" :title="adver.title">{{ adver.title }}</h3>
           
-          <!-- 广告信息 -->
-          <div class="adver-info">
-            <div class="adver-badge">
-              位置: {{ adver.position }}
-            </div>
-            <div class="adver-badge">
-              状态: {{ adver.status === 'active' ? '活跃' : '未激活' }}
-            </div>
+          <!-- 广告描述 -->
+          <div class="adver-description">
+            <p :title="adver.content">{{ adver.content }}</p>
           </div>
           
-          <!-- 展示时间 -->
-          <div class="adver-time">
-            <div class="time-badge">
-              开始: {{ adver.startTime }}
-            </div>
-            <div class="time-badge">
-              结束: {{ adver.endTime }}
+          <!-- 产品信息 -->
+          <div class="adver-info">
+            <div class="adver-badge">
+              <span class="adver-badge-text">产品ID: {{ adver.productId || '无' }}</span>
             </div>
           </div>
           
@@ -350,6 +345,7 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: fadeInDown 0.8s;
 }
 
 .all-advers-header h2::after {
@@ -360,6 +356,23 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
   bottom: 0;
   left: 0;
+  animation: widthExtend 1s ease-out;
+}
+
+@keyframes widthExtend {
+  from { width: 0; }
+  to { width: 50px; }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .add-adver-btn {
@@ -388,6 +401,10 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.add-adver-btn:hover .plus-icon {
+  transform: translateX(2px);
+}
+
 .plus-icon {
   font-size: 18px;
   font-style: normal;
@@ -398,11 +415,21 @@ onMounted(() => {
 
 .all-advers-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
   padding: 30px 0;
   position: relative;
   z-index: 1;
+  animation: fadeIn 0.8s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .adver-card {
@@ -417,44 +444,56 @@ onMounted(() => {
   cursor: pointer;
   box-shadow: 0 5px 15px rgba(0,0,0,0.05);
   height: 100%;
+  animation: cardFloat 0.6s ease-out backwards;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
 }
 
-.adver-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+@keyframes cardFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.ribbon {
-  position: absolute;
-  top: 20px;
-  right: -30px;
-  transform: rotate(45deg);
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  padding: 5px 30px;
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 5;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
+/* 为卡片添加交错动画效果 */
+.all-advers-list > div:nth-child(1) { animation-delay: 0.1s; }
+.all-advers-list > div:nth-child(2) { animation-delay: 0.2s; }
+.all-advers-list > div:nth-child(3) { animation-delay: 0.3s; }
+.all-advers-list > div:nth-child(4) { animation-delay: 0.4s; }
+.all-advers-list > div:nth-child(5) { animation-delay: 0.5s; }
+.all-advers-list > div:nth-child(6) { animation-delay: 0.6s; }
+.all-advers-list > div:nth-child(7) { animation-delay: 0.7s; }
+.all-advers-list > div:nth-child(8) { animation-delay: 0.8s; }
+.all-advers-list > div:nth-child(9) { animation-delay: 0.9s; }
+.all-advers-list > div:nth-child(10) { animation-delay: 1.0s; }
+.all-advers-list > div:nth-child(11) { animation-delay: 1.1s; }
+.all-advers-list > div:nth-child(12) { animation-delay: 1.2s; }
 
 .adver-image {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
-  padding: 25px 15px;
+  background: linear-gradient(135deg, #fff6f6 0%, #ffefef 100%);
+  padding: 15px;
   margin: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 200px;
+  height: 160px;
 }
 
 .adver-image img {
-  height: 180px;
-  max-width: 130px;
+  height: 140px;
+  width: auto;
+  max-width: 85%;
+  object-fit: contain;
   transition: transform 0.5s ease;
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.15));
+  filter: drop-shadow(0 6px 12px rgba(255, 107, 107, 0.2));
   z-index: 2;
 }
 
@@ -464,12 +503,14 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255,107,107,0.85);
+  background: rgba(255,107,107,0.9);
   display: flex;
   justify-content: center;
   align-items: center;
   color: white;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.5px;
   opacity: 0;
   transition: all 0.3s ease;
   transform: translateY(20px);
@@ -482,22 +523,35 @@ onMounted(() => {
 }
 
 .adver-card:hover .adver-image img {
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .adver-details {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 16px;
   background: white;
+  position: relative;
+  justify-content: space-between;
+}
+
+.adver-details::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,107,107,0), rgba(255,107,107,0.3), rgba(255,107,107,0));
 }
 
 .adver-title {
+  position: relative;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
-  height: 45px;
+  height: 40px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -505,71 +559,121 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   color: #333;
   transition: color 0.3s;
+  margin-bottom: 5px;
+  margin-top: 3px;
+}
+
+.adver-title::before {
+  display: none; /* 完全隐藏标题前的圆点 */
 }
 
 .adver-card:hover .adver-title {
   color: #ff6b6b;
 }
 
+/* 广告描述样式 */
+.adver-description {
+  position: relative;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  color: #555;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 65px;
+}
+
+.adver-description::before {
+  display: none; /* 完全隐藏内容前的圆点 */
+}
+
+.adver-description p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  max-height: 4.5em;
+  font-size: 14px;
+  color: #666;
+}
+
 /* 广告信息样式 */
 .adver-info {
   display: flex;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
   width: 100%;
+  margin-top: auto;
+  padding-top: 0;
 }
 
 .adver-badge {
   flex: 1;
-  padding: 8px 10px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
+  padding: 7px 10px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 800;
   text-align: center;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  background-color: #e0f2e9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background-color: #e8f7f0;
   color: #2e8b57;
-}
-
-/* 展示时间样式 */
-.adver-time {
+  border: 1px solid rgba(46, 139, 87, 0.1);
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  height: 35px;
+}
+.adver-badge-text{
+    font-weight: bold;
+}
+.adver-badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 60%);
+  z-index: 1;
 }
 
-.time-badge {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
-  text-align: center;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  background-color: #e6f0ff;
-  color: #4a6fa5;
+.adver-badge span, .adver-badge i {
+  position: relative;
+  z-index: 2;
+}
+
+/* 删除product-icon样式，因为我们已经移除了该元素 */
+.product-icon {
+  display: none;
+}
+
+.adver-card:hover .adver-badge {
+  background-color: #dff2e9;
+  box-shadow: 0 5px 15px rgba(46, 139, 87, 0.15);
+  transform: translateY(-2px);
 }
 
 /* 修改管理员操作按钮样式 */
 .admin-actions {
   display: flex;
-  gap: 10px;
-  margin-top: auto;
+  gap: 8px;
+  margin-top: 10px;
   width: 100%;
 }
 
 .edit-btn, .delete-btn {
   flex: 1;
-  padding: 8px 10px;
-  border-radius: 20px;
-  font-size: 14px;
+  padding: 7px 8px;
+  border-radius: 18px;
+  font-size: 13px;
   font-weight: bold;
   text-align: center;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
   position: relative;
   display: flex;
   justify-content: center;
@@ -586,24 +690,28 @@ onMounted(() => {
 
 .edit-btn {
   background: #f2f2f2;
-  color: #333;
+  color: #444;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .edit-btn:hover {
-  background: #e6e6e6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  background: #ebebeb;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  color: #ff6b6b;
 }
 
 .delete-btn {
   background: #f2f2f2;
-  color: #333;
+  color: #444;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .delete-btn:hover {
-  background: #e6e6e6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  background: #ebebeb;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  color: #ff6b6b;
 }
 
 /* 删除确认弹窗 */
@@ -623,53 +731,62 @@ onMounted(() => {
 }
 
 .delete-modal {
-  background: white;
-  border-radius: 15px;
-  padding: 30px;
+  background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
+  border-radius: 20px;
+  padding: 35px;
   width: 90%;
   max-width: 450px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-  animation: scaleIn 0.3s ease;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: scaleIn 0.4s ease;
   text-align: center;
+  border: 1px solid rgba(255, 107, 107, 0.1);
 }
 
 .delete-modal-icon {
-  font-size: 40px;
-  margin-bottom: 15px;
+  font-size: 50px;
+  margin-bottom: 20px;
+  animation: wobble 1s;
+  display: inline-block;
+}
+
+@keyframes wobble {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-15px) rotate(-5deg); }
+  30% { transform: translateX(10px) rotate(3deg); }
+  45% { transform: translateX(-10px) rotate(-3deg); }
+  60% { transform: translateX(5px) rotate(2deg); }
+  75% { transform: translateX(-5px) rotate(-1deg); }
 }
 
 .delete-modal h3 {
   margin: 0 0 15px;
   color: #ff6b6b;
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .delete-modal p {
   color: #555;
-  line-height: 1.5;
+  line-height: 1.6;
   font-size: 16px;
   margin-bottom: 10px;
-}
-
-.warning-text {
-  color: #ff6b6b;
-  font-size: 14px;
-  font-weight: 500;
 }
 
 .delete-modal-actions {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  margin-top: 25px;
+  gap: 20px;
+  margin-top: 30px;
 }
 
 .cancel-btn, .confirm-delete-btn {
   padding: 12px 25px;
   border-radius: 25px;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   border: none;
@@ -678,22 +795,35 @@ onMounted(() => {
 .cancel-btn {
   background: #f2f2f2;
   color: #555;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .cancel-btn:hover {
-  background: #e6e6e6;
-  transform: translateY(-2px);
+  background: #e8e8e8;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
 
 .confirm-delete-btn {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
   color: white;
-  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
 }
 
 .confirm-delete-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+.warning-text {
+  color: #ff6b6b;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 10px 20px;
+  background-color: rgba(255, 107, 107, 0.08);
+  border-radius: 15px;
+  margin: 15px 0;
+  display: inline-block;
 }
 
 .loading-state, .error-state {
@@ -701,13 +831,14 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 0;
+  padding: 80px 0;
   text-align: center;
+  animation: fadeIn 0.8s;
 }
 
 .loading-spinner {
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border: 4px solid rgba(255, 107, 107, 0.1);
   border-left-color: #ff6b6b;
   border-radius: 50%;
@@ -731,55 +862,66 @@ onMounted(() => {
 
 .error-state p {
   color: #ff6b6b;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   font-size: 18px;
+  max-width: 600px;
 }
 
 .retry-btn {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
   color: white;
   border: none;
-  padding: 10px 25px;
+  padding: 12px 30px;
   border-radius: 25px;
   cursor: pointer;
   transition: all 0.3s;
-  font-size: 15px;
-  font-weight: 500;
-  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.2);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
 }
 
 .retry-btn:hover {
-  background: linear-gradient(90deg, #ff5252, #ff8a65);
   transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
 }
 
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 15px;
+  margin-top: 30px;
+  animation: fadeIn 1s 0.3s both;
 }
 
 .pagination button {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 5px;
-  background-color: #ff6b6b;
+  border-radius: 25px;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
   color: white;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
+  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.2);
 }
 
 .pagination button:disabled {
-  background-color: #f0f0f0;
+  background: #f0f0f0;
   color: #ccc;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .pagination button:hover:not(:disabled) {
-  background-color: #ff5252;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+}
+
+.pagination span {
+  font-size: 15px;
+  color: #555;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
@@ -842,5 +984,20 @@ onMounted(() => {
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: scaleIn 0.3s ease;
+}
+
+/* 删除不需要的标签样式 */
+.adver-label {
+  display: none;
+}
+
+.label-section {
+  display: none;
+}
+
+.adver-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 30px rgba(255, 107, 107, 0.15);
+  border-color: rgba(255, 107, 107, 0.2);
 }
 </style>
