@@ -538,7 +538,28 @@ const submitProduct = async () => {
         await updateProductStock(productId, form.stock);
       }
 
-      alert('商品添加成功!');
+      // 使用更美观的成功提示
+      const successMessage = document.createElement('div');
+      successMessage.className = 'success-toast';
+      successMessage.innerHTML = `
+        <div class="success-icon">✓</div>
+        <div class="success-content">
+          <h3>商品添加成功！</h3>
+          <p>商品已成功添加到系统中</p>
+        </div>
+      `;
+      document.body.appendChild(successMessage);
+      
+      // 3秒后移除提示
+      setTimeout(() => {
+        successMessage.classList.add('fade-out');
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 300);
+      }, 3000);
+
+      emit('product-added', response.data.data);
+      closeModal();
       return response.data.data;
     } else {
       throw new Error(response.data?.msg || '添加商品失败');
@@ -986,6 +1007,72 @@ const closeModal = () => {
   
   .full-width {
     grid-column: 1;
+  }
+}
+
+/* 成功提示样式 */
+.success-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+}
+
+.success-icon {
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.success-content h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.success-content p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 </style>

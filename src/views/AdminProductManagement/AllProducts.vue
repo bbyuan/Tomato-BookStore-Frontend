@@ -291,8 +291,8 @@ onMounted(() => {
       <div class="delete-modal" @click.stop>
         <div class="delete-modal-icon">🗑️</div>
         <h3>确认删除</h3>
-        <p>您确定要删除《{{ bookToDelete?.title }}》吗？</p>
-        <p class="warning-text">此操作不可撤销。</p>
+        <p>您确定要删除"{{ bookToDelete?.title }}"吗？</p>
+        <p class="warning-text">此操作不可撤销</p>
         <div class="delete-modal-actions">
           <button class="cancel-btn" @click="cancelDelete">取消</button>
           <button class="confirm-delete-btn" @click="deleteProduct">确认删除</button>
@@ -316,6 +316,15 @@ onMounted(() => {
           @save="fetchBooks" 
           @close="closeEditProductModal"
         />
+      </div>
+    </div>
+
+    <!-- 成功提示样式 -->
+    <div v-if="successMessage" class="success-toast">
+      <div class="success-icon">✅</div>
+      <div class="success-content">
+        <h3>{{ successMessage }}</h3>
+        <p>{{ successDescription }}</p>
       </div>
     </div>
   </div>
@@ -738,7 +747,22 @@ onMounted(() => {
   color: #ff6b6b;
 }
 
-/* 删除确认弹窗样式统一 */
+/* 删除确认弹窗样式 */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(3px);
+}
+
 .delete-modal {
   background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
   border-radius: 20px;
@@ -777,6 +801,13 @@ onMounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
+.delete-modal p {
+  color: #555;
+  line-height: 1.6;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
 .warning-text {
   color: #ff6b6b;
   font-size: 15px;
@@ -786,6 +817,46 @@ onMounted(() => {
   border-radius: 15px;
   margin: 15px 0;
   display: inline-block;
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.cancel-btn, .confirm-delete-btn {
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+.cancel-btn {
+  background: #f2f2f2;
+  color: #555;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.cancel-btn:hover {
+  background: #e8e8e8;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.confirm-delete-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+}
+
+.confirm-delete-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
 }
 
 /* 分页控件统一样式 */
@@ -960,53 +1031,71 @@ onMounted(() => {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* 保留删除按钮样式 */
-.cancel-btn, .confirm-delete-btn {
-  padding: 12px 25px;
-  border-radius: 25px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: none;
-}
-
-.cancel-btn {
-  background: #f2f2f2;
-  color: #555;
-  border: 1px solid rgba(0,0,0,0.05);
-}
-
-.cancel-btn:hover {
-  background: #e8e8e8;
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.confirm-delete-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
-}
-
-.confirm-delete-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
-}
-
-/* 保留删除弹窗动作样式 */
-.delete-modal-actions {
+/* 成功提示样式 */
+.success-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 16px 20px;
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+  pointer-events: none;
 }
 
-.delete-modal p {
-  color: #555;
-  line-height: 1.6;
+.success-icon {
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.success-content h3 {
+  margin: 0;
   font-size: 16px;
-  margin-bottom: 10px;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.success-content p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 </style>
 

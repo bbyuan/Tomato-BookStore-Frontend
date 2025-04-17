@@ -69,17 +69,18 @@ const fetchAdverts = async () => {
     });
 
     // 兼容处理不同类型的状态码
-    const isSuccess = response.data && 
-                     (response.data.code === 200 || response.data.code === '200');
+    const isSuccess = response.data && response.data.code === '200';
 
     if (isSuccess) {
       // 处理API返回的广告数据
+      console.log('Received advertisements:', response.data.data);
       advertisements.value = response.data.data.map((item: any) => {
         return {
           id: item.id,
           title: item.title,
           content: item.content,
-          image: item.imgUrl || '/src/assets/logo.png',
+          image: item.imageUrl,
+          imageName: item.imageName,
           productId: item.productId || ''
         };
       });
@@ -126,7 +127,8 @@ const handleAdverAdded = (adverData: any) => {
 // 打开编辑广告弹窗
 const openEditAdverModal = (event: Event, adver: any) => {
   event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
-  currentEditAdver.value = adver.id; // 只存储广告ID
+  console.log('Opening edit modal with data:', adver); // 添加日志
+  currentEditAdver.value = adver; // 存储完整的广告数据
   showEditAdverModal.value = true;
 }
 
@@ -271,8 +273,8 @@ onMounted(() => {
       <div class="delete-modal" @click.stop>
         <div class="delete-modal-icon">🗑️</div>
         <h3>确认删除</h3>
-        <p>您确定要删除广告《{{ adverToDelete?.title }}》吗？</p>
-        <p class="warning-text">此操作不可撤销。</p>
+        <p>您确定要删除广告"{{ adverToDelete?.title }}"?</p>
+        <p class="warning-text">此操作不可撤销</p>
         <div class="delete-modal-actions">
           <button class="cancel-btn" @click="cancelDelete">取消</button>
           <button class="confirm-delete-btn" @click="deleteAdver">确认删除</button>
@@ -292,10 +294,20 @@ onMounted(() => {
       <div class="edit-modal-container" @click.stop>
         <EditAdverModal
           v-if="currentEditAdver"
-          :adverId="currentEditAdver"
+          :adverId="currentEditAdver.id"
+          :adverData="currentEditAdver"
           @save="fetchAdverts" 
           @close="closeEditAdverModal"
         />
+      </div>
+    </div>
+
+    <!-- 成功提示样式 -->
+    <div v-if="successMessage" class="success-toast">
+      <div class="success-icon">✅</div>
+      <div class="success-content">
+        <h3>{{ successMessage }}</h3>
+        <p>{{ successDescription }}</p>
       </div>
     </div>
   </div>
@@ -617,9 +629,9 @@ onMounted(() => {
   text-align: center;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  background-color: #e8f7f0;
-  color: #2e8b57;
-  border: 1px solid rgba(46, 139, 87, 0.1);
+  background-color: #fff0f0;
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -652,8 +664,8 @@ onMounted(() => {
 }
 
 .adver-card:hover .adver-badge {
-  background-color: #dff2e9;
-  box-shadow: 0 5px 15px rgba(46, 139, 87, 0.15);
+  background-color: #ffe8e8;
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.15);
   transform: translateY(-2px);
 }
 
@@ -999,5 +1011,72 @@ onMounted(() => {
   transform: translateY(-8px);
   box-shadow: 0 15px 30px rgba(255, 107, 107, 0.15);
   border-color: rgba(255, 107, 107, 0.2);
+}
+
+/* 成功提示样式 */
+.success-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+  pointer-events: none;
+}
+
+.success-icon {
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.success-content h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.success-content p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 </style>

@@ -20,16 +20,8 @@
           <div class="step" :class="{ active: currentStep === 2, visible: isStepVisible(2) }">
             <div class="step-number">02</div>
             <div class="step-content">
-              <h3>广告描述</h3>
-              <p>添加广告详细描述</p>
-            </div>
-          </div>
-          <div class="step-line" :class="{ visible: isLineVisible(2) }"></div>
-          <div class="step" :class="{ active: currentStep === 3, visible: isStepVisible(3) }">
-            <div class="step-number">03</div>
-            <div class="step-content">
-              <h3>展示设置</h3>
-              <p>设置广告展示时间和状态</p>
+              <h3>广告图片</h3>
+              <p>上传广告图片</p>
             </div>
           </div>
         </div>
@@ -57,57 +49,39 @@
             <div class="form-field">
               <input 
                 type="text" 
-                v-model="form.link" 
-                id="link" 
+                v-model="form.productId" 
+                id="productId" 
                 class="input-field"
+                :class="{ 'input-error': productIdError }"
               >
-              <label for="link" :class="{ 'label-float': form.link }">链接URL</label>
+              <label for="productId" :class="{ 'label-float': form.productId }">商品ID</label>
             </div>
 
-            <div class="form-field">
-              <select 
-                v-model="form.position" 
-                id="position" 
-                class="input-field"
-                :class="{ 'input-error': positionError }"
-              >
-                <option value="">请选择位置</option>
-                <option v-for="option in positionOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-              <label for="position" :class="{ 'label-float': form.position }">广告位置</label>
+            <div class="form-field full-width">
+              <textarea 
+                v-model="form.content" 
+                id="content" 
+                class="input-field textarea-field"
+                :class="{ 'input-error': contentError }"
+                rows="4"
+              ></textarea>
+              <label for="content" :class="{ 'label-float': form.content }">广告内容</label>
             </div>
           </div>
         </div>
 
-        <!-- 第二步：广告描述 -->
+        <!-- 第二步：广告图片 -->
         <div v-if="currentStep === 2" class="form-step">
-          <h3>广告描述</h3>
-          <p>添加广告的详细信息 <span class="optional">(选填)</span></p>
+          <h3>广告图片</h3>
+          <p>上传广告图片 <span class="required">*</span></p>
           
           <div class="form-grid">
             <div class="form-field full-width">
-              <textarea 
-                v-model="form.description" 
-                id="description" 
-                class="input-field textarea-field"
-                rows="4"
-              ></textarea>
-              <label for="description" :class="{ 'label-float': form.description }">广告描述</label>
-            </div>
-            
-            <div class="form-field full-width">
               <div class="cover-upload-container">
-                <h4>广告图片</h4>
                 <div class="cover-preview-list">
-                  <div 
-                    v-for="(image, index) in form.images" 
-                    :key="index" 
-                    class="cover-preview-item"
-                  >
-                    <img :src="image" :alt="`图片 ${index+1}`">
-                    <button type="button" class="remove-image" @click.stop="removeImage(index)">×</button>
+                  <div v-if="form.imageUrl" class="cover-preview-item">
+                    <img :src="form.imageUrl" alt="广告图片">
+                    <button type="button" class="remove-image" @click.stop="removeImage">×</button>
                   </div>
                   <div class="cover-upload-box" @click="triggerFileUpload">
                     <span class="upload-icon">+</span>
@@ -119,51 +93,9 @@
                   ref="fileInput"
                   @change="handleImageUpload"
                   accept="image/*"
-                  multiple
                   style="display: none;"
                 >
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 第三步：展示设置 -->
-        <div v-if="currentStep === 3" class="form-step">
-          <h3>展示设置</h3>
-          <p>设置广告的展示时间和状态 <span class="optional">(选填)</span></p>
-          
-          <div class="form-grid">
-            <div class="form-field">
-              <input 
-                type="date" 
-                v-model="form.startTime" 
-                id="startTime" 
-                class="input-field"
-              >
-              <label for="startTime" :class="{ 'label-float': form.startTime }">开始时间</label>
-            </div>
-            
-            <div class="form-field">
-              <input 
-                type="date" 
-                v-model="form.endTime" 
-                id="endTime" 
-                class="input-field"
-              >
-              <label for="endTime" :class="{ 'label-float': form.endTime }">结束时间</label>
-            </div>
-            
-            <div class="form-field">
-              <select 
-                v-model="form.status" 
-                id="status" 
-                class="input-field"
-              >
-                <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-              <label for="status" :class="{ 'label-float': form.status }">广告状态</label>
             </div>
           </div>
         </div>
@@ -179,11 +111,11 @@
           </button>
           <button 
             class="btn-next" 
-            :class="{ 'btn-submit': currentStep === 3 }"
+            :class="{ 'btn-submit': currentStep === 2 }"
             @click="nextStep"
-            :disabled="(currentStep === 1 && !isStep1Valid)"
+            :disabled="(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !form.imageUrl)"
           >
-            {{ currentStep === 3 ? '提交 ✓' : '下一步 →' }}
+            {{ currentStep === 2 ? '提交 ✓' : '下一步 →' }}
           </button>
         </div>
       </div>
@@ -205,32 +137,13 @@ const currentStep = ref(1);
 // 文件上传相关
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// 广告位置选项
-const positionOptions = [
-  { value: 'home_banner', label: '首页轮播' },
-  { value: 'home_sidebar', label: '首页侧边栏' },
-  { value: 'category_top', label: '分类页顶部' },
-  { value: 'search_result', label: '搜索结果页' }
-];
-
-// 广告状态选项
-const statusOptions = [
-  { value: 'active', label: '激活' },
-  { value: 'inactive', label: '未激活' },
-  { value: 'scheduled', label: '定时发布' }
-];
-
 // 表单数据
 const form = reactive({
   title: '',
-  link: '',
-  position: '',
-  description: '',
-  images: [] as string[], // 用于预览的图片URL
-  imagesNames: [] as string[], // 用于提交的图片文件名
-  startTime: '',
-  endTime: '',
-  status: 'inactive'
+  content: '',
+  imageUrl: '',
+  imageName: '',
+  productId: ''
 });
 
 // 表单验证
@@ -238,12 +151,16 @@ const titleError = computed(() => {
   return form.title === '' && currentStep.value === 1;
 });
 
-const positionError = computed(() => {
-  return form.position === '' && currentStep.value === 1;
+const contentError = computed(() => {
+  return form.content === '' && currentStep.value === 1;
+});
+
+const productIdError = computed(() => {
+  return form.productId === '' && currentStep.value === 1;
 });
 
 const isStep1Valid = computed(() => {
-  return form.title !== '' && form.position !== '';
+  return form.title !== '' && form.content !== '' && form.productId !== '';
 });
 
 // 步骤显示逻辑
@@ -254,8 +171,8 @@ const isStepVisible = (stepNumber: number) => {
     return stepNumber <= 2;
   }
   
-  if (currentStep.value === 3) {
-    return stepNumber >= 2;
+  if (currentStep.value === 2) {
+    return stepNumber === 2;
   }
   
   return Math.abs(stepNumber - currentStep.value) <= 1;
@@ -266,7 +183,7 @@ const isLineVisible = (lineNumber: number) => {
   if (currentStep.value === 1) {
     return lineNumber === 1;
   }
-  if (currentStep.value === 3) {
+  if (currentStep.value === 2) {
     return lineNumber === 2;
   }
   return Math.abs(lineNumber - currentStep.value) <= 1;
@@ -274,13 +191,11 @@ const isLineVisible = (lineNumber: number) => {
 
 // 步骤导航
 const nextStep = async () => {
-  if (currentStep.value < 3) {
+  if (currentStep.value < 2) {
     currentStep.value++;
   } else {
     try {
       await submitAdver();
-      emit('adver-added', form);
-      closeModal();
     } catch (error) {
       console.error('提交广告失败:', error);
     }
@@ -311,9 +226,9 @@ const handleImageUpload = async (event: Event) => {
           throw new Error('文件大小不能超过5MB');
         }
 
-        // 生成随机文件名
+        // 生成随机文件名，避免在OSS上文件名冲突
         const fileExt = file.name.split('.').pop(); // 获取文件扩展名
-        const randomFileName = `${uuidv4()}.${fileExt}`; // 生成唯一文件名
+        const randomFileName = `${uuidv4()}.${fileExt}`; // 生成随机文件名
 
         // 创建 FormData
         const formData = new FormData();
@@ -335,22 +250,21 @@ const handleImageUpload = async (event: Event) => {
         if (response.data && response.data.code === '200') {
           // 保存文件名和返回的URL
           const imageUrl = response.data.data;
-          form.imagesNames.push(randomFileName); // 保存文件名
-          form.images.push(imageUrl); // 保存URL用于预览
+          form.imageName = randomFileName; // 保存文件名
+          form.imageUrl = imageUrl; // 保存URL用于预览
 
           console.log('图片上传成功:', { 
             url: imageUrl,  // 仅用于前端预览
-            name: randomFileName  // 保存到数据库
+            name: randomFileName,  // 保存到数据库
+            form: form // 打印整个表单数据以便调试
           });
         } else {
           console.log(response.data);
           throw new Error(response.data?.msg || '上传图片失败');
-          
         }
       } catch (error: any) {
         console.error('上传图片错误:', error);
         alert(error.message || '上传图片失败');
-        
       }
     }
 
@@ -362,10 +276,12 @@ const handleImageUpload = async (event: Event) => {
 };
 
 // 移除图片
-const removeImage = (index: number) => {
-  // 同时移除预览URL和文件名
-  form.images.splice(index, 1);
-  form.imagesNames.splice(index, 1);
+const removeImage = () => {
+  form.imageUrl = '';
+  form.imageName = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
 };
 
 // 提交广告
@@ -376,24 +292,14 @@ const submitAdver = async () => {
       throw new Error('未登录或登录已过期');
     }
 
-    // 生成临时ID
-    const tempAdverId = Math.floor(Date.now() / 1000); // 使用时间戳作为临时ID
-
     // 准备广告数据
     const adverData = {
-      id: tempAdverId, 
       title: form.title,
-      link: form.link || '',
-      position: form.position,
-      description: form.description || '',
-      imageUrl: form.images.length > 0 ? form.images[0] : '',
-      image_name: form.imagesNames.length > 0 ? form.imagesNames[0] : '',
-      startTime: form.startTime || null,
-      endTime: form.endTime || null,
-      status: form.status
+      content: form.content,
+      imageUrl: form.imageUrl,
+      imageName: form.imageName,
+      productId: form.productId
     };
-
-    console.log('提交的广告数据:', adverData);
 
     // 调用创建广告API
     const apiUrl = '/api/advertisements';
@@ -405,10 +311,8 @@ const submitAdver = async () => {
     });
 
     if (response.data && response.data.code === '200') {
-      const adverId = response.data.data.id;
-      console.log('广告创建成功，ID:', adverId);
-      alert('广告添加成功!');
-      return response.data.data;
+      emit('adver-added', response.data.data);
+      closeModal();
     } else {
       throw new Error(response.data?.msg || '添加广告失败');
     }
@@ -671,13 +575,6 @@ const closeModal = () => {
   width: 100%;
 }
 
-.cover-upload-container h4 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
 .cover-preview-list {
   display: flex;
   gap: 15px;
@@ -686,8 +583,8 @@ const closeModal = () => {
 }
 
 .cover-preview-item {
-  width: 100px;
-  height: 100px;
+  width: 200px;
+  height: 200px;
   position: relative;
   border-radius: 8px;
   overflow: hidden;
@@ -704,8 +601,8 @@ const closeModal = () => {
   position: absolute;
   top: 5px;
   right: 5px;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.5);
   color: white;
@@ -714,14 +611,20 @@ const closeModal = () => {
   justify-content: center;
   border: none;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   padding: 0;
+  transition: all 0.3s;
+}
+
+.remove-image:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
 }
 
 .cover-upload-box {
-  width: 100px;
-  height: 100px;
+  width: 200px;
+  height: 200px;
   border: 2px dashed #ddd;
   border-radius: 8px;
   display: flex;
@@ -735,14 +638,14 @@ const closeModal = () => {
 }
 
 .cover-upload-box:hover {
-  border-color: #d44c4c; /* 修改为红色 */
+  border-color: #d44c4c;
   background: #fff0f0;
-  color: #d44c4c; /* 修改为红色 */
+  color: #d44c4c;
 }
 
 .upload-icon {
-  font-size: 24px;
-  margin-bottom: 5px;
+  font-size: 32px;
+  margin-bottom: 8px;
 }
 
 /* 导航按钮 */
@@ -824,6 +727,72 @@ const closeModal = () => {
   
   .full-width {
     grid-column: 1;
+  }
+}
+
+/* 成功提示样式 */
+.success-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+}
+
+.success-icon {
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.success-content h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.success-content p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 </style>
