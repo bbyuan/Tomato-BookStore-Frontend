@@ -46,6 +46,16 @@ const fetchUserAvatar = async () => {
 
 onMounted(() => {
   fetchUserAvatar()
+  
+  // 根据当前路径设置activeTab
+  const path = window.location.pathname
+  if (path.includes('/cart')) {
+    activeTab.value = '3'
+  } else if (path.includes('/admin')) {
+    activeTab.value = '8'
+  } else if (path.includes('/homepage')) {
+    activeTab.value = '1'
+  }
 })
 
 const handleCommand = (command: string) => {
@@ -54,11 +64,14 @@ const handleCommand = (command: string) => {
   } else if (command === 'logout') {
     // 处理登出逻辑
   } else if (command === 'admin-dashboard') {
-    router.push('/admin/product-management') 
+    router.push('/admin/product-management')
+    activeTab.value = '8' // 设置管理员后台为选中状态
   } else if (command === 'homepage') {
     router.push('/homepage')
+    activeTab.value = '1' // 设置主页为选中状态
   } else if (command === 'cart') {
-    router.push('/cart')  // 修改为小写，保持一致的路由格式
+    router.push('/cart')
+    activeTab.value = '3' // 设置购物车为选中状态
   }
 }
 </script>

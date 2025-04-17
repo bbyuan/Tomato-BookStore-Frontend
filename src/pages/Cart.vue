@@ -211,6 +211,7 @@ const calculateTotal = () => {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   margin-bottom: 20px;
+  padding: 0 0 10px 0;
 }
 
 .cart-header {
@@ -271,12 +272,32 @@ const calculateTotal = () => {
   gap: 10px;
   align-items: center;
   padding: 20px 15px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s;
+  border-bottom: none;
+  transition: all 0.3s ease;
+  margin: 10px 15px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 107, 107, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.cart-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: linear-gradient(to bottom, #ff6b6b, #ff9e7d);
+  border-radius: 2px 0 0 2px;
 }
 
 .cart-item:hover {
-  background-color: #f9f9f9;
+  background-color: #fffaf9;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.1);
+  transform: translateY(-2px);
 }
 
 .checkbox-cell {
@@ -308,14 +329,15 @@ const calculateTotal = () => {
   width: 80px;
   height: 110px;
   object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
   background-color: #fff;
 }
 
 .cart-item:hover .item-image {
-  transform: translateY(-3px);
+  transform: translateY(-3px) rotate(1deg);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
 }
 
 .item-details {
@@ -324,8 +346,8 @@ const calculateTotal = () => {
 }
 
 .item-title {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 600;
   color: #333;
   margin-bottom: 8px;
   overflow: hidden;
@@ -333,6 +355,11 @@ const calculateTotal = () => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  transition: color 0.3s ease;
+}
+
+.cart-item:hover .item-title {
+  color: #ff6b6b;
 }
 
 .price-cell, .subtotal-cell {
@@ -357,7 +384,8 @@ const calculateTotal = () => {
   display: flex;
   align-items: center;
   border: 1px solid #eee;
-  border-radius: 4px;
+  border-radius: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   width: 120px;
   height: 36px;
@@ -373,7 +401,7 @@ const calculateTotal = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
   color: #666;
   user-select: none;
   position: relative;
@@ -381,12 +409,12 @@ const calculateTotal = () => {
 }
 
 .quantity-btn:hover {
-  background-color: #eee;
-  color: #ff6b6b;
+  background-color: #ff6b6b;
+  color: white;
 }
 
 .quantity-btn:active {
-  background-color: #e0e0e0;
+  background-color: #ff5252;
   transform: scale(0.95);
 }
 
@@ -405,16 +433,19 @@ const calculateTotal = () => {
 }
 
 .delete-btn {
-  background: none;
-  border: none;
-  color: #999;
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  color: #666;
   cursor: pointer;
-  transition: all 0.2s;
-  padding: 5px 10px;
-  border-radius: 4px;
+  transition: all 0.3s;
+  padding: 7px 15px;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .delete-icon {
@@ -422,8 +453,10 @@ const calculateTotal = () => {
 }
 
 .delete-btn:hover {
-  color: #ff6b6b;
-  background-color: #fff0f0;
+  color: #fff;
+  background-color: #ff6b6b;
+  border-color: #ff6b6b;
+  box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);
 }
 
 .cart-footer {
@@ -526,6 +559,7 @@ const calculateTotal = () => {
   .cart-item {
     grid-template-columns: 40px 3fr 1fr 1fr 0.5fr;
     padding: 15px 10px;
+    margin: 8px 10px;
   }
   
   .price-cell {
