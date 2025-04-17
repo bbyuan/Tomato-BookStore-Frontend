@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Header from '@/views/HomePage/Header.vue'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 // 购物车项类型定义
 interface CartItem {
@@ -9,6 +9,9 @@ interface CartItem {
   title: string;
   price: number;
   quantity: number;
+  selected: boolean; // 添加选中状态
+  discount?: string; // 增加折扣信息
+  originalPrice?: number; // 原价
 }
 
 // 使用ref创建响应式数据
@@ -18,16 +21,32 @@ const cartItems = ref<CartItem[]>([
     image: '/src/assets/images/BookTemplate.avif',
     title: '智慧的疆界',
     price: 69,
+    originalPrice: 79, // 添加原价
     quantity: 1,
+    selected: false, // 默认不选中
+    discount: '限时8.8折', // 添加折扣信息
   },
   {
     id: 2,
     image: '/src/assets/logo.png',
     title: '小王子',
     price: 49,
+    originalPrice: 59, // 添加原价
     quantity: 1,
+    selected: false, // 默认不选中
+    discount: '双11特惠', // 添加折扣信息
   },
 ]);
+
+// 全选状态 - 简化计算和设置逻辑
+const allSelected = computed(() => {
+  return cartItems.value.length > 0 && cartItems.value.every(item => item.selected);
+});
+
+// 计算选中的商品数量
+const selectedCount = computed(() => {
+  return cartItems.value.filter(item => item.selected).length;
+});
 
 // 减少数量方法
 const decreaseQuantity = (item: CartItem) => {
@@ -46,9 +65,62 @@ const removeItem = (itemId: number) => {
   cartItems.value = cartItems.value.filter(item => item.id !== itemId);
 };
 
-// 计算总金额
+// 切换商品选中状态 - 简化逻辑，不使用外部函数，由v-model自动处理
+const toggleItemSelection = (item: CartItem) => {
+  // 函数保留但为空，因为我们将依赖v-model自动处理
+  console.log(`商品 ${item.id} 状态变更为: ${item.selected}`);
+};
+
+// 全选/取消全选 - 修复切换逻辑
+const toggleAllSelection = () => {
+  // 获取当前全选状态的反向值
+  const newState = !allSelected.value;
+  // 将所有商品设置为相同的选中状态
+  cartItems.value.forEach(item => {
+    item.selected = newState;
+  });
+};
+
+// 批量删除选中商品
+const batchDeleteSelected = () => {
+  cartItems.value = cartItems.value.filter(item => !item.selected);
+};
+
+// 计算选中商品的总价
 const calculateTotal = () => {
-  return cartItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2);
+  return cartItems.value
+    .filter(item => item.selected)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0)
+    .toFixed(2);
+};
+
+// 计算总优惠金额
+const calculateDiscount = () => {
+  return cartItems.value
+    .filter(item => item.selected && item.originalPrice)
+    .reduce((sum, item) => sum + (item.originalPrice! - item.price) * item.quantity, 0)
+    .toFixed(2);
+};
+
+// 是否符合包邮条件
+const isFreeShipping = computed(() => {
+  const total = parseFloat(calculateTotal());
+  return total >= 99; // 满99包邮
+});
+
+// 计算运费
+const calculateShipping = () => {
+  if (isFreeShipping.value) {
+    return '0.00';
+  }
+  return '12.00'; // 默认运费
+};
+
+// 计算最终支付金额
+const calculateFinalTotal = () => {
+  const total = parseFloat(calculateTotal());
+  const shipping = isFreeShipping.value ? 0 : 12;
+  return (total + shipping).toFixed(2);
 };
 </script>
 
@@ -64,7 +136,7 @@ const calculateTotal = () => {
       <div class="cart-main">
         <div class="cart-header">
           <div class="checkbox-cell">
-            <input type="checkbox" id="select-all" />
+            <input type="checkbox" id="select-all" v-model="allSelected" @change="toggleAllSelection" />
             <label for="select-all">全选</label>
           </div>
           <span class="product-cell">商品信息</span>
@@ -81,9 +153,14 @@ const calculateTotal = () => {
             <button class="shop-now-btn">去逛逛</button>
           </div>
           
-          <div v-else class="cart-item" v-for="item in cartItems" :key="item.id">
+          <div v-else class="cart-item" v-for="item in cartItems" :key="item.id" :class="{ 'selected': item.selected }">
             <div class="checkbox-cell">
-              <input type="checkbox" :id="`item-${item.id}`" />
+              <!-- 移除@change事件监听器，让v-model单独工作 -->
+              <input 
+                type="checkbox" 
+                :id="`item-${item.id}`" 
+                v-model="item.selected" 
+              />
               <label :for="`item-${item.id}`"></label>
             </div>
             
@@ -108,6 +185,8 @@ const calculateTotal = () => {
             
             <div class="subtotal-cell">
               <span class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
+              <div v-if="item.discount" class="discount-tag">{{ item.discount }}</div>
+              <div v-if="item.originalPrice" class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
             </div>
             
             <div class="action-cell">
@@ -121,22 +200,30 @@ const calculateTotal = () => {
       </div>
       
       <div class="cart-footer">
-        <div class="footer-left">
-          <input type="checkbox" id="footer-select-all" />
-          <label for="footer-select-all">全选</label>
-          <button class="batch-delete-btn">批量删除</button>
-        </div>
-        
         <div class="footer-right">
           <div class="total-info">
-            <div class="selected-count">已选择 <span>{{ cartItems.length }}</span> 件商品</div>
+            <div class="selected-count">已选择 <span>{{ selectedCount }}</span> 件商品</div>
+            <div class="discount-info" v-if="parseFloat(calculateDiscount()) > 0">
+              优惠: <span class="discount-value">-¥{{ calculateDiscount() }}</span>
+            </div>
+            <div class="shipping-info">
+              运费: <span :class="{'free-shipping': isFreeShipping}">
+                {{ isFreeShipping ? '包邮' : '¥' + calculateShipping() }}
+              </span>
+              <span class="shipping-tip" v-if="!isFreeShipping">
+                (满99元包邮，还差¥{{ (99 - parseFloat(calculateTotal())).toFixed(2) }})
+              </span>
+            </div>
             <div class="total-price">
-              合计: <span>¥{{ calculateTotal() }}</span>
+              合计: <span>¥{{ calculateFinalTotal() }}</span>
             </div>
           </div>
-          <button class="checkout-btn">
-            <span>去结算</span>
-            <span class="checkout-arrow">→</span>
+          <button class="checkout-btn" :disabled="selectedCount === 0" :class="{'pulse': selectedCount > 0}">
+            <div class="btn-content">
+              <span>去结算</span>
+              <span class="checkout-arrow">→</span>
+            </div>
+            <div class="btn-background"></div>
           </button>
         </div>
       </div>
@@ -300,6 +387,12 @@ const calculateTotal = () => {
   transform: translateY(-2px);
 }
 
+.cart-item.selected {
+  background-color: #fff9f9;
+  border-color: rgba(255, 107, 107, 0.3);
+  box-shadow: 0 3px 10px rgba(255, 107, 107, 0.15);
+}
+
 .checkbox-cell {
   display: flex;
   align-items: center;
@@ -309,7 +402,41 @@ const calculateTotal = () => {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #ff6b6b;
+  /* 自定义复选框样式 */
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 4px;
+  margin: 0;
+  padding: 0;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 10;
+  pointer-events: all; /* 确保指针事件 */
+}
+
+.checkbox-cell input[type="checkbox"]:checked {
+  background-color: #ff6b6b;
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
+}
+
+.checkbox-cell input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 3px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-cell input[type="checkbox"]:hover {
+  border-color: #ff9e7d;
+  box-shadow: 0 0 0 2px rgba(255, 158, 125, 0.2);
 }
 
 .checkbox-cell label {
@@ -373,6 +500,34 @@ const calculateTotal = () => {
 .item-subtotal {
   color: #ff6b6b;
   font-size: 16px;
+  display: block;
+}
+
+.discount-tag {
+  display: inline-block;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 5px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 5px rgba(255, 107, 107, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.original-price {
+  color: #999;
+  font-size: 12px;
+  text-decoration: line-through;
+  margin-top: 3px;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .quantity-cell {
@@ -411,11 +566,14 @@ const calculateTotal = () => {
 .quantity-btn:hover {
   background-color: #ff6b6b;
   color: white;
+  transform: translateY(-1px);  /* 轻微上浮效果 */
+  box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);  /* 添加阴影增强反馈感 */
 }
 
 .quantity-btn:active {
   background-color: #ff5252;
   transform: scale(0.95);
+  box-shadow: 0 1px 3px rgba(255, 107, 107, 0.2);  /* 按下时减小阴影 */
 }
 
 .item-quantity input {
@@ -461,31 +619,23 @@ const calculateTotal = () => {
 
 .cart-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end; /* 改为右对齐 */
   align-items: center;
-  padding: 15px 20px;
+  padding: 18px 25px;
   background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+  position: sticky;  /* 使结算栏固定 */
+  bottom: 20px;  /* 距离底部距离 */
+  z-index: 100;  /* 确保在其他元素上方 */
+  margin-top: 15px;  /* 与上方内容保持一定距离 */
+  animation: slideUp 0.3s ease;  /* 添加出现动画 */
+  transition: all 0.3s ease;
 }
 
-.footer-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.batch-delete-btn {
-  border: none;
-  background: none;
-  color: #666;
-  cursor: pointer;
-  transition: color 0.2s;
-  font-size: 14px;
-}
-
-.batch-delete-btn:hover {
-  color: #ff6b6b;
+.cart-footer:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 .footer-right {
@@ -496,6 +646,7 @@ const calculateTotal = () => {
 
 .total-info {
   text-align: right;
+  min-width: 220px;
 }
 
 .selected-count {
@@ -509,9 +660,42 @@ const calculateTotal = () => {
   font-weight: 500;
 }
 
+.discount-info {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.discount-value {
+  color: #ff6b6b;
+  font-weight: 500;
+}
+
+.shipping-info {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.free-shipping {
+  color: #67C23A;
+  font-weight: 500;
+  background-color: rgba(103, 194, 58, 0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.shipping-tip {
+  font-size: 12px;
+  color: #ff9e7d;
+  margin-left: 5px;
+}
+
 .total-price {
   font-size: 16px;
   color: #333;
+  margin-top: 8px;
+  font-weight: 500;
 }
 
 .total-price span {
@@ -521,33 +705,88 @@ const calculateTotal = () => {
 }
 
 .checkout-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  position: relative;
+  overflow: hidden;
+  background: transparent;
   color: white;
   border: none;
-  padding: 12px 30px;
+  padding: 0;
   border-radius: 30px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(255, 107, 107, 0.25);
+  min-width: 160px;
+  height: 52px;
+}
+
+.btn-content {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.2);
+  width: 100%;
+  height: 100%;
+  padding: 0 20px;
+  z-index: 2;
+}
+
+.btn-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, #ff6b6b, #ff9e7d);
+  z-index: 1;
+  transition: all 0.4s ease;
+}
+
+.checkout-btn:hover .btn-background {
+  background: linear-gradient(45deg, #ff5252, #ff8a65);
 }
 
 .checkout-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 7px 25px rgba(255, 107, 107, 0.4);
+  transform: translateY(-3px);
+}
+
+.checkout-btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.checkout-btn:disabled {
+  background: none;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.checkout-btn:disabled .btn-background {
+  background: linear-gradient(45deg, #cccccc, #dddddd);
 }
 
 .checkout-arrow {
   font-size: 18px;
-  transition: transform 0.2s;
+  transition: transform 0.3s ease;
+  display: inline-block;
 }
 
 .checkout-btn:hover .checkout-arrow {
-  transform: translateX(3px);
+  transform: translateX(5px);
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
+}
+
+.checkout-btn.pulse {
+  animation: pulse 2s infinite;
 }
 
 /* 响应式设计 */
@@ -568,44 +807,32 @@ const calculateTotal = () => {
   
   .item-image {
     width: 60px;
-    height: 80px;
   }
-  
+
   .cart-footer {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .footer-left, .footer-right {
+    border-radius: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: 100%;
-    justify-content: space-between;
+    padding: 10px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   }
   
   .total-info {
-    text-align: left;
+    min-width: 180px;
   }
-}
+  
+  .shipping-tip {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
 
-@media (max-width: 576px) {
-  .cart-header {
-    grid-template-columns: 30px 2fr 1fr 0.5fr;
-  }
-  
-  .cart-item {
-    grid-template-columns: 30px 2fr 1fr 0.5fr;
-  }
-  
-  .quantity-cell {
-    display: none;
-  }
-  
-  .delete-text {
-    display: none;
-  }
-  
-  .item-image {
-    width: 50px;
-    height: 70px;
+  .checkout-btn {
+    min-width: 140px;
+    height: 48px;
+    font-size: 15px;
   }
 }
 </style>

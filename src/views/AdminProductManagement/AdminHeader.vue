@@ -56,7 +56,9 @@ const handleCommand = (command: string) => {
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management');
   } else if (command === 'homepage') {
-    router.push('/homepage'); // 修复主页跳转路径
+    router.push('/homepage'); 
+  } else if (command === 'cart') {
+    router.push('/cart');
   }
 };
 </script>
@@ -70,7 +72,7 @@ const handleCommand = (command: string) => {
         <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
         <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
-        <label class="tab" for="tab-3">购物车</label>
+        <label class="tab" for="tab-3" @click="handleCommand('cart')">购物车</label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
         <label class="tab" for="tab-4">我的订单</label>
         <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
