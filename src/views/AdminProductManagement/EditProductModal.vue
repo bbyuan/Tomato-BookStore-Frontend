@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { defineProps, ref, computed, defineEmits, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import RatingStars from '/src/views/Detail/RatingStars.vue'
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
-const props = defineProps({
+const props = ({
   bookId: {
     type: [Number, String],
     required: true

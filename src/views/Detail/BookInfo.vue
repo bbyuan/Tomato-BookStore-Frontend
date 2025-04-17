@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, ref, computed } from 'vue'
+import { ref, computed } from 'vue'
 import RatingStars from './RatingStars.vue'
 
 const props = defineProps({
