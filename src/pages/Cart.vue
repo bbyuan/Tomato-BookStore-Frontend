@@ -191,7 +191,7 @@ const calculateFinalTotal = () => {
             
             <div class="action-cell">
               <button class="delete-btn" @click.stop.prevent="removeItem(item.id)">
-                <span class="delete-icon">×</span>
+                <img src="/src/assets/icons/delete-bin-6-fill.svg" alt="删除" class="delete-icon" />
                 <span class="delete-text">删除</span>
               </button>
             </div>
@@ -215,7 +215,9 @@ const calculateFinalTotal = () => {
               </span>
             </div>
             <div class="total-price">
-              合计: <span>¥{{ calculateFinalTotal() }}</span>
+              合计: <span>
+                ¥{{ selectedCount === 0 ? '0.00' : calculateFinalTotal() }}
+              </span>
             </div>
           </div>
           <button class="checkout-btn" :disabled="selectedCount === 0" :class="{'pulse': selectedCount > 0}">
@@ -449,7 +451,7 @@ const calculateFinalTotal = () => {
 .product-cell {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 30px; 
 }
 
 .item-image {
@@ -514,7 +516,6 @@ const calculateFinalTotal = () => {
   position: relative;
   z-index: 2;
   box-shadow: 0 2px 5px rgba(255, 107, 107, 0.2);
-  animation: pulse 2s infinite;
 }
 
 .original-price {
@@ -607,7 +608,9 @@ const calculateFinalTotal = () => {
 }
 
 .delete-icon {
-  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: currentColor; /* 确保图标颜色跟随按钮文字颜色 */
 }
 
 .delete-btn:hover {
@@ -696,12 +699,20 @@ const calculateFinalTotal = () => {
   color: #333;
   margin-top: 8px;
   font-weight: 500;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 0;
+  width: auto; /* 让宽度自适应内容 */
 }
 
 .total-price span {
   color: #ff6b6b;
   font-size: 22px;
   font-weight: bold;
+  margin-left: 5px;
+  white-space: nowrap; /* 防止文本换行 */
+  display: inline; /* 改为内联显示 */
 }
 
 .checkout-btn {
