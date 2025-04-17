@@ -265,7 +265,15 @@ const calculateFinalTotal = () => {
 // 计算折扣百分比
 const calculateDiscountPercentage = (price: number, originalPrice: number) => {
   if (originalPrice <= 0 || price >= originalPrice) return null;
-  return Math.round((price / originalPrice) * 10);
+  
+  // 计算折扣比例
+  const ratio = price / originalPrice;
+  
+  // 如果折扣比例大于0.95（即大于9.5折），则不显示折扣
+  if (ratio > 0.95) return null;
+  
+  // 返回折扣，四舍五入到整数
+  return Math.round(ratio * 10);
 };
 
 // 跳转到商品详情页
@@ -361,9 +369,13 @@ onMounted(() => {
             
             <div class="subtotal-cell">
               <span class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
-              <!-- 仅当有折扣时显示原价和折扣标签 -->
+              <!-- 修改显示逻辑：只要原价和现价不同就显示原价，但折扣标签只在明显折扣时显示 -->
               <template v-if="item.originalPrice > item.price">
-                <div class="discount-tag">限时{{ calculateDiscountPercentage(item.price, item.originalPrice) }}折</div>
+                <!-- 折扣标签只在折扣明显时显示 -->
+                <div class="discount-tag" v-if="calculateDiscountPercentage(item.price, item.originalPrice)">
+                  限时{{ calculateDiscountPercentage(item.price, item.originalPrice) }}折
+                </div>
+                <!-- 原价总是在不相等时显示 -->
                 <div class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
               </template>
             </div>
@@ -390,11 +402,13 @@ onMounted(() => {
                 {{ isFreeShipping ? '包邮' : '¥' + calculateShipping() }}
               </span>
               <span class="shipping-tip" v-if="!isFreeShipping">
-                (满99元包邮，还差¥{{ (99 - parseFloat(calculateTotal())).toFixed(2) }})
+                <span class="shipping-tip-text">(满99元包邮，还差</span>
+                <span class="shipping-tip-price">¥{{ (99 - parseFloat(calculateTotal())).toFixed(2) }}</span>
+                <span class="shipping-tip-text">)</span>
               </span>
             </div>
             <div class="total-price">
-              合计: <span>
+              合计: <span class="price-value">
                 ¥{{ selectedCount === 0 ? '0.00' : calculateFinalTotal() }}
               </span>
             </div>
@@ -416,6 +430,7 @@ onMounted(() => {
         <div class="delete-modal-icon">🗑️</div>
         <h3>确认删除</h3>
         <p>您确定要将《{{ itemToDelete?.title }}》从购物车中移除吗？</p>
+        <p class="warning-text">此操作不可撤销</p>
         <div class="delete-modal-actions">
           <button class="cancel-btn" @click="cancelDelete">取消</button>
           <button class="confirm-delete-btn" @click="removeItem">确认删除</button>
@@ -815,18 +830,39 @@ onMounted(() => {
 
 .cart-footer {
   display: flex;
-  justify-content: flex-end; /* 改为右对齐 */
+  justify-content: flex-end; /* 改为右对齐，因为移除了左侧区域 */
   align-items: center;
   padding: 18px 25px;
   background-color: #fff;
   border-radius: 15px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-  position: sticky;  /* 使结算栏固定 */
-  bottom: 20px;  /* 距离底部距离 */
-  z-index: 100;  /* 确保在其他元素上方 */
-  margin-top: 15px;  /* 与上方内容保持一定距离 */
-  animation: slideUp 0.3s ease;  /* 添加出现动画 */
+  position: sticky;
+  bottom: 20px;
+  z-index: 100;
+  margin-top: 15px;
+  animation: slideUp 0.3s ease;
   transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 107, 107, 0.1);
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%; /* 让右侧区域占据整个宽度 */
+  justify-content: flex-end; /* 确保内容靠右对齐 */
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cart-footer:hover {
@@ -834,57 +870,92 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-.footer-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
 .total-info {
   text-align: right;
   min-width: 220px;
+  background: linear-gradient(135deg, rgba(255, 249, 249, 0.7), rgba(255, 245, 245, 0.7));
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 107, 107, 0.1);
+  box-shadow: 0 3px 10px rgba(255, 107, 107, 0.1);
+  transition: all 0.3s;
+}
+
+.total-info:hover {
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.15);
+  transform: translateY(-2px);
 }
 
 .selected-count {
   font-size: 14px;
   color: #666;
   margin-bottom: 5px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .selected-count span {
   color: #ff6b6b;
-  font-weight: 500;
+  font-weight: 600;
+  margin-left: 5px;
+  background-color: rgba(255, 107, 107, 0.1);
+  border-radius: 10px;
+  padding: 0 5px;
+  min-width: 20px;
+  text-align: center;
 }
 
 .discount-info {
   font-size: 14px;
   color: #666;
   margin-bottom: 5px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .discount-value {
   color: #ff6b6b;
-  font-weight: 500;
+  font-weight: 600;
+  margin-left: 5px;
 }
 
 .shipping-info {
   font-size: 14px;
   color: #666;
   margin-bottom: 5px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .free-shipping {
   color: #67C23A;
-  font-weight: 500;
+  font-weight: 600;
   background-color: rgba(103, 194, 58, 0.1);
   padding: 1px 6px;
   border-radius: 10px;
+  margin-left: 5px;
 }
 
 .shipping-tip {
   font-size: 12px;
   color: #ff9e7d;
   margin-left: 5px;
+  display: flex;
+  align-items: center;
+}
+
+.shipping-tip-text {
+  color: #999;
+}
+
+.shipping-tip-price {
+  color: #ff6b6b;
+  font-weight: 600;
+  margin: 0 2px;
 }
 
 .total-price {
@@ -899,13 +970,20 @@ onMounted(() => {
   width: auto; /* 让宽度自适应内容 */
 }
 
-.total-price span {
+.price-value {
   color: #ff6b6b;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: bold;
   margin-left: 5px;
   white-space: nowrap; /* 防止文本换行 */
   display: inline; /* 改为内联显示 */
+  text-shadow: 0 2px 3px rgba(255, 107, 107, 0.2);
+  animation: pricePulse 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes pricePulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
 }
 
 .checkout-btn {
@@ -993,56 +1071,6 @@ onMounted(() => {
   animation: pulse 2s infinite;
 }
 
-/* 添加加载和错误状态的样式 */
-.loading-state, .error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 50px 0;
-  text-align: center;
-  background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-  margin-bottom: 20px;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 107, 107, 0.1);
-  border-left-color: #ff6b6b;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 15px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-state p {
-  color: #ff6b6b;
-  margin-bottom: 15px;
-  font-size: 16px;
-}
-
-.retry-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 14px;
-}
-
-.retry-btn:hover {
-  background: linear-gradient(90deg, #ff5252, #ff8a65);
-  transform: translateY(-2px);
-}
-
 /* 删除确认弹窗样式 */
 .delete-modal-overlay {
   position: fixed;
@@ -1104,6 +1132,17 @@ onMounted(() => {
   margin-bottom: 10px;
 }
 
+.warning-text {
+  color: #ff6b6b;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 10px 20px;
+  background-color: rgba(255, 107, 107, 0.08);
+  border-radius: 15px;
+  margin: 15px 0;
+  display: inline-block;
+}
+
 .delete-modal-actions {
   display: flex;
   justify-content: center;
@@ -1144,17 +1183,17 @@ onMounted(() => {
   box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
 }
 
-@keyframes scaleIn {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* 响应式设计 */
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* 响应式设计增强 */
 @media (max-width: 768px) {
   .cart-header {
     grid-template-columns: 40px 3fr 1fr 1fr 0.5fr;
@@ -1175,6 +1214,8 @@ onMounted(() => {
   }
 
   .cart-footer {
+    flex-direction: column;
+    gap: 15px;
     border-radius: 0;
     bottom: 0;
     left: 0;
@@ -1184,18 +1225,25 @@ onMounted(() => {
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   }
   
+  .footer-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
   .total-info {
-    min-width: 180px;
+    min-width: 150px;
   }
   
   .shipping-tip {
     display: block;
+    width: 100%;
+    text-align: right;
     margin-left: 0;
     margin-top: 2px;
   }
 
   .checkout-btn {
-    min-width: 140px;
+    min-width: 120px;
     height: 48px;
     font-size: 15px;
   }
