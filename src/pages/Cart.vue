@@ -2,6 +2,10 @@
 import Header from '@/views/HomePage/Header.vue'
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router' // 引入 router
+
+// 初始化 router
+const router = useRouter()
 
 // 购物车项类型定义，根据后端返回调整
 interface CartItem {
@@ -264,6 +268,19 @@ const calculateDiscountPercentage = (price: number, originalPrice: number) => {
   return Math.round((price / originalPrice) * 10);
 };
 
+// 跳转到商品详情页
+const goToDetail = (event: Event, productId: string) => {
+  // 防止触发其他点击事件（如复选框）
+  event.stopPropagation()
+  
+  if (productId) {
+    router.push({
+      name: 'Detail',
+      params: { id: productId.toString() }
+    })
+  }
+};
+
 // 组件挂载时获取购物车数据
 onMounted(() => {
   fetchCartItems();
@@ -322,7 +339,8 @@ onMounted(() => {
               <label :for="`item-${item.id}`"></label>
             </div>
             
-            <div class="product-cell">
+            <!-- 添加点击事件，但只应用于商品信息区域 -->
+            <div class="product-cell" @click="goToDetail($event, item.productId)">
               <img :src="item.image" alt="商品图片" class="item-image" />
               <div class="item-details">
                 <div class="item-title">{{ item.title }}</div>
@@ -626,6 +644,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 30px; 
+  cursor: pointer; /* 添加手型光标 */
 }
 
 .item-image {
