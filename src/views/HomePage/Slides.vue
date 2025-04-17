@@ -1,28 +1,59 @@
 <script setup lang="ts">
-// 新增轮播数据
-const slides = [
-  { 
-    id: 1, 
-    title: '程序员的牛马一生', 
-    subtitle: '现实主义小说精选', 
-    bgColor: '#3a7bd5',
-    bgImage: 'linear-gradient(to right, #3a7bd5, #00d2ff)'
-  },
-  { 
-    id: 2, 
-    title: '新书特惠', 
-    subtitle: '精选好书5折起', 
-    bgColor: '#ff6b6b',
-    bgImage: 'linear-gradient(to right, #ff6b6b, #ff8e8e)'
-  },
-  { 
-    id: 3, 
-    title: '作者签售会', 
-    subtitle: '与知名作家面对面交流', 
-    bgColor: '#45b7d1',
-    bgImage: 'linear-gradient(to right, #45b7d1, #8ed6e8)'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const router = useRouter()
+const slides = ref<any[]>([])
+
+// 获取广告数据
+const fetchAdvertisements = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) {
+      console.error('未找到token，用户可能未登录')
+      return
+    }
+
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/advertisements`
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.data && response.data.code === '200') {
+      // 将广告数据转换为轮播图数据格式
+      slides.value = response.data.data.map((ad: any) => ({
+        id: ad.id,
+        title: ad.title,
+        subtitle: ad.content,
+        imageUrl: ad.imageUrl,
+        productId: ad.productId,
+        bgColor: '#3a7bd5',
+        bgImage: 'linear-gradient(to right, #3a7bd5, #00d2ff)'
+      }))
+    }
+  } catch (err) {
+    console.error('获取广告数据失败:', err)
   }
-]
+}
+
+// 处理点击查看按钮
+const handleViewClick = (productId: string) => {
+  if (productId) {
+    router.push({
+      name: 'Detail',
+      params: { id: productId }
+    })
+  }
+}
+
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchAdvertisements()
+})
 </script>
 
 <template>
@@ -32,10 +63,12 @@ const slides = [
         <div class="banner-content">
           <h1 class="banner-title">{{ slide.title }}</h1>
           <p class="banner-subtitle">{{ slide.subtitle }}</p>
-          <el-button type="primary" class="banner-button">立即查看</el-button>
+          <el-button type="primary" class="banner-button" @click="handleViewClick(slide.productId)">
+            立即查看
+          </el-button>
         </div>
         <div class="banner-image">
-          <img src="@/assets/logo.png" alt="banner" class="banner-img">
+          <img :src="slide.imageUrl" :alt="slide.title" class="banner-img">
         </div>
       </div>
     </el-carousel-item>
