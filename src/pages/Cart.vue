@@ -56,9 +56,9 @@ const fetchCartItems = async () => {
       cartItems.value = cartData.map((item: any) => {
         // 确保有productInfo，若无则提供默认值
         const productInfo = item.productInfo || {};
-        
+        console.log('商品信息:', cartData);
         return {
-          id: item.cartItemId || item.id, // 使用cartItemId作为购物车项ID
+          id: item.cartItemId, // 使用cartItemId作为购物车项ID
           productId: item.productId || '',
           image: productInfo.cover || '/src/assets/logo.png', // 使用第一张图片作为封面
           title: productInfo.title || '未知商品',
@@ -291,7 +291,15 @@ const goToDetail = (event: Event, productId: string) => {
 
 const goToCheckout = () => {
   if (selectedCount.value > 0) {
-    router.push('/order')
+    try{
+      const selectedItems = cartItems.value.filter(item => item.selected);
+      sessionStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+      console.log('选中的商品:', selectedItems);
+      router.push('/order');
+    } catch (err) {
+      console.error('跳转到结算页失败:', error);
+      error.value = '跳转失败，请稍后再试';
+    }
   }
 };
 

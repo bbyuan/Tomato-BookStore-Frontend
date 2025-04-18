@@ -130,7 +130,7 @@ const clearSelectedAddress = () => {
   addressForm.detailAddress = ''
 }
 
-// 从购物车获取已选中的商品数据 - 修改为使用真实 API 并添加 token 验证（临时保持原有的假数据）
+// 从购物车获取已选中的商品数据
 const fetchSelectedItems = async () => {
   loading.value = true
   error.value = ''
@@ -138,58 +138,32 @@ const fetchSelectedItems = async () => {
   try {
     // 获取 token
     const token = sessionStorage.getItem('token')
-    console.log(token)
     if (!token) {
       console.error('用户未登录，无法获取购物车商品')
       error.value = '用户未登录，请先登录'
       return
     }
     
-    
-    // 这里可以替换为实际的 API 调用
-    // const response = await axios.get('/api/cart/selected', {
-    //   headers: {
-    //     'token': token,
-    //     'Content-Type': 'application/json'
-    //   }
-    // })
-    // orderItems.value = response.data.data
-    
-    // 保持原有的假数据
-    orderItems.value = [
-      {
-        id: '1',
-        productId: 'book001',
-        image: 'https://img0.baidu.com/it/u=3006244417,2764926146&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=698',
-        title: '计算机科学导论（原书第3版）',
-        price: 69.00,
-        originalPrice: 89.00,
-        quantity: 2
-      },
-      {
-        id: '2',
-        productId: 'book002',
-        image: 'https://img0.baidu.com/it/u=2558209549,4041590352&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=667',
-        title: 'Java核心技术（卷1）基础知识（原书第12版）',
-        price: 109.00,
-        originalPrice: 139.00,
-        quantity: 1
-      },
-      {
-        id: '3',
-        productId: 'book003',
-        image: 'https://img1.baidu.com/it/u=254173494,4087177135&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=700',
-        title: '深入理解计算机系统（原书第3版）',
-        price: 136.90,
-        originalPrice: 139.00,
-        quantity: 1
-      }
-    ]
-    
-    console.log('订单商品:', orderItems.value)
+    const selectedItemJson = sessionStorage.getItem('selectedItems')
+    if(selectedItemJson){
+        const selectedItems = JSON.parse(selectedItemJson)
+
+        orderItems.value = selectedItems.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          image: item.image,
+          title: item.title,
+          price: item.price,
+          originalPrice: item.originalPrice,
+          quantity: item.quantity || 1
+        }))
+        console.log('获取到的已选商品:', orderItems.value)
+    }
+   
   } catch (err: any) {
     console.error('获取已选商品出错:', err)
     error.value = err.message || '网络请求失败'
+    orderItems.value = []
   } finally {
     loading.value = false
   }
@@ -312,18 +286,7 @@ const fetchAvailableCoupons = async () => {
       return
     }
     
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 600))
-    
-    // 这里可以替换为实际的 API 调用
-    // const response = await axios.get('/api/coupons/available', {
-    //   headers: {
-    //     'token': token,
-    //     'Content-Type': 'application/json'
-    //   }
-    // })
-    // availableCoupons.value = response.data.data
-    
+  
     // 保持原有的假数据
     availableCoupons.value = [
       {
@@ -479,49 +442,123 @@ const submitOrder = async () => {
       return
     }
     
+     // 构建完整地址
+    const fullAddress = `${addressForm.province}${addressForm.city}${addressForm.district}${addressForm.detailAddress}`
+
     // 构建订单数据
-    const orderData = {
-      items: orderItems.value.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price
-      })),
-      addressInfo: {
-        name: addressForm.name,
-        phone: addressForm.phone,
-        province: addressForm.province,
-        city: addressForm.city,
-        district: addressForm.district,
-        detailAddress: addressForm.detailAddress
-      },
-      couponId: selectedCoupon.value?.id || null,
-      paymentMethod: paymentMethod.value,
-      totalAmount: calculateTotal()
+    const checkoutData = {
+        cartItemIds: orderItems.value.map(item => item.id),
+        paymentMethod: "ALIPAY",
+        address: {
+            name: addressForm.name,
+            phone: addressForm.phone,
+            fullAddress: fullAddress
+        },
+    }
+    console.log(checkoutData.cartItemIds)
+    console.log('提交的订单数据:', checkoutData)
+    
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/api/cart/checkout`, 
+      checkoutData,
+      {
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    
+    // 处理响应
+    if (response.data && response.data.code === '200') {
+      // 获取订单数据
+      const orderData = response.data.data;
+        orderId.value = orderData.orderId; // 假设订单号在返回数据中
+       // 可以选择将其他订单信息保存到本地，如订单金额、创建时间等
+      sessionStorage.setItem('lastOrderInfo', JSON.stringify({
+    orderId: orderData.orderId,
+    username: orderData.username,
+    totalAmount: orderData.totalAmount,
+    paymentMethod: orderData.paymentMethod,
+    createTime: orderData.createTime,
+    status: orderData.status
+  }));
+
+      submitSuccess.value = true;
+
+      console.log('订单创建成功，订单号:', orderId.value);
+      console.log('订单总金额:', orderData.totalAmount);
+      console.log('订单创建时间:', orderData.createTime);
+      console.log('订单状态:', orderData.status);
+
+      // 清除购物车中的已选商品数据
+      sessionStorage.removeItem('selectedItems');
+  
+      // 显示成功状态一段时间后，跳转到支付页面
+      setTimeout(async () => {
+  try {
+    // 获取token
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      throw new Error('用户未登录，无法完成支付');
     }
     
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1200))
+    // 发起支付请求，获取支付表单
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId.value}/pay`,
+      {
+        headers: {
+          'token': token
+        }
+      }
+    );
     
-    // 这里替换为实际的 API 调用
-    // const response = await axios.post('/api/orders', orderData, {
-    //   headers: {
-    //     'token': token,
-    //     'Content-Type': 'application/json'
-    //   }
-    // })
-    
-    // 保持原有的模拟订单生成逻辑
-    orderId.value = 'TO' + Date.now().toString().slice(-8)
-    submitSuccess.value = true
-    
-    // 模拟跳转到支付页面
-    setTimeout(() => {
-      console.log('订单创建成功，订单号：', orderId.value)
-      console.log('支付金额：', calculateTotal().toFixed(2))
+    // 处理响应数据
+    if (response.data && response.data.code === '200' && response.data.data) {
+      const paymentData = response.data.data;
       
-      // 假设跳转到订单成功页面
-      // router.push('/order/success?orderId=' + orderId.value)
-    }, 1500)
+      // 保存订单支付信息到本地，方便用户查询
+      sessionStorage.setItem('currentPayment', JSON.stringify({
+        orderId: paymentData.orderId,
+        totalAmount: paymentData.totalAmount,
+        paymentMethod: paymentData.paymentMethod
+      }));
+      
+      // 获取返回的支付表单HTML
+      const paymentFormHTML = paymentData.paymentForm;
+      
+      // 创建一个新的HTML文档来展示支付表单
+      const paymentContainer = document.createElement('div');
+      paymentContainer.style.display = 'none'; 
+      paymentContainer.innerHTML = paymentFormHTML;
+      document.body.appendChild(paymentContainer);
+      
+      // 找到表单并自动提交
+      const form = paymentContainer.querySelector('form');
+      if (form) {
+        console.log('找到支付表单，准备提交');
+        form.submit(); // 自动提交表单
+      } else {
+        console.error('支付表单解析失败');
+        throw new Error('无法识别支付表单');
+      }
+    } else {
+      console.error('支付接口返回错误:', response.data);
+      throw new Error(response.data.msg || '获取支付表单失败');
+    }
+  } catch (err) {
+    console.error('支付请求失败:', err);
+    error.value = '获取支付表单失败，请稍后再试或联系客服';
+    
+    // 显示错误后，提供跳转到订单页面的选项
+    setTimeout(() => {
+      router.push('/user/orders');
+    }, 3000);
+  }
+}, 1500);
+    } else {
+      throw new Error(response.data.msg || '订单创建失败')
+    }
   } catch (err: any) {
     console.error('提交订单出错:', err)
     error.value = err.message || '网络请求失败'
@@ -691,7 +728,6 @@ onMounted(() => {
           <h3>支付方式</h3>
           <div class="payment-options">
             <label class="payment-option" :class="{ 'selected': paymentMethod === 'alipay' }">
-              <input type="radio" v-model="paymentMethod" value="alipay" checked />
               <div class="payment-icon">
                 <!-- 使用文字图标代替图片，避免路径问题 -->
                 <span class="payment-text-icon">支</span>
@@ -1229,10 +1265,6 @@ onMounted(() => {
 .payment-option.selected {
   border-color: #ff6b6b;
   background-color: #fff9f9;
-}
-
-.payment-option input {
-  margin-bottom: 10px;
 }
 
 .payment-icon {
