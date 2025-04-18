@@ -289,6 +289,12 @@ const goToDetail = (event: Event, productId: string) => {
   }
 };
 
+const goToCheckout = () => {
+  if (selectedCount.value > 0) {
+    router.push('/order')
+  }
+};
+
 // 组件挂载时获取购物车数据
 onMounted(() => {
   fetchCartItems();
@@ -413,7 +419,7 @@ onMounted(() => {
               </span>
             </div>
           </div>
-          <button class="checkout-btn" :disabled="selectedCount === 0" :class="{'pulse': selectedCount > 0}">
+          <button class="checkout-btn" :disabled="selectedCount === 0" :class="{'pulse': selectedCount > 0}" @click="goToCheckout">
             <div class="btn-content">
               <span>去结算</span>
               <span class="checkout-arrow">→</span>
