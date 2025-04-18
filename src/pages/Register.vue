@@ -160,8 +160,36 @@
           
           <div class="form-grid">
             <div class="form-field">
-              <input type="text" v-model="form.location" id="location" class="input-field">
-              <label for="location" :class="{ 'label-float': form.location }">所在地</label>
+              <input 
+                type="text" 
+                v-model="selectedProvince" 
+                id="province" 
+                class="input-field"
+                @input="updateLocationValue"
+              >
+              <label for="province" :class="{ 'label-float': selectedProvince }">省份</label>
+            </div>
+            
+            <div class="form-field">
+              <input 
+                type="text" 
+                v-model="selectedCity" 
+                id="city" 
+                class="input-field"
+                @input="updateLocationValue"
+              >
+              <label for="city" :class="{ 'label-float': selectedCity }">城市</label>
+            </div>
+            
+            <div class="form-field">
+              <input 
+                type="text" 
+                v-model="selectedDistrict" 
+                id="district" 
+                class="input-field"
+                @input="updateLocationValue"
+              >
+              <label for="district" :class="{ 'label-float': selectedDistrict }">区/县</label>
             </div>
           </div>
         </div>
@@ -224,6 +252,26 @@ const form = reactive({
   telephone: '',
   email: '',
   location: ''
+})
+
+// 省市区选择状态
+const selectedProvince = ref('')
+const selectedCity = ref('')
+const selectedDistrict = ref('')
+
+// 更新location值
+const updateLocationValue = () => {
+  const locationParts = []
+  if (selectedProvince.value) locationParts.push(selectedProvince.value)
+  if (selectedCity.value) locationParts.push(selectedCity.value)
+  if (selectedDistrict.value) locationParts.push(selectedDistrict.value)
+  
+  form.location = locationParts.join(' ')
+}
+
+// 监听区/县的变化，更新location
+watch(selectedDistrict, () => {
+  updateLocationValue()
 })
 
 const usernameRegex = /^[\u4e00-\u9fa5a-zA-Z0-9]+$/  // 中文、英文字母、数字
@@ -313,6 +361,9 @@ const nextStep = async () => {
     currentStep.value++
   } else {
     try {
+      // 更新location值，确保提交前是最新的
+      updateLocationValue()
+      
       const formData = {
         username: form.username,
         password: form.password,
