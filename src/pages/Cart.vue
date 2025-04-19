@@ -296,7 +296,7 @@ const goToCheckout = () => {
       sessionStorage.setItem('selectedItems', JSON.stringify(selectedItems));
       console.log('选中的商品:', selectedItems);
       router.push('/order');
-      //router.push('/payment-success');
+      // router.push('/payment-success');
     } catch (err) {
       console.error('跳转到结算页失败:', error);
       error.value = '跳转失败，请稍后再试';

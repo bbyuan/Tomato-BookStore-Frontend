@@ -10,7 +10,9 @@ const router = useRouter()
 const orderInfo = ref({
   orderId: '',
   totalAmount: 0,
-  paymentMethod: ''
+  paymentMethod: '',
+  tradeNo: '',  // 新增交易号字段
+  paymentTime: ''  // 新增支付时间字段
 })
 
 // 是否正在加载
@@ -28,53 +30,39 @@ const countdownInterval = ref<number | null>(null)
 const fetchOrderInfo = () => {
   try {
     console.log('开始获取订单信息...')
-    const orderInfoJson = sessionStorage.getItem('lastOrderInfo')
-    const paymentInfoJson = sessionStorage.getItem('currentPayment')
     
-    console.log('订单信息JSON:', orderInfoJson)
-    console.log('支付信息JSON:', paymentInfoJson)
+    // 从 URL 参数中获取数据
+    const urlParams = new URLSearchParams(window.location.search)
+    const orderIdFromUrl = urlParams.get('orderId')
+    const tradeNoFromUrl = urlParams.get('tradeNo')
+    const paymentTimeFromUrl = urlParams.get('paymentTime')
     
-    if (orderInfoJson) {
-      try {
-        const parsedInfo = JSON.parse(orderInfoJson)
-        orderInfo.value = {
-          ...orderInfo.value,
-          ...parsedInfo
-        }
-        console.log('解析后的订单信息:', orderInfo.value)
-      } catch (e) {
-        console.error('解析订单信息JSON失败:', e)
-        hasError.value = true
-        errorMessage.value = '订单信息格式错误'
-      }
-    } else {
-      console.warn('未找到订单信息')
+    console.log('从URL获取的参数:', { 
+      orderId: orderIdFromUrl, 
+      tradeNo: tradeNoFromUrl, 
+      paymentTime: paymentTimeFromUrl
+    })
+    
+    // 更新订单信息
+    if (orderIdFromUrl) {
+      orderInfo.value.orderId = orderIdFromUrl
     }
     
-    if (paymentInfoJson) {
-      try {
-        const paymentInfo = JSON.parse(paymentInfoJson)
-        // 合并支付信息（如果有）
-        if (paymentInfo.totalAmount) {
-          orderInfo.value.totalAmount = paymentInfo.totalAmount
-        }
-        if (paymentInfo.paymentMethod) {
-          orderInfo.value.paymentMethod = paymentInfo.paymentMethod
-        }
-        console.log('解析后的支付信息:', paymentInfo)
-      } catch (e) {
-        console.error('解析支付信息JSON失败:', e)
-      }
+    if (tradeNoFromUrl) {
+      orderInfo.value.tradeNo = tradeNoFromUrl
     }
     
-    // 如果没有订单ID，尝试从URL参数中获取
+    if (paymentTimeFromUrl) {
+      orderInfo.value.paymentTime = paymentTimeFromUrl
+    }
+    
+    console.log('更新后的订单信息:', orderInfo.value)
+    
+    // 如果没有订单ID，则认为有错误
     if (!orderInfo.value.orderId) {
-      const urlParams = new URLSearchParams(window.location.search)
-      const orderIdFromUrl = urlParams.get('orderId')
-      if (orderIdFromUrl) {
-        orderInfo.value.orderId = orderIdFromUrl
-        console.log('从URL获取订单ID:', orderIdFromUrl)
-      }
+      console.warn('未找到订单ID')
+      hasError.value = true
+      errorMessage.value = '未找到订单信息'
     }
     
     loading.value = false
@@ -160,11 +148,17 @@ onBeforeUnmount(() => {
         <h3>支付成功！</h3>
         <div class="order-details" v-if="orderInfo.orderId">
           <p class="detail-item">订单号: <span class="detail-value">{{ orderInfo.orderId }}</span></p>
+          <p class="detail-item" v-if="orderInfo.tradeNo">
+            交易号: <span class="detail-value">{{ orderInfo.tradeNo }}</span>
+          </p>
           <p class="detail-item" v-if="orderInfo.totalAmount">
             支付金额: <span class="detail-value price">¥{{ orderInfo.totalAmount.toFixed(2) }}</span>
           </p>
           <p class="detail-item" v-if="orderInfo.paymentMethod">
             支付方式: <span class="detail-value">{{ orderInfo.paymentMethod === 'ALIPAY' ? '支付宝' : orderInfo.paymentMethod }}</span>
+          </p>
+          <p class="detail-item" v-if="orderInfo.paymentTime">
+            支付时间: <span class="detail-value">{{ orderInfo.paymentTime }}</span>
           </p>
         </div>
         
@@ -424,3 +418,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+``` 

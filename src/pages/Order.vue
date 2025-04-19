@@ -503,15 +503,12 @@ const submitOrder = async () => {
       throw new Error('用户未登录，无法完成支付');
     }
     
-    // 发起支付请求，获取支付表单
-    const response = await axios.get(
-      `${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId.value}/pay`,
-      {
-        headers: {
-          'token': token
-        }
+    const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId.value}/pay`, {
+      method: 'GET',
+      headers: {
+        'token': token
       }
-    );
+    })
     
     // 处理响应数据
     if (response.data && response.data.code === '200' && response.data.data) {
