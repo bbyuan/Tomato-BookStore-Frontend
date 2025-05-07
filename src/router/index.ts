@@ -16,6 +16,9 @@ import AdminAdverManagement from '@/pages/AdminAdverManagement.vue'
 import Cart from '@/pages/Cart.vue';
 import Order from '@/pages/Order.vue';
 import PaymentSuccess from '@/pages/PaymentSuccess.vue'
+import NotFound from '@/pages/NotFound.vue'
+import Loading from '@/pages/Loading.vue'
+import LoadingFail from '@/pages/LoadingFail.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -89,6 +92,21 @@ const router = createRouter({
       path: '/admin/adver-management',
       name: 'AdminAdverManagement',
       component: AdminAdverManagement
+    },
+    {
+      path: '/not-found',
+      name: 'NotFound',
+      component: NotFound
+    },
+    {
+      path: '/loading',
+      name: 'Loading',
+      component: Loading
+    },
+    {
+      path: '/loading-fail',
+      name: 'LoadingFail',
+      component: LoadingFail
     },
     {
       path: '/cart',

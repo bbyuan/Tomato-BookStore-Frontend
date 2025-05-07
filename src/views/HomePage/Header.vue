@@ -60,7 +60,7 @@ onMounted(() => {
 
 const handleCommand = (command: string) => {
   if (command === 'account-settings') {
-    router.push('/account-settings')
+    router.push('/account-settings/account')
   } else if (command === 'logout') {
     // 处理登出逻辑
   } else if (command === 'admin-dashboard') {
@@ -72,6 +72,9 @@ const handleCommand = (command: string) => {
   } else if (command === 'cart') {
     router.push('/cart')
     activeTab.value = '3' // 设置购物车为选中状态
+  }else if (command === 'personal-center') {
+    router.push('/account-settings/account')
+    activeTab.value = '7' // 设置个人中心为选中状态
   }
 }
 </script>
@@ -97,7 +100,7 @@ const handleCommand = (command: string) => {
         <input type="radio" id="tab-6" name="tabs" value="6" v-model="activeTab" />
         <label class="tab" for="tab-6">客户服务</label>
         <input type="radio" id="tab-7" name="tabs" value="7" v-model="activeTab" />
-        <label class="tab" for="tab-7">个人中心</label>
+        <label class="tab" for="tab-7" @click="handleCommand('personal-center')">个人中心</label>
         <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" />
         <label class="tab" for="tab-8" @click="handleCommand('admin-dashboard')">管理员后台</label>
         <span class="glider"></span>

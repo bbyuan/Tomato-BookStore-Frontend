@@ -15,6 +15,12 @@
     >
       <i class="fas fa-lock"></i> 修改密码
     </router-link>
+    
+    <div class="spacer"></div>
+    
+    <button class="home-button" @click="goToHomepage">
+      <i class="fas fa-home"></i> 返回主页
+    </button>
   </div>
   <div class="account-settings">
     <div class="content">
@@ -26,10 +32,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const currentTab = computed(() => route.path.split('/').pop())
+
+const goToHomepage = () => {
+  router.push('/homepage')
+}
 </script>
 
 <style scoped>
@@ -56,6 +67,7 @@ const currentTab = computed(() => route.path.split('/').pop())
   width: 80rem;
   margin: 0 auto;
   padding: 0 20px;
+  align-items: center;
 }
 
 .tab {
@@ -77,6 +89,30 @@ const currentTab = computed(() => route.path.split('/').pop())
   background-color: #d44c4c;
   font-size: 1rem;
   transform: translateY(-2px);
+}
+
+.spacer {
+  flex-grow: 1;
+}
+
+.home-button {
+  background-color: #d44c4c;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.home-button:hover {
+  background-color: #c43c3c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .account-settings {

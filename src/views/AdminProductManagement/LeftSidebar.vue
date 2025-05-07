@@ -6,7 +6,7 @@ import { useRouter, useRoute } from 'vue-router'
 const menuItems = ref([
   { name: '商品管理', route: '/admin/product-management' },
   { name: '订单管理', route: '/admin/order-management' },
-  { name:  '广告管理', route: '/admin/adver-management'},
+  { name: '广告管理', route: '/admin/adver-management'},
   { name: '用户管理', route: '/admin/user-management' },
   { name: '数据统计', route: '/admin/stats' },
   { name: '系统设置', route: '/admin/settings' }
@@ -16,7 +16,13 @@ const router = useRouter()
 const route = useRoute()
 
 function navigateTo(route: string) {
-  router.push(route)
+  if (route === '/admin/stats') {
+    router.push('/not-found')
+  } else if(route == '/admin/order-management'){
+    router.push('/loading-fail')
+  }else {
+    router.push(route)
+  }
 }
 
 // 计算当前激活的菜单项
