@@ -202,7 +202,7 @@ onMounted(() => {
     </div>
     
     <div class="hot-books-header">
-      <h2>热销书籍</h2>
+      <h2>所有书籍</h2>
       <div class="view-more">查看更多 <i class="arrow-right">›</i></div>
     </div>
     
