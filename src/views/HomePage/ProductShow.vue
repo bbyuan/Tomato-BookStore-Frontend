@@ -15,6 +15,15 @@ const showCartResult = ref(false);
 const isCartSuccess = ref(false);
 const lastAddedBook = ref(''); 
 
+// 分页相关数据
+const pageSize = ref(20);
+const pageNum = ref(1);
+const totalPage = ref(0);
+const totalCount = ref(0);
+const hasNext = ref(false);
+const hasPrev = ref(false);
+const pageNumInput = ref('');
+
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
   const currentPrice = parseFloat(price.replace('¥', ''))
@@ -37,18 +46,23 @@ const fetchBooks = async () => {
       return;
     }
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/page`;
     
     const response = await axios.get(apiUrl, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
+      },
+      params: {
+        pageSize: pageSize.value,
+        pageNum: pageNum.value
       }
     });
     
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
-      technicalBooks.value = response.data.data.map((item: any) => {
+      const products = response.data.data.products;
+      technicalBooks.value = products.map((item: any) => {
         // 将价格转换为数字
         const currentPrice = parseFloat(item.price);
         // 计算原价 = 当前价格 + 20元
@@ -63,6 +77,11 @@ const fetchBooks = async () => {
           description: item.description || '暂无描述',
         };
       });
+
+      totalPage.value = response.data.data.total_page;
+      totalCount.value = response.data.data.total_count;
+      hasNext.value = response.data.data.has_next;
+      hasPrev.value = response.data.data.has_prev;
     } else {
       error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
@@ -141,11 +160,33 @@ const addToCart = async (event: Event, bookId: number, bookTitle: string) => {
   }
 };
 
+// 切换页面
+const changePage = (page: number | string) => {
+  let pageNumber = Number(page);
+
+  if (typeof page === 'string') {
+    pageNumber = parseInt(page, 10);
+    if (isNaN(pageNumber)) {
+      alert('请输入有效的页码');
+      pageNumInput.value = '';
+      return;
+    }
+  }
+
+  if (pageNumber < 1 || pageNumber > totalPage.value) {
+    alert('超出页码范围');
+    return;
+  }
+
+  pageNum.value = pageNumber;
+  pageNumInput.value = '';
+  fetchBooks();
+};
+
 // 组件挂载时获取数据
 onMounted(() => {
   fetchBooks();
 });
-
 </script>
 
 <template>
@@ -208,6 +249,48 @@ onMounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </div>
+  <!-- 分页组件 -->
+  <div class="pagination-container">
+    <div class="pagination">
+      <button 
+        :disabled="!hasPrev" 
+        @click="changePage(pageNum - 1)" 
+        class="page-btn prev-btn"
+        :class="{'disabled': !hasPrev}"
+      >
+        <span class="btn-icon">←</span> 上一页
+      </button>
+      
+      <div class="page-info">
+        <div class="page-input-wrapper">
+          <input 
+            type="number" 
+            v-model="pageNumInput"
+            :placeholder="String(pageNum)"
+            class="page-input"
+            @keyup.enter="(e) => { changePage(pageNumInput); e.target.blur(); }"
+            min="1"
+            :max="totalPage"
+          >
+          <div class="page-input-bg"></div>
+        </div>
+        <span class="page-separator">/ {{ totalPage }}</span>
+      </div>
+      
+      <button 
+        :disabled="!hasNext" 
+        @click="changePage(pageNum + 1)" 
+        class="page-btn next-btn"
+        :class="{'disabled': !hasNext}"
+      >
+        下一页 <span class="btn-icon">→</span>
+      </button>
+    </div>
+    
+    <div class="page-summary">
+      共 {{ totalCount }} 条记录，当前显示第 {{ pageNum }} 页
     </div>
   </div>
 </template>
@@ -667,6 +750,167 @@ onMounted(() => {
 .retry-btn:hover {
   background: linear-gradient(90deg, #ff5252, #ff8a65);
   transform: translateY(-2px);
+}
+
+/* 分页样式 */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 30px 0;
+  padding: 15px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: white;
+  padding: 10px 15px;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.page-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  margin: 0 8px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 3px 8px rgba(255, 107, 107, 0.25);
+}
+
+.page-btn:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(255, 107, 107, 0.35);
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
+}
+
+.page-btn:active:not(.disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(255, 107, 107, 0.25);
+}
+
+.page-btn.disabled {
+  background: #e0e0e0;
+  cursor: not-allowed;
+  box-shadow: none;
+  color: #999;
+}
+
+.btn-icon {
+  margin: 0 5px;
+  font-weight: bold;
+}
+
+.prev-btn .btn-icon {
+  margin-right: 5px;
+}
+
+.next-btn .btn-icon {
+  margin-left: 5px;
+}
+
+.page-info {
+  display: flex;
+  align-items: center;
+  margin: 0 15px;
+  position: relative;
+}
+
+.page-input-wrapper {
+  position: relative;
+  width: 60px;
+  height: 38px;
+}
+
+.page-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 10px;
+  border: 2px solid rgba(255, 107, 107, 0.2);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #555;
+  transition: all 0.3s;
+  background-color: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.page-input::placeholder {
+  color: #555;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.page-input:focus::placeholder {
+  opacity: 0;
+}
+
+.page-input-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+  z-index: 1;
+}
+
+.page-input:focus {
+  border-color: rgba(255, 107, 107, 0.8);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+}
+
+.page-input::-webkit-inner-spin-button,
+.page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-separator {
+  margin: 0 0 0 10px;
+  font-size: 16px;
+  color: #666;
+  font-weight: 500;
+}
+
+.page-summary {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #777;
+}
+
+@media (max-width: 576px) {
+  .pagination {
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    border-radius: 15px;
+  }
+  
+  .page-btn {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+  }
+  
+  .page-info {
+    margin: 10px 0;
+  }
 }
 </style>
 
