@@ -55,6 +55,12 @@ onMounted(() => {
     activeTab.value = '8'
   } else if (path.includes('/homepage')) {
     activeTab.value = '1'
+  } else if (path.includes('/myorders')) {
+    activeTab.value = '4'
+  } else if (path.includes('/account-settings')) {
+    activeTab.value = '7'
+  } else {
+    activeTab.value = '1' // 默认主页
   }
 })
 
@@ -72,9 +78,12 @@ const handleCommand = (command: string) => {
   } else if (command === 'cart') {
     router.push('/cart')
     activeTab.value = '3' // 设置购物车为选中状态
-  }else if (command === 'personal-center') {
+  } else if (command === 'personal-center') {
     router.push('/account-settings/account')
     activeTab.value = '7' // 设置个人中心为选中状态
+  } else if (command === 'myorders') {
+    router.push('/myorders')
+    activeTab.value = '4' // 设置我的订单为选中状态
   }
 }
 </script>
@@ -94,7 +103,7 @@ const handleCommand = (command: string) => {
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
         <label class="tab" for="tab-3" @click="handleCommand('cart')">购物车</label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
-        <label class="tab" for="tab-4">我的订单</label>
+        <label class="tab" for="tab-4" @click="handleCommand('myorders')">我的订单</label>
         <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
         <label class="tab" for="tab-5">优惠券管理</label>
         <input type="radio" id="tab-6" name="tabs" value="6" v-model="activeTab" />
