@@ -87,17 +87,17 @@ const getSubcategories = (categoryId: number) => {
 }
 
 const activities = ref([
-  { id: 1, name: '全场图书满100减30，限时48小时！' },
-  { id: 2, name: '新书抢先预定，享独家首发福利' },
-  { id: 3, name: '知名作家线下签售会火热报名中' },
+  { id: 1, name: '全场图书满100减30，限时48小时！', type: 'hot' },
+  { id: 2, name: '新书抢先预定，享独家首发福利', type: 'new' },
+  { id: 3, name: '知名作家线下签售会火热报名中', type: 'event' },
 ]);
 </script>
 
 <template>
   <div class="aside-container">
     <div class="category-title">
-      <i class="el-icon-menu"></i>
-      图书分类
+      <div class="title-icon">📚</div>
+      <span class="title-text">图书分类</span>
     </div>
     
     <div class="category-list">
@@ -123,18 +123,20 @@ const activities = ref([
 
     <div class="activity-section">
       <div class="activity-title">
-        <i class="el-icon-star-on"></i>
-        热门活动
+        <div class="title-icon">🔥</div>
+        <span class="title-text">热门活动</span>
       </div>
       
       <div class="activity-list">
         <div v-for="activity in activities" 
              :key="activity.id" 
              class="activity-item">
-          <a href="#" class="activity-link">
-            {{ activity.name }}
-            <span class="activity-tag">HOT</span>
-          </a>
+          <div class="activity-content">
+            <p class="activity-text">{{ activity.name }}</p>
+            <span class="activity-tag" :class="activity.type">
+              {{ activity.type === 'hot' ? 'HOT' : activity.type === 'new' ? 'NEW' : 'EVENT' }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -143,46 +145,89 @@ const activities = ref([
 
 <style scoped>
 .aside-container {
-  background-color: #fff;
-  border-radius: 12px;
+  background: #fff;
+  border-radius: 8px;
   width: 240px;
-  height: 600px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  height: fit-content;
+  max-height: 100vh;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border: 1px solid #f0f0f0;
 }
 
 .category-title {
-  background: linear-gradient(135deg, #e4393c, #ff5757);
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5757 100%);
   color: white;
-  padding: 16px 20px;
-  font-weight: 600;
+  padding: 18px 20px;
+  font-weight: 700;
   font-size: 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 2px 8px rgba(228, 57, 60, 0.2);
+  gap: 10px;
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(255, 107, 107, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.category-title::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) rotate(45deg); }
+}
+
+.title-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.title-text {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .category-list {
-  flex: 1;
-  overflow-y: auto;
-  border-left: 1px solid #f0f0f0;
-  border-right: 1px solid #f0f0f0;
+  overflow: hidden;
+  padding-right: 2px;
+  max-height: 360px;
 }
 
 .category-item {
-  padding: 14px 20px;
-  border-bottom: 1px solid #f8f9fa;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.015);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 13px;
   font-weight: 500;
   position: relative;
+  color: #666;
+  margin-bottom: 1px;
+  border-radius: 6px;
 }
 
 .category-item::before {
@@ -190,28 +235,45 @@ const activities = ref([
   position: absolute;
   left: 0;
   top: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
-  background: #e4393c;
+  background: linear-gradient(135deg, #ff6b6b, #ff5757);
   transform: scaleY(0);
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
   transform-origin: center;
+  border-radius: 0 2px 2px 0;
+}
+
+.category-item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.02), rgba(255, 87, 87, 0.02));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  border-radius: 6px;
 }
 
 .category-item:hover {
-  color: #e4393c;
-  background-color: rgba(228, 57, 60, 0.03);
-  transform: translateX(4px);
+  color: #ff6b6b;
+  transform: translateX(3px);
 }
 
 .category-item:hover::before {
   transform: scaleY(1);
 }
 
+.category-item:hover::after {
+  opacity: 1;
+}
+
 .category-item.active {
-  color: #e4393c;
-  background-color: rgba(228, 57, 60, 0.05);
-  transform: translateX(4px);
+  color: #ff6b6b;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.03), rgba(255, 87, 87, 0.02));
+  transform: translateX(3px);
 }
 
 .category-item.active::before {
@@ -219,19 +281,37 @@ const activities = ref([
 }
 
 .subcategory-panel {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #fafbfc, #f8f9fa);
-  border-bottom: 1px solid #f0f0f0;
-  animation: slideDown 0.3s ease;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fafafa, #f7f8fc);
+  border-bottom: 1px solid rgba(255, 107, 107, 0.06);
+  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 0 6px 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 107, 107, 0.06);
+  position: relative;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.subcategory-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ff6b6b, #ff5757);
+  border-radius: 6px 6px 0 0;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    max-height: 0;
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
+    max-height: 150px;
     transform: translateY(0);
   }
 }
@@ -239,152 +319,211 @@ const activities = ref([
 .subcategory-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .subcategory-item {
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 3px 7px;
+  font-size: 10px;
   cursor: pointer;
-  background-color: #fff;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 4px;
-  border: 1px solid #f0f0f0;
+  margin-bottom: 3px;
+  border: 1px solid rgba(255, 107, 107, 0.08);
   font-weight: 500;
+  color: #666;
 }
 
 .subcategory-item:hover {
-  color: #e4393c;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(228, 57, 60, 0.15);
-  background: rgba(228, 57, 60, 0.03);
-  border-color: rgba(228, 57, 60, 0.2);
+  color: #ff6b6b;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.03), #ffffff);
+  border-color: rgba(255, 107, 107, 0.2);
 }
 
 .activity-section {
-  margin-top: auto;
   background: #fff;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #f5f5f5;
+  margin-top: 8px;
 }
 
 .activity-title {
-  padding: 16px 20px;
-  font-weight: 600;
+  padding: 18px 20px;
+  font-weight: 700;
   font-size: 16px;
   color: white;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #e4393c, #ff5757);
-  box-shadow: 0 -2px 8px rgba(228, 57, 60, 0.1);
+  gap: 10px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5757 100%);
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(255, 107, 107, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-title::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: shimmer 3s infinite;
 }
 
 .activity-list {
   padding: 16px 20px;
-  max-height: 160px;
-  overflow-y: auto;
+  max-height: 280px;
+  overflow: hidden;
 }
 
 .activity-item {
-  padding: 8px 0;
-  border-bottom: 1px solid #f8f9fa;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #fafafa, #f7f8fc);
+  border-radius: 8px;
+  border-left: 4px solid #ff6b6b;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 107, 107, 0.06);
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.activity-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ff6b6b, #ff5757);
+  border-radius: 8px 8px 0 0;
+}
+
+.activity-item:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.03), rgba(255, 87, 87, 0.02));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.15);
 }
 
 .activity-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
-.activity-link {
+.activity-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  color: #333;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  line-height: 1.5;
-  font-size: 13px;
-  padding: 4px 0;
-  border-radius: 4px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.activity-link:hover {
-  color: #e4393c;
-  transform: translateX(2px);
+.activity-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #555;
+  margin: 0;
+  flex: 1;
+  font-weight: 500;
 }
 
 .activity-tag {
-  background: linear-gradient(135deg, #e4393c, #ff5757);
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  margin-left: 8px;
+  font-size: 9px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 700;
   flex-shrink: 0;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(228, 57, 60, 0.3);
-  animation: pulse 2s infinite;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
+.activity-tag.hot {
+  background: linear-gradient(135deg, #ff6b6b, #ff5757);
+  color: white;
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
 }
 
-.category-list::-webkit-scrollbar,
-.activity-list::-webkit-scrollbar {
-  width: 4px;
+.activity-tag.new {
+  background: linear-gradient(135deg, #2ed573, #17c0eb);
+  color: white;
+  box-shadow: 0 2px 6px rgba(46, 213, 115, 0.3);
 }
 
-.category-list::-webkit-scrollbar-track,
-.activity-list::-webkit-scrollbar-track {
-  background: #f8f9fa;
+.activity-tag.event {
+  background: linear-gradient(135deg, #ffa502, #ff7675);
+  color: white;
+  box-shadow: 0 2px 6px rgba(255, 165, 2, 0.3);
 }
 
-.category-list::-webkit-scrollbar-thumb,
-.activity-list::-webkit-scrollbar-thumb {
-  background: #e4393c;
+/* 自定义滚动条 */
+.category-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.category-list::-webkit-scrollbar-track {
+  background: #f8f8f8;
   border-radius: 2px;
 }
 
-.category-list::-webkit-scrollbar-thumb:hover,
-.activity-list::-webkit-scrollbar-thumb:hover {
-  background: #d63384;
+.category-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ff6b6b, #ff5757);
+  border-radius: 2px;
+}
+
+.category-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ff5757, #ff4757);
 }
 
 @media (max-width: 768px) {
   .aside-container {
     width: 100%;
-    height: auto;
     margin-bottom: 20px;
   }
   
   .category-title {
-    padding: 14px 16px;
+    padding: 16px 18px;
     font-size: 15px;
   }
   
+  .title-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 18px;
+  }
+  
   .category-item {
-    padding: 12px 16px;
-    font-size: 13px;
+    padding: 9px 16px;
+    font-size: 12px;
   }
   
   .subcategory-panel {
-    padding: 14px 16px;
+    padding: 8px 10px;
+    margin: 0 4px 2px 4px;
   }
   
   .activity-title {
-    padding: 14px 16px;
+    padding: 16px 18px;
     font-size: 15px;
   }
   
   .activity-list {
-    padding: 14px 16px;
+    padding: 14px 18px;
+  }
+  
+  .activity-item {
+    padding: 10px 12px;
+  }
+  
+  .activity-text {
+    font-size: 11px;
   }
 }
 </style>
