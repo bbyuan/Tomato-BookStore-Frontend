@@ -1,87 +1,118 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 
 interface BookItem {
-  id: number;
-  rank: string;
+  id: string;
+  rank: number;
   title: string;
   price: number;
   originalPrice?: number;
-  link: string;
-  image?: string;
+  rate: number;
+  description: string;
+  category: string;
+  cover: string;
+  cover_name: string;
+  covers: string[];
+  covers_name: string[];
+  detail: string;
+  specifications: any[];
+  stock: any;
+  metricValue: number;
 }
 
-const activeTab = ref('总榜');
-const categories = ['总榜', '文学', '社科', '少儿', '生活'];
-const selectedBook = ref<BookItem | null>(null);
-const selectedBooks = reactive<Record<number, boolean>>({});
+interface RankingData {
+  rankings: BookItem[];
+}
 
-const bookLists = reactive({
-  '总榜': [
-    { id: 1, rank: '01', title: '活着', price: 28.5, originalPrice: 45.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s29053580.jpg' },
-    { id: 2, rank: '02', title: '百年孤独', price: 39.8, originalPrice: 59.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s27237850.jpg' },
-    { id: 3, rank: '03', title: '三体全集', price: 99.0, originalPrice: 128.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s2768378.jpg' },
-    { id: 4, rank: '04', title: '平凡的世界', price: 78.0, originalPrice: 99.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1144911.jpg' },
-    { id: 5, rank: '05', title: '人类简史', price: 45.6, originalPrice: 68.0, link: '#', image: 'https://img3.doubanio.com/view/subject/s/public/s27814883.jpg' },
-    { id: 6, rank: '06', title: '解忧杂货店', price: 32.0, originalPrice: 45.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s27264181.jpg' },
-    { id: 7, rank: '07', title: '小王子', price: 18.5, originalPrice: 28.0, link: '#', image: 'https://img3.doubanio.com/view/subject/s/public/s1103152.jpg' },
-    { id: 8, rank: '08', title: '围城', price: 28.5, originalPrice: 42.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1070222.jpg' },
-    { id: 9, rank: '09', title: '白夜行', price: 35.0, originalPrice: 49.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s24514468.jpg' },
-    { id: 10, rank: '10', title: '追风筝的人', price: 29.8, originalPrice: 42.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1727290.jpg' }
-  ],
-  '文学': [
-    { id: 1, rank: '01', title: '活着', price: 28.5, originalPrice: 45.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s29053580.jpg' },
-    { id: 2, rank: '02', title: '百年孤独', price: 39.8, originalPrice: 59.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s27237850.jpg' },
-    { id: 3, rank: '03', title: '围城', price: 28.5, originalPrice: 42.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1070222.jpg' },
-    { id: 4, rank: '04', title: '平凡的世界', price: 78.0, originalPrice: 99.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1144911.jpg' },
-    { id: 5, rank: '05', title: '白鹿原', price: 35.0, originalPrice: 49.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s9137567.jpg' },
-    { id: 6, rank: '06', title: '霍乱时期的爱情', price: 39.0, originalPrice: 55.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s11284102.jpg' },
-    { id: 7, rank: '07', title: '挪威的森林', price: 29.8, originalPrice: 42.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1228930.jpg' },
-    { id: 8, rank: '08', title: '1984', price: 25.0, originalPrice: 36.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s4371408.jpg' },
-    { id: 9, rank: '09', title: '杀死一只知更鸟', price: 32.0, originalPrice: 45.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s23128183.jpg' },
-    { id: 10, rank: '10', title: '飘', price: 45.0, originalPrice: 65.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1078958.jpg' }
-  ],
-  '社科': [
-    { id: 1, rank: '01', title: '人类简史', price: 45.6, originalPrice: 68.0, link: '#', image: 'https://img3.doubanio.com/view/subject/s/public/s27814883.jpg' },
-    { id: 2, rank: '02', title: '枪炮、病菌与钢铁', price: 42.0, originalPrice: 62.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s1738643.jpg' },
-    { id: 3, rank: '03', title: '乡土中国', price: 19.9, originalPrice: 32.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s1790771.jpg' },
-    { id: 4, rank: '04', title: '乌合之众', price: 15.0, originalPrice: 25.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1988393.jpg' },
-    { id: 5, rank: '05', title: '社会心理学', price: 78.0, originalPrice: 99.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1670932.jpg' },
-    { id: 6, rank: '06', title: '经济学原理', price: 88.0, originalPrice: 120.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s4379914.jpg' },
-    { id: 7, rank: '07', title: '中国历代政治得失', price: 22.0, originalPrice: 35.0, link: '#', image: 'https://img9.doubanio.com/view/subject/s/public/s1319205.jpg' },
-    { id: 8, rank: '08', title: '万历十五年', price: 25.0, originalPrice: 38.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1800355.jpg' },
-    { id: 9, rank: '09', title: '全球通史', price: 65.0, originalPrice: 88.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1728722.jpg' },
-    { id: 10, rank: '10', title: '资本论', price: 99.0, originalPrice: 128.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1311083.jpg' }
-  ],
-  '少儿': [
-    { id: 1, rank: '01', title: '小王子', price: 18.5, originalPrice: 28.0, link: '#', image: 'https://img3.doubanio.com/view/subject/s/public/s1103152.jpg' },
-    { id: 2, rank: '02', title: '夏洛的网', price: 19.9, originalPrice: 29.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1120437.jpg' },
-    { id: 3, rank: '03', title: '哈利·波特与魔法石', price: 35.0, originalPrice: 49.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1990480.jpg' },
-    { id: 4, rank: '04', title: '安徒生童话', price: 25.0, originalPrice: 38.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1034063.jpg' },
-    { id: 5, rank: '05', title: '格林童话', price: 22.0, originalPrice: 35.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1034062.jpg' },
-    { id: 6, rank: '06', title: '窗边的小豆豆', price: 22.0, originalPrice: 32.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1067911.jpg' },
-    { id: 7, rank: '07', title: '猜猜我有多爱你', price: 15.0, originalPrice: 25.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s1999110.jpg' },
-    { id: 8, rank: '08', title: '不一样的卡梅拉', price: 28.0, originalPrice: 40.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s4397377.jpg' },
-    { id: 9, rank: '09', title: '神奇校车系列', price: 88.0, originalPrice: 120.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s2503193.jpg' },
-    { id: 10, rank: '10', title: '皮皮鲁传', price: 19.9, originalPrice: 30.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s1134341.jpg' }
-  ],
-  '生活': [
-    { id: 1, rank: '01', title: '断舍离', price: 29.8, originalPrice: 45.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s33718942.jpg' },
-    { id: 2, rank: '02', title: '小家，越住越大', price: 35.0, originalPrice: 49.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s28369176.jpg' },
-    { id: 3, rank: '03', title: '健身营养全书', price: 78.0, originalPrice: 99.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s29418330.jpg' },
-    { id: 4, rank: '04', title: '四季养生全书', price: 42.0, originalPrice: 60.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s33718943.jpg' },
-    { id: 5, rank: '05', title: '咖啡品鉴大全', price: 55.0, originalPrice: 75.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s4075572.jpg' },
-    { id: 6, rank: '06', title: '烘焙圣经', price: 65.0, originalPrice: 88.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s27244254.jpg' },
-    { id: 7, rank: '07', title: '极简整理术', price: 25.0, originalPrice: 38.0, link: '#', image: 'https://img1.doubanio.com/view/subject/s/public/s28369177.jpg' },
-    { id: 8, rank: '08', title: '家庭收纳1000例', price: 28.0, originalPrice: 40.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s27244255.jpg' },
-    { id: 9, rank: '09', title: '花草时光：一草一天堂', price: 35.0, originalPrice: 49.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s29418331.jpg' },
-    { id: 10, rank: '10', title: '旅行摄影圣经', price: 45.0, originalPrice: 65.0, link: '#', image: 'https://img2.doubanio.com/view/subject/s/public/s4075573.jpg' }
-  ]
+const activeTab = ref('rate');
+const categories = [
+  { key: 'rate', name: '评分榜' },
+  { key: 'sales', name: '销量榜' },
+  { key: 'composite', name: '综合榜' }
+];
+const selectedBooks = reactive<Record<string, boolean>>({});
+const bookLists = reactive<Record<string, BookItem[]>>({
+  'rate': [],
+  'sales': [],
+  'composite': []
 });
+const isLoading = ref(false);
 
-const changeTab = (tab: string) => {
-  activeTab.value = tab;
-  selectedBook.value = null;
+const fetchRankings = async (metric: string) => {
+  if (bookLists[metric].length > 0) {
+    return; // 如果已经有数据，不重复请求
+  }
+
+  isLoading.value = true;
+  
+  try {
+    const token = sessionStorage.getItem('token');
+    const headers: any = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['token'] = token;
+    }
+
+    // 使用products接口获取所有图书数据
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products?pageNum=1&pageSize=50`, {
+      method: 'GET',
+      headers
+    });
+
+    const data = await response.json();
+    console.log(`获取图书数据响应:`, data);
+
+    if (data && (data.code === '200' || data.code === 200) && data.data) {
+      let sortedBooks = [...data.data];
+      
+      // 根据不同的指标进行排序
+      if (metric === 'rate') {
+        // 按评分排序（降序）
+        sortedBooks.sort((a: any, b: any) => (b.rate || 0) - (a.rate || 0));
+      } else if (metric === 'sales') {
+        // 按价格反向排序模拟销量（价格越低销量越高）
+        sortedBooks.sort((a: any, b: any) => a.price - b.price);
+      } else if (metric === 'composite') {
+        // 综合排序：评分 * 0.7 + (100 - 价格占比) * 0.3
+        sortedBooks.sort((a: any, b: any) => {
+          const scoreA = (a.rate || 0) * 0.7 + (100 - a.price / 10) * 0.3;
+          const scoreB = (b.rate || 0) * 0.7 + (100 - b.price / 10) * 0.3;
+          return scoreB - scoreA;
+        });
+      }
+
+      // 取前10名并添加排名信息
+      bookLists[metric] = sortedBooks.slice(0, 10).map((book: any, index: number) => ({
+        ...book,
+        rank: index + 1,
+        metricValue: metric === 'rate' 
+          ? book.rate 
+          : metric === 'sales' 
+            ? Math.floor(Math.random() * 1000) + 100 // 模拟销量
+            : ((book.rate || 0) * 0.7 + (100 - book.price / 10) * 0.3) // 综合分数
+      }));
+    } else {
+      console.error(`获取图书数据失败:`, data.msg);
+    }
+  } catch (error) {
+    console.error(`获取图书数据出错:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const changeTab = async (categoryKey: string) => {
+  activeTab.value = categoryKey;
+  
+  // 清除所有选中状态
+  Object.keys(selectedBooks).forEach(id => {
+    selectedBooks[id] = false;
+  });
+  
+  // 获取对应的排行榜数据
+  await fetchRankings(categoryKey);
 };
 
 const toggleBook = (book: BookItem) => {
@@ -89,33 +120,52 @@ const toggleBook = (book: BookItem) => {
   
   // 关闭所有其他书籍的展开状态
   Object.keys(selectedBooks).forEach(id => {
-    selectedBooks[Number(id)] = false;
+    selectedBooks[id] = false;
   });
   
   // 切换当前书籍的展开状态
-  selectedBooks[book.id] = !currentState; // 反转当前状态
+  selectedBooks[book.id] = !currentState;
 };
+
+const formatRank = (rank: number): string => {
+  return rank.toString().padStart(2, '0');
+};
+
+const getRankDisplayValue = (book: BookItem): string => {
+  if (activeTab.value === 'rate') {
+    return `${book.rate}分`;
+  } else if (activeTab.value === 'sales') {
+    return `${Math.floor(book.metricValue)}册`;
+  } else {
+    return book.metricValue.toFixed(1) + '分';
+  }
+};
+
+// 组件挂载时获取默认的评分榜数据
+onMounted(() => {
+  fetchRankings('rate');
+});
 </script>
 
 <template>
   <div class="book-ranking-container">
     <div class="ranking-header">
-      <h3>图书畅销榜</h3>
-      <a href="#" class="more-link">更多 &raquo;</a>
+      <h3>图书排行榜</h3>
+      <a href="#" class="more-link">更多 »</a>
     </div>
     
     <div class="tabs">
       <div 
         v-for="category in categories" 
-        :key="category"
-        :class="['tab', { active: activeTab === category }]"
-        @click="changeTab(category)"
+        :key="category.key"
+        :class="['tab', { active: activeTab === category.key }]"
+        @click="changeTab(category.key)"
       >
-        {{ category }}
+        {{ category.name }}
       </div>
     </div>
     
-    <div class="book-list">
+    <div class="book-list" v-loading="isLoading">
       <div 
         v-for="book in bookLists[activeTab]" 
         :key="book.id"
@@ -123,20 +173,31 @@ const toggleBook = (book: BookItem) => {
         :class="{ 'selected': selectedBooks[book.id] }"
         @click="toggleBook(book)"
       >
-        <div class="rank" :class="{ 'top-rank': parseInt(book.rank) <= 3 }">{{ book.rank }}</div>
-        <div class="book-info">
+        <div class="book-row">
+          <div class="rank" :class="{ 'top-rank': book.rank <= 3 }">{{ formatRank(book.rank) }}</div>
           <div class="book-title">{{ book.title }}</div>
-          <div class="more-icon">&gt;</div>
+          <div class="rank-value">{{ getRankDisplayValue(book) }}</div>
+          <div class="expand-icon" :class="{ 'expanded': selectedBooks[book.id] }">›</div>
         </div>
-        <div v-if="selectedBooks[book.id]" class="book-preview">
-          <img src="/src/assets/images/BookTemplate.avif" class="preview-image" alt="书籍预览">
-          <div class="preview-price">¥{{ book.price }}</div>
-        </div>
+        
+        <transition name="preview-slide">
+          <div v-if="selectedBooks[book.id]" class="book-preview">
+            <img :src="book.cover || '/src/assets/images/BookTemplate.avif'" class="preview-image" :alt="book.title">
+            <div class="preview-info">
+              <div class="price-row">
+                <span class="current-price">¥{{ book.price }}</span>
+                <span v-if="book.originalPrice && book.originalPrice > book.price" class="original-price">¥{{ book.originalPrice }}</span>
+                <span class="category">{{ book.category }}</span>
+              </div>
+              <div class="description">{{ book.description && book.description.length > 80 ? book.description.substring(0, 80) + '...' : book.description }}</div>
+            </div>
+          </div>
+        </transition>
       </div>
-    </div>
-    
-    <div class="view-all">
-      <a href="#">查看完整榜单 &raquo;</a>
+      
+      <div v-if="bookLists[activeTab].length === 0 && !isLoading" class="empty-state">
+        暂无排行榜数据
+      </div>
     </div>
   </div>
 </template>
@@ -147,161 +208,352 @@ const toggleBook = (book: BookItem) => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 15px;
-  background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 18px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
 }
 
 .ranking-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f5f5f5;
 }
 
 .ranking-header h3 {
   margin: 0;
   color: #333;
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .more-link {
   color: #999;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
+.more-link:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.06);
+  transform: translateY(-1px);
 }
 
 .tabs {
   display: flex;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 3px;
+  margin-bottom: 14px;
 }
 
 .tab {
-  padding: 8px 12px;
+  flex: 1;
+  padding: 7px 12px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   color: #666;
-  position: relative;
+  text-align: center;
+  border-radius: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.06);
 }
 
 .tab.active {
-  color: #e62828;
-  font-weight: bold;
-}
-
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: #e62828;
+  color: #fff;
+  background: #ff6b6b;
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.25);
 }
 
 .book-list {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 10px;
+  margin-bottom: 0; /* 移除底部间距 */
+  padding-right: 2px;
 }
 
 .book-item {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  padding: 8px 0;
-  border-bottom: 1px solid #f5f5f5;
-  align-items: center;
   cursor: pointer;
-  transition: background-color 0.2s;
-  flex-wrap: wrap;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+  margin-bottom: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.book-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: #ff6b6b;
+  transform: scaleY(0);
+  transition: transform 0.25s ease;
+  transform-origin: center;
 }
 
 .book-item:hover {
-  background-color: #f9f9f9;
+  background: rgba(255, 107, 107, 0.03);
+  transform: translateX(2px);
+}
+
+.book-item:hover::before {
+  transform: scaleY(1);
 }
 
 .book-item.selected {
-  background-color: #f9f9f9;
+  background: rgba(255, 107, 107, 0.05);
+  transform: translateX(2px);
+}
+
+.book-item.selected::before {
+  transform: scaleY(1);
+}
+
+.book-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 12px;
+  gap: 12px;
 }
 
 .rank {
-  width: 30px;
-  text-align: center;
-  font-weight: bold;
-  color: #999;
-}
-
-.top-rank {
-  color: #e62828;
-}
-
-.book-info {
-  flex: 1;
+  width: 22px;
+  height: 22px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  min-width: 0;
-  width: 100%;
-  order: 1;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #f5f5f5;
+  color: #999;
+  transition: all 0.3s ease;
+}
+
+.rank.top-rank {
+  background: #ff6b6b;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
 }
 
 .book-title {
   flex: 1;
-  white-space: nowrap;
+  font-size: 13px;
+  color: #333;
+  font-weight: 400;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 14px;
-  letter-spacing: normal;
+  white-space: nowrap;
+  min-width: 0;
+  transition: color 0.3s ease;
 }
 
-.more-icon {
-  color: #ccc;
-  margin-left: 10px;
+.book-item:hover .book-title {
+  color: #ff6b6b;
+}
+
+.rank-value {
+  font-size: 11px;
+  color: #ff6b6b;
+  font-weight: 500;
+  flex-shrink: 0;
+  padding: 2px 7px;
+  background: rgba(255, 107, 107, 0.08);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.book-item:hover .rank-value {
+  background: rgba(255, 107, 107, 0.12);
+}
+
+.expand-icon {
+  color: #ddd;
+  font-size: 13px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.expand-icon.expanded {
+  transform: rotate(90deg);
+  color: #ff6b6b;
+}
+
+.preview-slide-enter-active,
+.preview-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.preview-slide-enter-from,
+.preview-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-8px);
+}
+
+.preview-slide-enter-to,
+.preview-slide-leave-from {
+  opacity: 1;
+  max-height: 100px;
+  transform: translateY(0);
 }
 
 .book-preview {
-  width: 100%;
-  padding: 10px 0;
   display: flex;
-  align-items: center;
-  gap: 15px;
-  padding-left: 30px;
-  background: #f8f8f8;
-  order: 2;
-  border-radius: 4px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fafafa;
+  border-radius: 6px;
+  margin: 0 8px 4px 8px;
+  border: 1px solid rgba(255, 107, 107, 0.08);
+  position: relative;
+}
+
+.book-preview::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #ff6b6b;
 }
 
 .preview-image {
-  width: 60px;
-  height: 80px;
+  width: 42px;
+  height: 60px;
   object-fit: cover;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
 }
 
-.preview-price {
-  color: #e62828;
-  font-weight: bold;
-  font-size: 16px;
+.book-preview:hover .preview-image {
+  transform: scale(1.02);
 }
 
-.view-all {
-  text-align: center;
-  padding: 8px 0;
-  border-top: 1px solid #eee;
+.preview-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
 
-.view-all a {
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.current-price {
+  color: #ff6b6b;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.original-price {
+  color: #999;
+  font-size: 10px;
+  text-decoration: line-through;
+}
+
+.category {
   color: #666;
-  text-decoration: none;
-  font-size: 14px;
+  font-size: 9px;
+  background: rgba(255, 107, 107, 0.08);
+  padding: 2px 5px;
+  border-radius: 6px;
+  margin-left: auto;
+  transition: all 0.3s ease;
 }
 
-.view-all a:hover {
-  color: #e62828;
+.book-preview:hover .category {
+  background: rgba(255, 107, 107, 0.12);
+  color: #ff6b6b;
 }
-</style> 
+
+.description {
+  color: #666;
+  font-size: 10px;
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.empty-state {
+  text-align: center;
+  color: #999;
+  padding: 20px 16px;
+  font-size: 13px;
+}
+
+/* 自定义滚动条 */
+.book-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.book-list::-webkit-scrollbar-track {
+  background: #f8f8f8;
+  border-radius: 2px;
+}
+
+.book-list::-webkit-scrollbar-thumb {
+  background: #ff6b6b;
+  border-radius: 2px;
+}
+
+.book-list::-webkit-scrollbar-thumb:hover {
+  background: #ff5757;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .book-ranking-container {
+    padding: 14px;
+  }
+  
+  .ranking-header h3 {
+    font-size: 15px;
+  }
+  
+  .book-row {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .book-title {
+    font-size: 12px;
+  }
+  
+  .rank {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+}
+</style>

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import defaultAvatar from '@/assets/logo.png'
 
 const router = useRouter()
@@ -9,6 +10,7 @@ const searchInput = ref('')
 const isLoggedIn = ref(true)
 const activeTab = ref('1')
 const userAvatar = ref('')
+const isSearching = ref(false)
 
 const fetchUserAvatar = async () => {
   try {
@@ -86,6 +88,105 @@ const handleCommand = (command: string) => {
     activeTab.value = '4' // 设置我的订单为选中状态
   }
 }
+
+const handleSearch = async () => {
+  if (!searchInput.value.trim()) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+
+  isSearching.value = true
+  
+  try {
+    const token = sessionStorage.getItem('token')
+    const headers: any = {
+      'Content-Type': 'application/json'
+    }
+    
+    if (token) {
+      headers['token'] = token
+    }
+
+    const keyword = searchInput.value.trim().toLowerCase()
+    
+    // 使用products接口获取所有产品，然后前端过滤
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products?pageNum=1&pageSize=100`, {
+      method: 'GET',
+      headers
+    })
+    
+    const data = await response.json()
+    console.log('获取所有产品响应:', data)
+
+    if (data && (data.code === '200' || data.code === 200) && data.data) {
+      // 前端过滤搜索结果
+      const allBooks = data.data
+      const searchResults = allBooks.filter((book: any) => {
+        const title = book.title?.toLowerCase() || ''
+        const author = book.author?.toLowerCase() || ''
+        const publisher = book.publisher?.toLowerCase() || ''
+        const description = book.description?.toLowerCase() || ''
+        
+        return title.includes(keyword) || 
+               author.includes(keyword) || 
+               publisher.includes(keyword) ||
+               description.includes(keyword)
+      })
+
+      // 构造搜索结果数据结构
+      const searchData = {
+        books: searchResults,
+        pageInfo: {
+          pageNum: 1,
+          pageSize: searchResults.length,
+          hasNext: false,
+          hasPrev: false,
+          totalPage: 1,
+          totalCount: searchResults.length
+        }
+      }
+
+      sessionStorage.setItem('searchResults', JSON.stringify(searchData))
+      sessionStorage.setItem('searchKeyword', searchInput.value.trim())
+      
+      // 触发搜索结果事件，让当前页面接收并显示搜索结果
+      window.dispatchEvent(new CustomEvent('searchResults', { 
+        detail: { 
+          keyword: searchInput.value.trim(), 
+          results: searchData 
+        } 
+      }))
+      
+      ElMessage.success(`找到 ${searchResults.length} 本相关图书`)
+      
+      // 移除自动跳转逻辑，让搜索结果在当前页面显示
+      // 只更新URL的查询参数，不进行页面跳转
+      const currentPath = router.currentRoute.value.path
+      router.replace({
+        path: currentPath,
+        query: {
+          ...router.currentRoute.value.query,
+          search: searchInput.value.trim(),
+          page: 1
+        }
+      })
+    } else {
+      ElMessage.error('获取图书数据失败')
+      console.error('获取产品数据失败:', data)
+    }
+  } catch (error) {
+    console.error('搜索出错:', error)
+    ElMessage.error('网络错误，请稍后再试')
+  } finally {
+    isSearching.value = false
+  }
+}
+
+const handleSearchKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter') {
+    handleSearch()
+  }
+}
 </script>
 
 <template>
@@ -116,18 +217,28 @@ const handleCommand = (command: string) => {
       </div>
     </div>
     <div class="header-right">
-      <div class="search-box">
-        <el-input
+      <div class="search-wrapper">
+        <input 
           v-model="searchInput"
-          placeholder="搜索..."
-          :prefix-icon="Search"
-          class="search-input"
+          type="text"
+          placeholder="搜索图书..."
+          class="search-input-native"
+          @keydown="handleSearchKeydown"
+          :disabled="isSearching"
         />
+        <button 
+          class="search-btn-native"
+          @click="handleSearch"
+          :disabled="isSearching"
+        >
+          <el-icon class="search-icon" :class="{ 'rotating': isSearching }">
+            <Search />
+          </el-icon>
+        </button>
       </div>
       <el-button type="primary" class="register-btn">成为会员</el-button>
       <div class="avatar-container">
         <el-avatar
-          size="medium"
           :src="userAvatar || defaultAvatar"
         />
         <div class="status-dot" :class="{ 'logged-in': isLoggedIn }"></div>
@@ -271,58 +382,137 @@ const handleCommand = (command: string) => {
   align-items: center;
   gap: 20px;
   flex: 1;
-  min-width: 350px;
+  min-width: 450px;
   justify-content: flex-end;
 }
 
-.search-box {
-  margin-right: 10px;
-  width: 250px;
+.search-wrapper {
+  position: relative;
+  width: 260px;
+  height: 32px;
+  margin-right: 5px;
 }
 
-.search-input {
+.search-input-native {
   width: 100%;
+  height: 100%;
+  padding: 0 40px 0 14px;
+  border: 1px solid rgba(212, 76, 76, 0.2);
+  border-radius: 16px;
+  background-color: rgba(255, 241, 241, 0.8);
+  font-size: 13px;
+  color: #333;
+  outline: none;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.1), 0 2px 4px 0 rgba(212, 76, 76, 0.05);
 }
 
-:deep(.el-input__wrapper) {
-  border-radius: 20px;
-  background-color: #fff1f1;
-  border: 1px solid #ffeded;
-  box-shadow: 0 0 0 1px transparent inset;
+.search-input-native::placeholder {
+  color: #999;
+  font-size: 13px;
+}
+
+.search-input-native:focus {
+  border-color: #d44c4c;
+  background-color: #fff;
+  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.3), 0 4px 8px 0 rgba(212, 76, 76, 0.15);
+}
+
+.search-input-native:hover {
+  border-color: rgba(212, 76, 76, 0.4);
+  background-color: #fff;
+  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.2), 0 3px 6px 0 rgba(212, 76, 76, 0.1);
+}
+
+.search-btn-native {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.search-btn-native:hover {
+  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
+  box-shadow: 0 2px 4px rgba(212, 76, 76, 0.3);
+}
+
+.search-btn-native:hover .search-icon {
+  color: white;
+}
+
+.search-icon {
+  font-size: 14px;
+  color: #d44c4c;
   transition: all 0.3s ease;
 }
 
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #d44c4c inset !important;
-  border-color: #d44c4c !important;
-  background-color: #fff;
+.search-icon.rotating {
+  animation: rotate 1s linear infinite;
 }
 
-:deep(.el-input__wrapper:hover) {
-  border-color: #ff6b6b;
-  background-color: #fff;
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.search-btn-native:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.register-btn {
+  padding: 0 18px;
+  height: 32px;
+  font-size: 13px;
+  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
+  border: none;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.register-btn:hover {
+  background: linear-gradient(135deg, #c43c3c 0%, #ff5b5b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 76, 76, 0.2);
 }
 
 .avatar-container {
   position: relative;
-  margin-left: 10px;
+  margin-left: 5px;
 }
 
 .avatar-container :deep(.el-avatar) {
-  width: 36px;
-  height: 36px;
-  min-width: 30px;
-  min-height: 30px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 50%;
   cursor: pointer;
 }
 
 .status-dot {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 10px;
-  height: 10px;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   border: 2px solid #fff;
   background-color: #ddd;
@@ -330,24 +520,5 @@ const handleCommand = (command: string) => {
 
 .status-dot.logged-in {
   background-color: #67C23A;
-}
-
-.register-btn, .login-btn {
-  border-radius: 20px;
-}
-
-.register-btn {
-  padding: 0 20px;
-  height: 36px;
-  font-size: 14px;
-  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
-  border: none;
-  transition: all 0.3s ease;
-}
-
-.register-btn:hover {
-  background: linear-gradient(135deg, #c43c3c 0%, #ff5b5b 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(212, 76, 76, 0.2);
 }
 </style>
