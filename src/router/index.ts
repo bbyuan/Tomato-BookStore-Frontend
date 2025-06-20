@@ -122,6 +122,11 @@ const router = createRouter({
       path: '/payment-success',
       name: 'PaymentSuccess',
       component: PaymentSuccess
+    },
+    {
+      path: '/myorders',
+      name: 'MyOrders',
+      component: () => import('@/pages/MyOrders.vue')
     }
   ],
 })
