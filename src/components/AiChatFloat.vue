@@ -21,14 +21,49 @@
             <span class="status">在线为您服务</span>
           </div>
         </div>
-        <button class="close-btn" @click="toggleChat">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button class="conversations-btn" @click="toggleConversations" title="会话列表">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z"/>
+            </svg>
+          </button>
+          <button class="close-btn" @click="toggleChat">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 会话列表 -->
+      <div v-if="showConversations" class="conversations-panel">
+        <div class="conversations-header">
+          <h4>历史会话</h4>
+          <button class="new-chat-btn" @click="startNewConversation">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+            </svg>
+            新对话
+          </button>
+        </div>
+        <div class="conversations-list">
+          <div 
+            v-for="conversation in conversations"
+            :key="conversation.conversationId"
+            :class="['conversation-item', { active: conversation.conversationId === conversationId }]"
+            @click="selectConversation(conversation)"
+          >
+            <div class="conversation-title">{{ conversation.title || '未命名对话' }}</div>
+            <div class="conversation-time">{{ formatConversationTime(conversation.time) }}</div>
+            <div class="conversation-model">{{ conversation.model }}</div>
+          </div>
+          <div v-if="conversations.length === 0" class="no-conversations">
+            暂无历史会话
+          </div>
+        </div>
       </div>
       
-      <div class="chat-messages" ref="messagesContainer">
+      <div v-else class="chat-messages" ref="messagesContainer">
         <div 
           v-for="(msg, index) in messages" 
           :key="index" 
@@ -80,7 +115,9 @@ export default {
       inputMessage: '',
       messages: [],
       isLoading: false,
-      conversationId: null
+      conversationId: null,
+      conversations: [],
+      showConversations: false
     }
   },
   methods: {
@@ -89,6 +126,63 @@ export default {
       if (this.isOpen && this.messages.length === 0) {
         this.addMessage('您好！我是AI助手，有什么可以帮助您的吗？', 'ai')
       }
+    },
+
+    async toggleConversations() {
+      this.showConversations = !this.showConversations
+      if (this.showConversations && this.conversations.length === 0) {
+        await this.loadConversations()
+      }
+    },
+
+    async loadConversations() {
+      try {
+        const token = sessionStorage.getItem('token')
+        if (!token) {
+          console.error('用户未登录')
+          return
+        }
+
+        const response = await fetch('/api/ai/conversations', {
+          method: 'GET',
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('获取会话列表响应:', result)
+
+        if (result.code === 200 || result.data) {
+          this.conversations = result.data?.conversations || []
+          // 按时间倒序排列
+          this.conversations.sort((a, b) => b.time - a.time)
+        } else {
+          console.error('获取会话列表失败:', result.msg)
+        }
+      } catch (error) {
+        console.error('获取会话列表错误:', error)
+      }
+    },
+
+    selectConversation(conversation) {
+      this.conversationId = conversation.conversationId
+      this.messages = [] // 清空当前消息
+      this.showConversations = false
+      // 这里可以根据需要加载历史消息
+      this.addMessage(`已切换到会话: ${conversation.title || '未命名对话'}`, 'ai')
+    },
+
+    startNewConversation() {
+      this.conversationId = null
+      this.messages = []
+      this.showConversations = false
+      this.addMessage('您好！我是AI助手，有什么可以帮助您的吗？', 'ai')
     },
     
     async sendMessage() {
@@ -220,6 +314,50 @@ export default {
         hour: '2-digit', 
         minute: '2-digit' 
       })
+    },
+    
+    formatConversationTime(timestamp) {
+      // 处理时间戳格式 - 可能是毫秒或秒
+      let date
+      if (typeof timestamp === 'number') {
+        // 如果时间戳小于一定值，可能是秒级时间戳，需要转换为毫秒
+        date = timestamp < 10000000000 ? new Date(timestamp * 1000) : new Date(timestamp)
+      } else {
+        date = new Date(timestamp)
+      }
+      
+      // 检查日期是否有效
+      if (isNaN(date.getTime())) {
+        return '未知时间'
+      }
+      
+      const now = new Date()
+      const diff = now.getTime() - date.getTime()
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor(diff / (1000 * 60))
+      
+      if (minutes < 1) {
+        return '刚刚'
+      } else if (minutes < 60) {
+        return `${minutes}分钟前`
+      } else if (hours < 24) {
+        return `${hours}小时前`
+      } else if (days === 1) {
+        return '昨天 ' + date.toLocaleTimeString('zh-CN', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      } else if (days < 7) {
+        return `${days}天前`
+      } else {
+        return date.toLocaleDateString('zh-CN', {
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }).replace(/\//g, '-')
+      }
     }
   }
 }
@@ -377,6 +515,170 @@ export default {
   width: 18px;
   height: 18px;
 }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.conversations-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.conversations-btn:hover {
+  background: rgba(255,255,255,0.25);
+  transform: scale(1.1);
+}
+
+.conversations-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.conversations-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, #fef7f7 0%, #ffffff 100%);
+  height: 100%; /* 确保占满剩余空间 */
+  overflow: hidden; /* 防止整个面板滚动 */
+}
+
+.conversations-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #ffe0e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  flex-shrink: 0; /* 防止头部被压缩 */
+}
+
+.conversations-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.new-chat-btn {
+  background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.new-chat-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(228, 57, 60, 0.3);
+}
+
+.new-chat-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.conversations-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  height: 0; /* 关键：强制使用flex布局的剩余空间 */
+}
+
+.conversation-item {
+  padding: 12px 16px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  background: white;
+  flex-shrink: 0; /* 防止项目被压缩 */
+}
+
+.conversation-item:hover {
+  background: #fef7f7;
+  border-color: #ffe0e1;
+  transform: translateX(2px);
+}
+
+.conversation-item.active {
+  background: linear-gradient(135deg, rgba(228, 57, 60, 0.1) 0%, rgba(255, 107, 107, 0.1) 100%);
+  border-color: #e4393c;
+}
+
+.conversation-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-time {
+  font-size: 11px;
+  color: #8b95a5;
+  margin-bottom: 2px;
+}
+
+.conversation-model {
+  font-size: 10px;
+  color: #e4393c;
+  background: rgba(228, 57, 60, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.no-conversations {
+  text-align: center;
+  color: #8b95a5;
+  font-size: 14px;
+  padding: 40px 20px;
+}
+
+.conversations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversations-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversations-list::-webkit-scrollbar-thumb {
+  background: rgba(228, 57, 60, 0.3);
+  border-radius: 3px;
+}
+
+.conversations-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(228, 57, 60, 0.5);
+}
+
+/* ...existing code... */
 
 .chat-messages {
   flex: 1;
