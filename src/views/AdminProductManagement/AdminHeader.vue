@@ -9,6 +9,7 @@ const searchInput = ref('')
 const isLoggedIn = ref(true)
 const activeTab = ref('1')
 const userAvatar = ref('')
+const userName = ref('')
 
 const fetchUserAvatar = async () => {
   try {
@@ -33,6 +34,7 @@ const fetchUserAvatar = async () => {
 
     if (data.code === '200') {
       userAvatar.value = data.data.avatar || defaultAvatar
+      userName.value = data.data.username || username
       isLoggedIn.value = true
     } else {
       console.error('获取用户信息失败:', data.msg)
@@ -149,7 +151,7 @@ const handleCommand = (command: string) => {
           />
           <div class="status-indicator" :class="{ 'online': isLoggedIn }"></div>
           <div class="user-info">
-            <span class="username">管理员</span>
+            <span class="username">{{ userName }}</span>
             <i class="dropdown-arrow">▼</i>
           </div>
         </div>
