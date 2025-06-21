@@ -2,6 +2,7 @@
 import Header from '@/views/HomePage/Header.vue'
 import BookInfo from '@/views/Detail/BookInfo.vue'
 import RelatedBooks from '@/views/Detail/RelatedBooks.vue'
+import BookComments from '@/views/Detail/BookComments.vue'
 import RankingList from '@/views/HomePage/BookRanking.vue'
 
 import { useRoute } from 'vue-router'
@@ -241,6 +242,13 @@ onMounted(async () => {
           </div>
           <div v-else-if="relatedBooks.length" class="card">
             <RelatedBooks :relatedBooks="relatedBooks" />
+          </div>
+        </div>
+        
+        <!-- 书籍评论区 -->
+        <div class="comments-wrapper">
+          <div class="card">
+            <BookComments :bookId="bookId" />
           </div>
         </div>
       </div>

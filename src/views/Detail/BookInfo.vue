@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import RatingStars from './RatingStars.vue'
+import BookComments from './BookComments.vue'
 import axios from 'axios'
 
 const props = defineProps({
@@ -239,6 +240,7 @@ const addToCart = async () => {
         </button>
       </div>
     </div>
+  
   </div>
 </template>
 

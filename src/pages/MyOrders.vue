@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Header from '@/views/HomePage/Header.vue'
+import EvaluationModal from '@/views/Evaluation/EvaluationModal.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
@@ -555,6 +556,41 @@ const getTabCount = (status: OrderStatus) => {
 const formatPrice = (price: number) => {
   return `¥${price.toFixed(2)}`
 }
+
+// 评价相关状态
+const showEvaluationModal = ref(false)
+const currentEvaluationProduct = ref<{
+  productId: string
+  title: string
+  image: string
+  price: number
+} | null>(null)
+const currentOrderId = ref('')
+
+// 打开评价弹窗
+const openEvaluationModal = (orderId: string, item: OrderItem) => {
+  currentOrderId.value = orderId
+  currentEvaluationProduct.value = {
+    productId: item.productId,
+    title: item.title,
+    image: item.image,
+    price: item.price
+  }
+  showEvaluationModal.value = true
+}
+
+// 关闭评价弹窗
+const closeEvaluationModal = () => {
+  showEvaluationModal.value = false
+  currentEvaluationProduct.value = null
+  currentOrderId.value = ''
+}
+
+// 评价提交成功处理
+const handleEvaluationSubmitted = () => {
+  // 可以在这里刷新订单数据或显示成功提示
+  console.log('评价提交成功')
+}
 </script>
 
 <template>
@@ -652,6 +688,15 @@ const formatPrice = (price: number) => {
                   <span class="item-price">{{ formatPrice(item.price) }}</span>
                   <span class="item-qty">x{{ item.quantity }}</span>
                 </div>
+                <!-- 已付款订单显示评价按钮 -->
+                <div v-if="order.status === 'PAID'" class="item-actions">
+                  <button 
+                    class="evaluate-btn"
+                    @click.stop="openEvaluationModal(order.id, item)"
+                  >
+                    去评价
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -681,6 +726,15 @@ const formatPrice = (price: number) => {
         </div>
       </div>
     </div>
+    
+    <!-- 评价弹窗 -->
+    <EvaluationModal
+      v-if="showEvaluationModal && currentEvaluationProduct"
+      :product="currentEvaluationProduct"
+      :order-id="currentOrderId"
+      @close="closeEvaluationModal"
+      @submitted="handleEvaluationSubmitted"
+    />
   </div>
 </template>
 
@@ -1004,6 +1058,28 @@ const formatPrice = (price: number) => {
 
 .item-qty {
   color: #999;
+}
+
+.item-actions {
+  margin-top: 8px;
+}
+
+.evaluate-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.2);
+}
+
+.evaluate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
 }
 
 .order-footer {
