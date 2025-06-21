@@ -2,12 +2,36 @@
 import Header from '@/views/HomePage/Header.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 // 路由
 const router = useRouter()
 
-// 订单状态定义
+// 订单状态定义 - 前端使用的状态
 type OrderStatus = 'ALL' | 'UNPAID' | 'PAID' | 'FAILED'
+
+// 后端订单状态映射
+const backendStatusMap = {
+  ALL: 'ALL',
+  UNPAID: 'PENDING',
+  PAID: 'SUCCESS',
+  FAILED: 'FAILED'  
+}
+
+// 前端订单状态映射
+const frontendStatusMap = {
+  'PENDING': 'UNPAID',
+  'SUCCESS': 'PAID',
+  'FAILED': 'FAILED',
+  'TIMEOUT': 'FAILED'  // TIMEOUT也归类为失败订单
+} as const
+
+// 订单状态文本映射
+const statusTextMap = {
+  'UNPAID': '待付款',
+  'PAID': '已付款',
+  'FAILED': '支付失败'
+}
 
 // 订单项类型
 interface OrderItem {
@@ -18,7 +42,30 @@ interface OrderItem {
   quantity: number
 }
 
-// 订单类型
+// 后端返回的订单类型
+interface OrderVO {
+  orderId: string
+  userId: string
+  totalAmount: number
+  paymentMethod: string
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT'
+  createTime: string
+  cartItemIds: string[]
+  shippingAddress?: string
+  userCouponId?: string
+  discountAmount?: number
+  originalAmount?: number
+  items?: OrderItem[] // 这可能需要额外处理，取决于后端返回的实际数据结构
+}
+
+// 后端API响应类型
+interface ApiResponse {
+  code: string
+  msg: string
+  data: OrderVO[]
+}
+
+// 前端使用的订单类型
 interface Order {
   id: string
   orderTime: string
@@ -29,7 +76,6 @@ interface Order {
   items: OrderItem[]
   tradeNo?: string
   paymentTime?: string
-  // 新增字段，用于标记是否已超时
   isExpired?: boolean
 }
 
@@ -42,119 +88,122 @@ const loading = ref(false)
 // 错误信息
 const error = ref('')
 
-// 模拟订单数据
-const allOrders = ref<Order[]>([
-  {
-    id: 'ORD202305150001',
-    orderTime: '2023-05-15 14:30:25',
-    status: 'PAID',
-    statusText: '已付款',
-    totalAmount: 158.00,
-    paymentMethod: '支付宝',
-    tradeNo: '2023051522001475151234567890',
-    paymentTime: '2023-05-15 14:32:45',
-    items: [
-      {
-        productId: '101',
-        title: '深入理解计算机系统（原书第3版）',
-        image: 'https://img1.doubanio.com/view/subject/s/public/s29195878.jpg',
-        price: 139.00,
-        quantity: 1
+// 订单数据
+const allOrders = ref<Order[]>([])
+
+// 获取订单数据
+const fetchOrders = async () => {
+  loading.value = true
+  error.value = ''
+  
+  try {
+    // 检查用户是否已登录 - 参考您的token获取方式
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+
+    if (!token || !username) {
+      console.error('未找到token或用户名')
+      error.value = '请先登录后查看订单'
+      loading.value = false
+      // 直接跳转到登录页面
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
+      return
+    }
+
+    // 始终获取所有订单数据
+    const response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
+      params: { status: 'ALL' },
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
       }
-    ]
-  },
-  {
-    id: 'ORD202305180002',
-    orderTime: '2023-05-18 09:15:10',
-    status: 'UNPAID',
-    statusText: '待付款',
-    totalAmount: 256.80,
-    paymentMethod: '',
-    items: [
-      {
-        productId: '102',
-        title: 'JavaScript高级程序设计（第4版）',
-        image: 'https://img1.doubanio.com/view/subject/s/public/s33561071.jpg',
-        price: 99.00,
-        quantity: 1
-      },
-      {
-        productId: '103',
-        title: '算法（第4版）',
-        image: 'https://img9.doubanio.com/view/subject/s/public/s29107491.jpg',
-        price: 78.90,
-        quantity: 2
-      }
-    ]
-  },
-  {
-    id: 'ORD202305200003',
-    orderTime: '2023-05-20 16:42:33',
-    status: 'FAILED',
-    statusText: '支付失败',
-    totalAmount: 108.00,
-    paymentMethod: '支付宝',
-    items: [
-      {
-        productId: '104',
-        title: '代码整洁之道',
-        image: 'https://img2.doubanio.com/view/subject/s/public/s29376034.jpg',
-        price: 59.00,
-        quantity: 1
-      },
-      {
-        productId: '105',
-        title: 'SQL必知必会（第5版）',
-        image: 'https://img2.doubanio.com/view/subject/s/public/s33640192.jpg',
-        price: 49.00,
-        quantity: 1
-      }
-    ]
-  },
-  {
-    id: 'ORD202305250004',
-    orderTime: '2023-05-25 10:05:18',
-    status: 'PAID',
-    statusText: '已付款',
-    totalAmount: 328.50,
-    paymentMethod: '支付宝',
-    tradeNo: '2023052522001475151234567891',
-    paymentTime: '2023-05-25 10:07:22',
-    items: [
-      {
-        productId: '106',
-        title: 'Docker实战',
-        image: 'https://img2.doubanio.com/view/subject/s/public/s29749203.jpg',
-        price: 89.50,
-        quantity: 1
-      },
-      {
-        productId: '107',
-        title: '深入浅出React',
-        image: 'https://img9.doubanio.com/view/subject/s/public/s33654034.jpg',
-        price: 119.00,
-        quantity: 2
-      }
-    ]
-  },
-  {
-    id: 'ORD202306010005',
-    orderTime: new Date(new Date().getTime() - 15 * 60 * 1000).toLocaleString(), // 15分钟前
-    status: 'UNPAID',
-    statusText: '待付款',
-    totalAmount: 179.80,
-    paymentMethod: '',
-    items: [
-      {
-        productId: '108',
-        title: 'Vue.js设计与实现',
-        image: 'https://img1.doubanio.com/view/subject/s/public/s34181306.jpg',
-        price: 89.90,
-        quantity: 2
-      }
-    ]
+    })
+    
+    // 输出完整的响应数据用于调试
+    console.log('订单API响应:', response.data)
+    console.log('订单数据条数:', response.data.data?.length || 0)
+    
+    if (response.data.code === '200') {
+      // 输出原始订单数据
+      console.log('原始订单数据:', response.data.data)
+      
+      // 转换后端数据格式为前端使用的格式
+      allOrders.value = response.data.data.map(convertOrderVOtoOrder)
+      
+      // 输出转换后的订单数据
+      console.log('转换后订单数据:', allOrders.value)
+      
+      // 输出各状态订单数量统计
+      console.log('订单数量统计:', {
+        ALL: allOrders.value.length,
+        UNPAID: allOrders.value.filter(o => o.status === 'UNPAID').length,
+        PAID: allOrders.value.filter(o => o.status === 'PAID').length,
+        FAILED: allOrders.value.filter(o => o.status === 'FAILED').length
+      })
+      
+      // 初始化检查订单过期状态
+      updateOrdersStatus()
+    } else if (response.data.code === '401') {
+      // 处理未授权访问
+      error.value = '登录已过期，请重新登录'
+      // 清除过期token
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('username')
+      // 可以跳转到登录页面
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    } else {
+      error.value = response.data.msg || '获取订单数据失败'
+    }
+  } catch (err: any) {
+    console.error('获取订单失败:', err)
+    if (err.response?.status === 401) {
+      error.value = '登录已过期，请重新登录'
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('username')
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    } else {
+      error.value = '网络错误，请稍后重试'
+    }
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 将后端订单数据转换为前端格式
+const convertOrderVOtoOrder = (orderVO: OrderVO): Order => {
+  // 前端状态转换
+  const frontendStatus = frontendStatusMap[orderVO.status] || 'FAILED'
+  
+  // 输出单个订单的转换过程用于调试
+  console.log('转换订单:', orderVO.orderId, '状态:', orderVO.status, '->', frontendStatus)
+  
+  return {
+    id: orderVO.orderId,
+    orderTime: orderVO.createTime,
+    status: frontendStatus as 'UNPAID' | 'PAID' | 'FAILED',
+    statusText: statusTextMap[frontendStatus],
+    totalAmount: orderVO.totalAmount,
+    paymentMethod: orderVO.paymentMethod || '暂未支付',
+    // 如果后端没有返回items，创建一个占位数据，或者根据cartItemIds获取
+    items: orderVO.items || [
+      {
+        productId: 'placeholder',
+        title: '商品信息加载中...',
+        image: '/placeholder-book.jpg',
+        price: orderVO.totalAmount,
+        quantity: 1
+      }
+    ],
+    // 检查是否已过期 (对于TIMEOUT状态的订单)
+    isExpired: orderVO.status === 'TIMEOUT'
+  }
+}
 
 // 计算订单剩余支付时间
 const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: number, expired: boolean } => {
@@ -222,6 +271,7 @@ const filteredOrders = computed(() => {
 // 切换标签
 const switchTab = (tab: OrderStatus) => {
   activeTab.value = tab
+  // 只切换显示，不重新加载数据
 }
 
 // 查看订单详情
@@ -230,16 +280,80 @@ const viewOrderDetail = (orderId: string) => {
   alert(`查看订单详情: ${orderId}`)
 }
 
-// 继续支付
-const continuePayment = (orderId: string) => {
-  const order = allOrders.value.find(o => o.id === orderId)
-  if (order && order.isExpired) {
-    alert('订单已超时，无法支付')
-    return
+// 继续支付处理
+const continuePayment = async (orderId: string) => {
+  // 找到对应的订单
+  const order = filteredOrders.value.find(o => o.id === orderId);
+  if (!order) {
+    alert('订单不存在');
+    return;
   }
-  
-  // 这里可以跳转到支付页面
-  alert(`继续支付订单: ${orderId}`)
+
+  // 检查订单是否为待付款状态且未超时
+  if (order.status === 'UNPAID') {
+    const timeRemaining = calculateRemainingTime(order.orderTime);
+    if (timeRemaining.expired) {
+      alert('订单已超时，无法继续支付');
+      return;
+    }
+  }
+
+  try {
+    // 参考您的token获取方式
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+
+    if (!token || !username) {
+      console.error('未找到token或用户名')
+      alert('用户未登录，请先登录')
+      return
+    }
+
+    const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId}/pay`, {
+      method: 'GET',
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    // 处理响应数据
+    if (response.data && response.data.code === '200' && response.data.data) {
+      const paymentData = response.data.data;
+      
+      // 保存订单支付信息到本地，方便用户查询
+      sessionStorage.setItem('currentPayment', JSON.stringify({
+        orderId: paymentData.orderId,
+        totalAmount: paymentData.totalAmount,
+        paymentMethod: paymentData.paymentMethod
+      }));
+      
+      // 获取返回的支付表单HTML
+      const paymentFormHTML = paymentData.paymentForm;
+      
+      // 创建一个新的HTML文档来展示支付表单
+      const paymentContainer = document.createElement('div');
+      paymentContainer.style.display = 'none'; 
+      paymentContainer.innerHTML = paymentFormHTML;
+      document.body.appendChild(paymentContainer);
+      
+      // 找到表单并自动提交
+      const form = paymentContainer.querySelector('form');
+      if (form) {
+        console.log('找到支付表单，准备提交');
+        form.submit(); // 自动提交表单
+      } else {
+        console.error('支付表单解析失败');
+        throw new Error('无法识别支付表单');
+      }
+    } else {
+      console.error('支付接口返回错误:', response.data);
+      throw new Error(response.data.msg || '获取支付表单失败');
+    }
+  } catch (err) {
+    console.error('支付请求失败:', err);
+    alert('获取支付表单失败，请稍后再试或联系客服');
+  }
 }
 
 // 取消订单
@@ -271,18 +385,11 @@ const goToProductDetail = (productId: string) => {
 }
 
 onMounted(() => {
-  // 在实际应用中，这里会调用API获取订单数据
-  loading.value = true
+  // 加载订单数据
+  fetchOrders()
   
-  // 模拟API请求延迟
-  setTimeout(() => {
-    loading.value = false
-    
-    // 启动倒计时
-    startCountdown()
-    
-    // 实际应用中，这里会处理API响应，更新订单数据或设置错误信息
-  }, 500)
+  // 启动倒计时
+  startCountdown()
 })
 
 // 组件卸载前清除定时器
@@ -365,7 +472,7 @@ const formatPrice = (price: number) => {
       <!-- 错误状态 -->
       <div v-else-if="error" class="error-state">
         <p>{{ error }}</p>
-        <button class="retry-btn">重试</button>
+        <button class="retry-btn" @click="fetchOrders()">重试</button>
       </div>
       
       <!-- 空订单状态 -->
@@ -752,6 +859,7 @@ const formatPrice = (price: number) => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

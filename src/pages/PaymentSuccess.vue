@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
         
         <div class="action-buttons">
           <button class="home-btn" @click="goToHome">立即返回主页</button>
-          <button class="order-btn" @click="router.push('/order')">查看我的订单</button>
+          <button class="order-btn" @click="router.push('/myorders')">查看我的订单</button>
         </div>
       </div>
     </div>
