@@ -151,6 +151,13 @@ const router = createRouter({
       path: '/myevaluation',
       name: 'MyEvaluation',
       component: () => import('@/pages/MyEvaluation.vue')
+    },
+    {
+      path: '/coupons',
+      components: {
+        default: () => import('@/pages/coupons.vue'),
+        header: Header
+      }
     }
   ],
 })

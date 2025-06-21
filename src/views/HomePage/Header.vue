@@ -96,6 +96,8 @@ const updateActiveTab = (path?: string) => {
     activeTab.value = '5'
   } else if (currentPath.includes('/account-settings')) {
     activeTab.value = '7'
+  } else if (currentPath.includes('/coupons')) {
+    activeTab.value = '6'
   } else if (currentPath.includes('/homepage') || currentPath === '/') {
     activeTab.value = '1'
   }
@@ -135,6 +137,9 @@ const handleCommand = (command: string) => {
   } else if (command === 'myorders') {
     activeTab.value = '4'
     setTimeout(() => router.push('/myorders'), 0)
+  } else if (command === 'coupons') {
+    activeTab.value = '6'
+    setTimeout(() => router.push('/coupons'), 0)
   }
 }
 
@@ -332,6 +337,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
         <div class="nav-item" :class="{ active: activeTab === '5' }" @click="handleCommand('my-evaluation')">
           <span class="nav-icon">⭐</span>
           <span class="nav-text">评价</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '6' }" @click="handleCommand('coupons')">
+          <span class="nav-icon">🎫</span>
+          <span class="nav-text">优惠券</span>
         </div>
         <div class="nav-item" :class="{ active: activeTab === '7' }" @click="handleCommand('personal-center')">
           <span class="nav-icon">👤</span>
@@ -538,7 +547,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 }
 
 .search-box {
-  width: 320px;
+  width: 220px;
   position: relative;
   flex-shrink: 0;
 }
@@ -800,7 +809,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
   
   .search-box {
-    width: 260px;
+    width: 180px;
   }
   
   .platform-name {
@@ -828,7 +837,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
   
   .search-box {
-    width: 200px;
+    width: 120px;
   }
   
   .platform-name {
