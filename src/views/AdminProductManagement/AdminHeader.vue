@@ -9,20 +9,23 @@ const searchInput = ref('')
 const isLoggedIn = ref(true)
 const activeTab = ref('1')
 const userAvatar = ref('')
-const userName = ref('')
+const username = ref('用户')
 
 const fetchUserAvatar = async () => {
   try {
     const token = sessionStorage.getItem('token')
-    const username = sessionStorage.getItem('username')
+    const storedUsername = sessionStorage.getItem('username')
 
-    if (!token || !username) {
+    if (!token || !storedUsername) {
       console.error('未找到token或用户名')
       isLoggedIn.value = false
       return
     }
 
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${username}`, {
+    // 将存储的用户名赋值给ref变量
+    username.value = storedUsername
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${storedUsername}`, {
       method: 'GET',
       headers: {
         'token': token,
@@ -34,7 +37,10 @@ const fetchUserAvatar = async () => {
 
     if (data.code === '200') {
       userAvatar.value = data.data.avatar || defaultAvatar
-      userName.value = data.data.username || username
+      // 如果API返回了用户名，使用API返回的用户名
+      if (data.data.username) {
+        username.value = data.data.username
+      }
       isLoggedIn.value = true
     } else {
       console.error('获取用户信息失败:', data.msg)
@@ -151,7 +157,7 @@ const handleCommand = (command: string) => {
           />
           <div class="status-indicator" :class="{ 'online': isLoggedIn }"></div>
           <div class="user-info">
-            <span class="username">{{ userName }}</span>
+            <span class="username">{{ username }}</span>
             <i class="dropdown-arrow">▼</i>
           </div>
         </div>
