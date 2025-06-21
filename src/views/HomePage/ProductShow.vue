@@ -48,6 +48,12 @@ const fetchBooks = async () => {
     
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/page`;
     
+    // 添加调试日志
+    console.log('发送分页请求参数:', {
+      pageSize: pageSize.value,
+      pageNum: pageNum.value
+    });
+    
     const response = await axios.get(apiUrl, {
       headers: {
         'token': token,
@@ -58,6 +64,9 @@ const fetchBooks = async () => {
         pageNum: pageNum.value
       }
     });
+    
+    // 添加响应调试日志
+    console.log('API响应数据:', response.data);
     
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
@@ -73,11 +82,22 @@ const fetchBooks = async () => {
         };
       });
 
-      // 处理分页信息
-      totalPage.value = response.data.data.total_page || 1;
-      totalCount.value = response.data.data.total_count || 0;
-      hasNext.value = response.data.data.has_next || false;
-      hasPrev.value = response.data.data.has_prev || false;
+      // 处理分页信息 - 修正为从pageInfo获取
+      const pageInfo = response.data.data.pageInfo || {};
+      console.log('分页信息:', {
+        pageInfo: pageInfo,
+        pageNum: pageInfo.pageNum,
+        pageSize: pageInfo.pageSize,
+        totalPage: pageInfo.totalPage,
+        totalCount: pageInfo.totalCount,
+        hasNext: pageInfo.hasNext,
+        hasPrev: pageInfo.hasPrev
+      });
+      
+      totalPage.value = pageInfo.totalPage || 1;
+      totalCount.value = pageInfo.totalCount || 0;
+      hasNext.value = pageInfo.hasNext || false;
+      hasPrev.value = pageInfo.hasPrev || false;
     } else {
       error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
