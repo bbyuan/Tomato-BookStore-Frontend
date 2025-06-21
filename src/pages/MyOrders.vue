@@ -23,7 +23,7 @@ const frontendStatusMap = {
   'PENDING': 'UNPAID',
   'SUCCESS': 'PAID',
   'FAILED': 'FAILED',
-  'TIMEOUT': 'FAILED'  // TIMEOUT也归类为失败订单
+  'TIMEOUT': 'FAILED'  
 } as const
 
 // 订单状态文本映射
@@ -91,8 +91,71 @@ const error = ref('')
 // 订单数据
 const allOrders = ref<Order[]>([])
 
+// 各状态订单数量统计
+const orderCounts = ref({
+  ALL: 0,
+  UNPAID: 0,
+  PAID: 0,
+  FAILED: 0
+})
+
+// 更新订单数量统计
+const updateOrderCounts = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+
+    // 分别获取各状态的订单数量
+    const promises = [
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'ALL' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'PENDING' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'SUCCESS' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'FAILED' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'TIMEOUT' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      })
+    ]
+
+    const [allRes, unpaidRes, paidRes, failedRes, timeoutRes] = await Promise.all(promises)
+    
+    // 合并FAILED和TIMEOUT的数量作为失败订单总数
+    const failedCount = (failedRes.data.code === '200' ? failedRes.data.data.length : 0) + 
+                       (timeoutRes.data.code === '200' ? timeoutRes.data.data.length : 0)
+    
+    orderCounts.value = {
+      ALL: allRes.data.code === '200' ? allRes.data.data.length : 0,
+      UNPAID: unpaidRes.data.code === '200' ? unpaidRes.data.data.length : 0,
+      PAID: paidRes.data.code === '200' ? paidRes.data.data.length : 0,
+      FAILED: failedCount
+    }
+    
+    console.log('订单数量统计:', orderCounts.value)
+    console.log('各状态订单数量:', {
+      ALL: orderCounts.value.ALL,
+      UNPAID: orderCounts.value.UNPAID,
+      PAID: orderCounts.value.PAID,
+      FAILED: orderCounts.value.FAILED
+    })
+  } catch (err) {
+    console.error('获取订单数量统计失败:', err)
+  }
+}
+
 // 获取订单数据
-const fetchOrders = async () => {
+const fetchOrders = async (status: string = 'ALL') => {
   loading.value = true
   error.value = ''
   
@@ -112,14 +175,56 @@ const fetchOrders = async () => {
       return
     }
 
-    // 始终获取所有订单数据
-    const response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
-      params: { status: 'ALL' },
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
+    // 根据选中的标签获取对应状态的订单数据
+    let requestStatus = backendStatusMap[status as keyof typeof backendStatusMap] || 'ALL'
+    console.log('请求订单状态:', status, '->', requestStatus)
+    
+    let response: any
+    let convertedOrders: Order[] = []
+    
+    // 如果是失败订单，需要同时获取FAILED和TIMEOUT状态
+    if (status === 'FAILED') {
+      console.log('获取失败订单，同时请求FAILED和TIMEOUT状态')
+      const [failedRes, timeoutRes] = await Promise.all([
+        axios.get<ApiResponse>('/api/orders/getByStatus', {
+          params: { status: 'FAILED' },
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        }),
+        axios.get<ApiResponse>('/api/orders/getByStatus', {
+          params: { status: 'TIMEOUT' },
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        })
+      ])
+      
+      console.log('FAILED订单响应:', failedRes.data)
+      console.log('TIMEOUT订单响应:', timeoutRes.data)
+      
+      // 合并两种状态的订单数据
+      const allFailedOrders = []
+      if (failedRes.data.code === '200') {
+        allFailedOrders.push(...failedRes.data.data)
       }
-    })
+      if (timeoutRes.data.code === '200') {
+        allFailedOrders.push(...timeoutRes.data.data)
+      }
+      
+      response = { data: { code: '200', data: allFailedOrders } }
+      console.log('合并后的失败订单数据:', allFailedOrders)
+    } else {
+      response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: requestStatus },
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
     
     // 输出完整的响应数据用于调试
     console.log('订单API响应:', response.data)
@@ -130,7 +235,29 @@ const fetchOrders = async () => {
       console.log('原始订单数据:', response.data.data)
       
       // 转换后端数据格式为前端使用的格式
-      allOrders.value = response.data.data.map(convertOrderVOtoOrder)
+      const convertedOrders = response.data.data.map(convertOrderVOtoOrder)
+      
+      // 如果是获取全部订单，则替换所有数据
+      if (status === 'ALL') {
+        allOrders.value = convertedOrders
+      } else {
+        // 如果是获取特定状态的订单，则更新对应部分的数据
+        // 先移除该状态的旧数据，再添加新数据
+        const targetStatus = status as 'UNPAID' | 'PAID' | 'FAILED'
+        allOrders.value = allOrders.value.filter(order => order.status !== targetStatus)
+        allOrders.value.push(...convertedOrders)
+      }
+      
+      // 输出转换后的订单数据
+      console.log('转换后订单数据:', allOrders.value)
+      
+      // 输出各状态订单数量统计
+      console.log('订单数量统计:', {
+        ALL: allOrders.value.length,
+        UNPAID: allOrders.value.filter(o => o.status === 'UNPAID').length,
+        PAID: allOrders.value.filter(o => o.status === 'PAID').length,
+        FAILED: allOrders.value.filter(o => o.status === 'FAILED').length
+      })
       
       // 输出转换后的订单数据
       console.log('转换后订单数据:', allOrders.value)
@@ -206,10 +333,10 @@ const convertOrderVOtoOrder = (orderVO: OrderVO): Order => {
 }
 
 // 计算订单剩余支付时间
-const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: number, expired: boolean } => {
+const calculateRemainingTime = (orderTime: string, currentTimeValue?: number): { minutes: number, seconds: number, expired: boolean } => {
   const orderDate = new Date(orderTime).getTime()
-  const deadline = orderDate + 20 * 60 * 1000 // 20分钟支付期限
-  const now = new Date().getTime()
+  const deadline = orderDate + 30 * 60 * 1000 // 30分钟支付期限
+  const now = currentTimeValue || new Date().getTime()
   const timeLeft = deadline - now
   
   if (timeLeft <= 0) {
@@ -224,7 +351,8 @@ const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: 
 
 // 格式化剩余时间显示
 const formatRemainingTime = (orderTime: string): string => {
-  const { minutes, seconds, expired } = calculateRemainingTime(orderTime)
+  // 使用 currentTime.value 来确保响应式更新
+  const { minutes, seconds, expired } = calculateRemainingTime(orderTime, currentTime.value)
   
   if (expired) {
     return '订单超时'
@@ -236,8 +364,14 @@ const formatRemainingTime = (orderTime: string): string => {
 // 倒计时定时器
 let countdownTimer: number | null = null
 
+// 当前时间戳，用于强制重新计算倒计时
+const currentTime = ref(Date.now())
+
 // 更新待付款订单状态
 const updateOrdersStatus = () => {
+  // 更新当前时间戳，触发倒计时重新计算
+  currentTime.value = Date.now()
+  
   allOrders.value.forEach(order => {
     if (order.status === 'UNPAID') {
       const { expired } = calculateRemainingTime(order.orderTime)
@@ -257,9 +391,11 @@ const startCountdown = () => {
 
 // 根据当前选中标签筛选订单
 const filteredOrders = computed(() => {
+  // 当选择特定状态时，显示该状态的订单
   if (activeTab.value === 'ALL') {
     return allOrders.value
   }
+  // 由于现在我们已经按状态获取数据，这里直接返回所有数据
   return allOrders.value.filter(order => {
     if (activeTab.value === 'UNPAID') return order.status === 'UNPAID'
     if (activeTab.value === 'PAID') return order.status === 'PAID'
@@ -271,7 +407,8 @@ const filteredOrders = computed(() => {
 // 切换标签
 const switchTab = (tab: OrderStatus) => {
   activeTab.value = tab
-  // 只切换显示，不重新加载数据
+  // 切换标签时加载对应状态的订单
+  fetchOrders(tab)
 }
 
 // 查看订单详情
@@ -386,7 +523,10 @@ const goToProductDetail = (productId: string) => {
 
 onMounted(() => {
   // 加载订单数据
-  fetchOrders()
+  fetchOrders('ALL')
+  
+  // 更新订单数量统计
+  updateOrderCounts()
   
   // 启动倒计时
   startCountdown()
@@ -401,15 +541,7 @@ onBeforeUnmount(() => {
 
 // 获取每个标签的订单数量
 const getTabCount = (status: OrderStatus) => {
-  if (status === 'ALL') {
-    return allOrders.value.length
-  }
-  return allOrders.value.filter(order => {
-    if (status === 'UNPAID') return order.status === 'UNPAID'
-    if (status === 'PAID') return order.status === 'PAID'
-    if (status === 'FAILED') return order.status === 'FAILED'
-    return false
-  }).length
+  return orderCounts.value[status] || 0
 }
 
 // 格式化金额
