@@ -95,33 +95,44 @@ onMounted(fetchCoupons)
         <i class="plus-icon">+</i> 新增优惠券
       </button>
     </div>
-
     <!-- 添加加载状态显示 -->
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
       <p>正在加载优惠券数据...</p>
     </div>
-    
     <!-- 添加错误状态显示 -->
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
       <button @click="fetchCoupons" class="retry-btn">重试</button>
     </div>
-
-    <!-- 优惠券列表展示，参考Order.vue样式 -->
+    <!-- 优惠券列表展示 -->
     <div v-if="!loading && !error" class="coupon-section">
       <h3 style="margin: 30px 0 18px 0; font-size: 20px; font-weight: 600; color: #2d3436;">全部优惠券</h3>
       <div v-if="coupons.length > 0" class="coupon-list admin-coupon-list">
-        <div 
-          v-for="coupon in coupons" 
-          :key="coupon.couponId" 
-          class="coupon-item admin-coupon-item"
-        >
-          <div class="coupon-amount admin-coupon-amount">¥{{ coupon.discountValue }}</div>
+        <div v-for="coupon in coupons" :key="coupon.couponId" class="coupon-item admin-coupon-item" style="position:relative;">
+          <!-- 状态tag -->
+          <span class="coupon-status-tag" :class="{
+            'status-pending': coupon.status === 'PENDING',
+            'status-active': coupon.status === 'ACTIVE',
+            'status-expired': coupon.status === 'EXPIRED'
+          }">
+            {{ coupon.status === 'PENDING' ? '待开始' : coupon.status === 'ACTIVE' ? '进行中' : '已失效' }}
+          </span>
+          <!-- 金额/折扣 -->
+          <div class="coupon-amount admin-coupon-amount">
+            <template v-if="coupon.discountType === 'AMOUNT'">
+              ¥{{ coupon.discountValue }}
+            </template>
+            <template v-else-if="coupon.discountType === 'PERCENT'">
+              {{ (coupon.discountValue).toFixed(1).replace(/\.0$/, '') }}折
+            </template>
+          </div>
           <div class="coupon-info admin-coupon-info">
             <div class="coupon-desc admin-coupon-desc">{{ coupon.name }}</div>
             <div class="coupon-condition admin-coupon-condition">满{{ coupon.minOrderAmount }}元可用</div>
-            <div class="coupon-expire admin-coupon-expire">有效期至: {{ coupon.validTo?.slice(0, 10) }}</div>
+            <div class="coupon-expire admin-coupon-expire">
+              有效期：{{ coupon.validFrom ? coupon.validFrom.slice(0, 10) : '' }} ~ {{ coupon.validTo ? coupon.validTo.slice(0, 10) : '' }}
+            </div>
             <div class="admin-coupon-actions">
               <button @click="openEditCouponModal(coupon.couponId)" class="edit-btn action-btn">
                 <i class="action-icon">✏️</i> 编辑
@@ -137,16 +148,8 @@ onMounted(fetchCoupons)
         <p>暂无优惠券</p>
       </div>
     </div>
-
     <AddCoupon :show="showAddCoupon" @close="showAddCoupon = false" @success="fetchCoupons" />
-    <!-- 编辑优惠券的弹窗组件，直接用 currentEditCouponId 控制 -->
-    <EditCoupon 
-      v-if="currentEditCouponId" 
-      :couponId="currentEditCouponId" 
-      @close="closeEditCouponModal" 
-      @success="fetchCoupons" 
-    />
-
+    <EditCoupon v-if="currentEditCouponId" :couponId="currentEditCouponId" @close="closeEditCouponModal" @success="fetchCoupons" />
     <div v-if="showDeleteModal" class="delete-modal-overlay" @click="cancelDeleteCoupon">
       <div class="delete-modal" @click.stop>
         <div class="delete-modal-icon">🗑️</div>
@@ -371,7 +374,7 @@ onMounted(fetchCoupons)
 }
 
 .admin-coupon-item {
-  width: 340px;
+  width: 400px;
   min-width: 0;
   background: #fff;
   border: 1.5px solid #f3eaea;
@@ -719,5 +722,37 @@ onMounted(fetchCoupons)
 @keyframes scaleIn {
   from { transform: scale(0.92); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+.coupon-status-tag {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  padding: 4px 18px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  letter-spacing: 1px;
+  user-select: none;
+  background: #e0e0e0;
+  opacity: 0.92;
+}
+.status-pending {
+  background: linear-gradient(90deg, #fffbe6 60%, #ffe9b3 100%);
+  color: #bfa13a;
+  opacity: 0.85;
+}
+.status-active {
+  background: linear-gradient(90deg, #e6f9f0 60%, #c2f0e2 100%);
+  color: #2e8b57;
+  opacity: 0.85;
+}
+.status-expired {
+  background: linear-gradient(90deg, #f2f2f2 60%, #e0e0e0 100%);
+  color: #aaa;
+  opacity: 0.85;
 }
 </style>
