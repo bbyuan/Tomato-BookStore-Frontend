@@ -18,23 +18,19 @@ const currentEditBook = ref<any>(null);
 
 const currentPage = ref(1);
 const itemsPerPage = 12;
+const totalPages = ref(1); // 新增总页数响应式变量
+const totalCount = ref(0); // 新增总记录数
 
 // 计算当前页显示的商品
 const paginatedBooks = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return technicalBooks.value.slice(start, end);
-});
-
-// 计算总页数
-const totalPages = computed(() => {
-  return Math.ceil(technicalBooks.value.length / itemsPerPage);
+  return technicalBooks.value;
 });
 
 // 切换到上一页
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
+    fetchBooks(); // 翻页时重新获取数据
   }
 };
 
@@ -42,6 +38,7 @@ const prevPage = () => {
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++;
+    fetchBooks(); // 翻页时重新获取数据
   }
 };
 
@@ -67,33 +64,45 @@ const fetchBooks = async () => {
       return;
     }
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
-    
+    // 使用分页API端点
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/page`;
     const response = await axios.get(apiUrl, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
+      },
+      params: {
+        pageSize: itemsPerPage,
+        pageNum: currentPage.value
       }
     });
-    console.log(response.data.data);
+    console.log('API响应数据:', response.data);
 
     if (response.data && response.data.code === '200') {
-      // 处理API返回的数据格式
-      technicalBooks.value = response.data.data.map((item: any) => {
+      // 处理API返回的分页数据格式
+      const pageData = response.data.data;
+      const books = pageData.products || [];
+      technicalBooks.value = books.map((item: any) => {
         const currentPrice = parseFloat(item.price);
         const originalPrice = parseFloat(item.originalPrice) || currentPrice;
-
         return {
           id: item.id,
           title: item.title,
           price: `¥${currentPrice.toFixed(2)}`,
           originalPrice: `¥${originalPrice.toFixed(2)}`,
-          image: item.covers[0] || '/src/assets/logo.png',
+          image: (item.covers && item.covers[0]) || item.cover || '/src/assets/logo.png',
           description: item.description || '暂无描述',
           stock: item.stock?.amount || 0, // 使用 stock.amount
           frozenStock: item.stock?.frozen || 0, // 使用 stock.frozen
         };
       });
+      // 使用API返回的分页信息
+      const pageInfo = pageData.pageInfo;
+      if (pageInfo) {
+        currentPage.value = pageInfo.pageNum;
+        totalPages.value = pageInfo.totalPage;
+        totalCount.value = pageInfo.totalCount;
+      }
     } else {
       error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
