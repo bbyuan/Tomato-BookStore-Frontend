@@ -292,7 +292,7 @@ const fetchAvailableCoupons = async () => {
       headers: { token },
       params: { amount: amount.toString() }
     })
-    console.log('fetchAvailableCoupons 接口返回:', res)
+    console.log('fetchAvailableCoupons 接口原始返回:', res.data)
     if (res.data && res.data.code === '200') {
       
       const data = res.data.data || {}
@@ -398,7 +398,10 @@ const calculateItemDiscount = () => {
 // 计算优惠券折扣
 const calculateCouponDiscount = () => {
   if (!selectedCoupon.value) return 0
-  return selectedCoupon.value.discount
+  // 调试输出优惠券对象
+  console.log('当前选中优惠券:', selectedCoupon.value)
+  // 优先使用 discountAmount 字段，如果没有则返回 0
+  return typeof selectedCoupon.value.discountAmount === 'number' ? selectedCoupon.value.discountAmount : 0
 }
 
 // 包邮条件判断
@@ -478,7 +481,7 @@ const submitOrder = async () => {
         }
       }
     )
-    console.log('submitOrder 下单接口返回:', response)
+    console.log('submitOrder 下单接口原始返回:', response.data)
     // 处理响应
     if (response.data && response.data.code === '200') {
       // 获取订单数据
@@ -519,7 +522,7 @@ const submitOrder = async () => {
         'token': token
       }
     })
-    console.log('支付接口返回:', response)
+    console.log('支付接口原始返回:', response.data)
     // 处理响应数据
     if (response.data && response.data.code === '200' && response.data.data) {
       const paymentData = response.data.data;
@@ -799,7 +802,7 @@ onMounted(() => {
                   <div class="coupon-expire">有效期至: {{ coupon.expiresAt ? coupon.expiresAt.slice(0, 10) : '' }}</div>
                 </div>
                 <div class="coupon-select-mark" v-if="selectedCoupon?.userCouponId === coupon.userCouponId">
-                  已选
+                  <div class="checkmark">✓</div>
                 </div>
               </div>
             </div>
