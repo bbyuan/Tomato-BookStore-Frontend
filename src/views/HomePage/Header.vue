@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import defaultAvatar from '@/assets/logo.png'
+import { ArrowDown, Setting, SwitchButton } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const searchInput = ref('')
@@ -15,6 +16,7 @@ const isSearching = ref(false)
 const showSearchDropdown = ref(false)
 const searchResults = ref([])
 const selectedIndex = ref(-1)
+const searchBoxRef = ref(null)
 
 const fetchUserAvatar = async () => {
   try {
@@ -60,52 +62,79 @@ const fetchUserAvatar = async () => {
 onMounted(() => {
   fetchUserAvatar()
   
-  // 根据当前路径设置activeTab
-  const path = window.location.pathname
-  if (path.includes('/cart')) {
-    activeTab.value = '3'
-  } else if (path.includes('/admin')) {
-    activeTab.value = '8'
-  } else if (path.includes('/homepage')) {
-    activeTab.value = '1'
-  } else if (path.includes('/myorders')) {
-    activeTab.value = '4'
-  } else if (path.includes('/MyEvaluation')) {
-    activeTab.value = '5'
-  } else if (path.includes('/account-settings')) {
-    activeTab.value = '7'
-  } else {
-    activeTab.value = '1' // 默认主页
+  // 添加全局点击事件监听器
+  document.addEventListener('click', handleClickOutside)
+  
+  // 监听路由变化来更新activeTab
+  updateActiveTab()
+})
+
+// 添加路由监听器
+import { watch } from 'vue'
+
+watch(
+  () => router.currentRoute.value.path,
+  (newPath) => {
+    // 延迟更新以避免闪烁
+    setTimeout(() => {
+      updateActiveTab(newPath)
+    }, 50)
   }
+)
+
+// 更新激活标签的函数
+const updateActiveTab = (path?: string) => {
+  const currentPath = path || router.currentRoute.value.path
+  
+  if (currentPath.includes('/cart')) {
+    activeTab.value = '3'
+  } else if (currentPath.includes('/admin')) {
+    activeTab.value = '8'
+  } else if (currentPath.includes('/myorders')) {
+    activeTab.value = '4'
+  } else if (currentPath.includes('/myevaluation') || currentPath.includes('/MyEvaluation')) {
+    activeTab.value = '5'
+  } else if (currentPath.includes('/account-settings')) {
+    activeTab.value = '7'
+  } else if (currentPath.includes('/homepage') || currentPath === '/') {
+    activeTab.value = '1'
+  }
+  // 移除else分支，避免意外重置
+}
+
+onUnmounted(() => {
+  // 清理全局点击事件监听器
+  document.removeEventListener('click', handleClickOutside)
 })
 
 const handleCommand = (command: string) => {
+  // 立即设置activeTab，避免闪烁
   if (command === 'account-settings') {
-    router.push('/account-settings/account')
     activeTab.value = '7'
+    setTimeout(() => router.push('/account-settings/account'), 0)
   } else if (command === 'logout') {
     // 处理登出逻辑
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('username')
     router.push('/login')
   } else if (command === 'admin-dashboard') {
-    router.push('/admin/product-management')
     activeTab.value = '8'
+    setTimeout(() => router.push('/admin/product-management'), 0)
   } else if (command === 'homepage') {
-    router.push('/homepage')
     activeTab.value = '1'
+    setTimeout(() => router.push('/homepage'), 0)
   } else if (command === 'cart') {
-    router.push('/cart')
     activeTab.value = '3'
+    setTimeout(() => router.push('/cart'), 0)
   } else if (command === 'my-evaluation') {
-    router.push('myevaluation')
     activeTab.value = '5'
+    setTimeout(() => router.push('/myevaluation'), 0)
   } else if (command === 'personal-center') {
-    router.push('/account-settings/account')
     activeTab.value = '7'
+    setTimeout(() => router.push('/account-settings/account'), 0)
   } else if (command === 'myorders') {
-    router.push('/myorders')
     activeTab.value = '4'
+    setTimeout(() => router.push('/myorders'), 0)
   }
 }
 
@@ -118,6 +147,9 @@ const handleSearch = async () => {
   isSearching.value = true
   
   try {
+    // 添加一个最小加载时间，确保用户能看到加载动画
+    const minLoadingTime = new Promise(resolve => setTimeout(resolve, 800))
+    
     const token = sessionStorage.getItem('token')
     const headers: any = {
       'Content-Type': 'application/json'
@@ -130,10 +162,13 @@ const handleSearch = async () => {
     const keyword = searchInput.value.trim().toLowerCase()
     
     // 使用products接口获取所有产品，然后前端过滤
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products?pageNum=1&pageSize=100`, {
+    const searchPromise = fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products?pageNum=1&pageSize=100`, {
       method: 'GET',
       headers
     })
+    
+    // 等待最小加载时间和搜索请求都完成
+    const [response] = await Promise.all([searchPromise, minLoadingTime])
     
     const data = await response.json()
     console.log('获取所有产品响应:', data)
@@ -245,6 +280,14 @@ const handleSearchBlur = () => {
   }, 200)
 }
 
+// 处理点击外部区域收回下拉栏
+const handleClickOutside = (event: Event) => {
+  if (searchBoxRef.value && !searchBoxRef.value.contains(event.target as Node)) {
+    showSearchDropdown.value = false
+    selectedIndex.value = -1
+  }
+}
+
 // 处理键盘上下箭头选择搜索结果
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'ArrowDown') {
@@ -273,42 +316,35 @@ const handleKeyDown = (event: KeyboardEvent) => {
         <img src="@/assets/logo.png" alt="Logo" height="30">
         <span class="platform-name">番茄书城 Tomato BookStore</span>
       </div>
-      <div class="custom-tabs">
-        <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab"/>
-        <label class="tab" for="tab-1" @click="handleCommand('homepage')">
-          <i class="tab-icon">🏠</i>
-          <span>主页</span>
-        </label>
-        <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
-        <label class="tab" for="tab-3" @click="handleCommand('cart')">
-          <i class="tab-icon">🛒</i>
-          <span>购物车</span>
-        </label>
-        <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
-        <label class="tab" for="tab-4" @click="handleCommand('myorders')">
-          <i class="tab-icon">📋</i>
-          <span>订单</span>
-        </label>
-        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
-        <label class="tab" for="tab-5" @click="handleCommand('my-evaluation')">
-          <i class="tab-icon">⭐</i>
-          <span>评价</span>
-        </label>
-        <input type="radio" id="tab-7" name="tabs" value="7" v-model="activeTab" />
-        <label class="tab" for="tab-7" @click="handleCommand('personal-center')">
-          <i class="tab-icon">👤</i>
-          <span>个人</span>
-        </label>
-        <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" />
-        <label class="tab" for="tab-8" @click="handleCommand('admin-dashboard')">
-          <i class="tab-icon">⚙️</i>
-          <span>后台</span>
-        </label>
-        <span class="glider"></span>
-      </div>
+      <nav class="nav-menu">
+        <div class="nav-item" :class="{ active: activeTab === '1' }" @click="handleCommand('homepage')">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-text">主页</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '3' }" @click="handleCommand('cart')">
+          <span class="nav-icon">🛒</span>
+          <span class="nav-text">购物车</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '4' }" @click="handleCommand('myorders')">
+          <span class="nav-icon">📋</span>
+          <span class="nav-text">订单</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '5' }" @click="handleCommand('my-evaluation')">
+          <span class="nav-icon">⭐</span>
+          <span class="nav-text">评价</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '7' }" @click="handleCommand('personal-center')">
+          <span class="nav-icon">👤</span>
+          <span class="nav-text">个人</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === '8' }" @click="handleCommand('admin-dashboard')">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-text">后台</span>
+        </div>
+      </nav>
     </div>
     <div class="header-right">
-      <div class="search-box">
+      <div class="search-box" ref="searchBoxRef">
         <el-input
           v-model="searchInput"
           placeholder="搜索图书..."
@@ -319,7 +355,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
           @focus="handleSearchFocus"
           @blur="handleSearchBlur"
           :disabled="isSearching"
-        />
+        >
+          <template #suffix v-if="isSearching">
+            <div class="search-loading">
+              <img src="@/assets/logo.png" alt="Loading" class="loading-logo" />
+              <span class="loading-text">搜索中...</span>
+            </div>
+          </template>
+        </el-input>
         <div v-if="showSearchDropdown && searchResults.length > 0" class="search-dropdown">
           <div 
             v-for="(book, index) in searchResults" 
@@ -358,28 +401,30 @@ const handleKeyDown = (event: KeyboardEvent) => {
       </div>
       
       <!-- 用户信息区域 -->
-      <el-dropdown @command="handleCommand" class="user-dropdown">
-        <div class="avatar-container">
+      <el-dropdown @command="handleCommand" class="user-dropdown" trigger="hover">
+        <div class="user-info">
           <el-avatar
-            :size="38"
+            :size="36"
             :src="userAvatar || defaultAvatar"
             class="user-avatar"
           />
-          <div class="status-indicator" :class="{ 'online': isLoggedIn }"></div>
-          <div class="user-info">
-            <span class="username">{{ username }}</span>
-            <i class="dropdown-arrow">▼</i>
+          <div class="user-details">
+            <span class="user-name">{{ username }}</span>
+            <span class="user-status">在线</span>
           </div>
+          <el-icon class="dropdown-icon">
+            <ArrowDown />
+          </el-icon>
         </div>
         
         <template #dropdown>
-          <el-dropdown-menu class="custom-dropdown">
-            <el-dropdown-item command="account-settings" class="dropdown-item">
-              <i class="item-icon">⚙️</i>
+          <el-dropdown-menu class="user-menu">
+            <el-dropdown-item command="account-settings" class="menu-item">
+              <el-icon><Setting /></el-icon>
               <span>账户设置</span>
             </el-dropdown-item>
-            <el-dropdown-item command="logout" class="dropdown-item logout">
-              <i class="item-icon">🚪</i>
+            <el-dropdown-item command="logout" class="menu-item logout-item">
+              <el-icon><SwitchButton /></el-icon>
               <span>退出登录</span>
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -394,363 +439,240 @@ const handleKeyDown = (event: KeyboardEvent) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: white;
-  padding: 0 40px;
-  height: 60px;
-  min-height: 40px;
+  background: #ffffff;
+  padding: 0 32px;
+  height: 64px;
   border-bottom: 1px solid #f0f0f0;
-  flex-wrap: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 100;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  flex: 2;
+  gap: 24px;
+  flex: 1;
   min-width: 0;
-  gap: 30px;
 }
 
 .logo {
+  margin-left: 25px;
   display: flex;
   align-items: center;
-  margin-right: 20px;
   flex-shrink: 0;
-  min-width: 220px;
 }
 
 .platform-name {
   font-size: 20px;
-  font-weight: bold;
-  margin-left: 10px;
-  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
+  font-weight: 700;
+  margin-left: 18px;
+  margin-right: 50px;
+  background: linear-gradient(135deg, #e4393c, #ff6b6b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
   white-space: nowrap;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
-.custom-tabs {
-  display: flex;
-  position: relative;
-  background-color: #fff;
-  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.15), 0 6px 12px 0 rgba(212, 76, 76, 0.15);
-  padding: 5px;
-  height: 40px;
-  border-radius: 99px;
-  width: auto;
-  min-width: 600px;
-  max-width: 700px;
-  overflow: hidden;
-  flex-shrink: 1;
-}
-
-.tab {
+/* 现代导航菜单 - 确保横向排布 */
+.nav-menu {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  width: 100px;
+  gap: 6px;
+  margin-left: 16px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #666;
   font-size: 14px;
   font-weight: 500;
-  white-space: nowrap;
-  padding: 0;
-  position: relative;
-  z-index: 2;
-  cursor: pointer;
-  color: #666;
-  transition: color 0.15s ease-in;
   user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.glider {
-  position: absolute;
-  top: 50%;
-  left: 5px;
-  transform: translateY(-50%);
-  height: 30px;
-  width: 100px;
-  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
-  z-index: 1;
-  border-radius: 99px;
-  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.nav-item:hover {
+  background: #f8f9fa;
+  color: #e4393c;
 }
 
-.custom-tabs input[type="radio"] {
-  display: none;
+.nav-item.active {
+  background: #e4393c;
+  color: white;
 }
 
-.custom-tabs input[type="radio"]:checked + label {
-  color: #fff;
-  z-index: 3;
+.nav-item.active:hover {
+  background: #d63384;
 }
 
-.custom-tabs input[id="tab-1"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(0);
+.nav-icon {
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
-.custom-tabs input[id="tab-3"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(100px);
-}
-
-.custom-tabs input[id="tab-4"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(200px);
-}
-
-.custom-tabs input[id="tab-5"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(300px);
-}
-
-.custom-tabs input[id="tab-7"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(400px);
-}
-
-.custom-tabs input[id="tab-8"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(500px);
+.nav-text {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 20px;
-  flex: 1;
-  min-width: 450px;
-  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .search-box {
-  width: 280px;
+  width: 320px;
   position: relative;
+  flex-shrink: 0;
 }
 
-.search-input {
-  width: 100%;
-}
-
+/* 搜索框样式保持简洁 */
 :deep(.el-input__wrapper) {
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(228, 57, 60, 0.1);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
-  height: 42px;
-}
-
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 
-    0 4px 20px rgba(228, 57, 60, 0.15),
-    0 2px 8px rgba(228, 57, 60, 0.08) !important;
-  border-color: #e4393c !important;
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-1px);
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+  transition: all 0.2s ease;
+  margin-left: -50px;
 }
 
 :deep(.el-input__wrapper:hover) {
-  border-color: rgba(228, 57, 60, 0.2);
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-1px);
+  border-color: #e4393c;
 }
 
-:deep(.el-input__inner) {
-  font-size: 14px;
-  color: #333;
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #e4393c;
+  box-shadow: 0 0 0 3px rgba(228, 57, 60, 0.1);
 }
 
-:deep(.el-input__inner::placeholder) {
-  color: rgba(102, 102, 102, 0.6);
-}
-
-.member-btn {
-  border-radius: 22px;
-  padding: 0 20px;
-  height: 44px;
-  font-size: 14px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
-  border: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 4px 12px rgba(228, 57, 60, 0.25),
-    0 2px 6px rgba(228, 57, 60, 0.15);
-  position: relative;
-  overflow: hidden;
-}
-
-.member-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.6s ease;
-}
-
-.member-btn:hover::before {
-  left: 100%;
-}
-
-.member-btn:hover {
-  background: linear-gradient(135deg, #d63031 0%, #ff5757 100%);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 25px rgba(228, 57, 60, 0.3),
-    0 4px 12px rgba(228, 57, 60, 0.2);
-}
-
-.member-btn .btn-icon {
-  margin-right: 6px;
-  font-size: 16px;
-}
-
-.user-dropdown {
-  position: relative;
-}
-
-.avatar-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 22px;
-  border: 1px solid rgba(228, 57, 60, 0.1);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  position: relative;
-}
-
-.avatar-container:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(228, 57, 60, 0.2);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(228, 57, 60, 0.1);
-}
-
-.user-avatar {
-  position: relative;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.8);
-}
-
-.status-indicator {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background-color: #ddd;
-  transition: all 0.3s ease;
-}
-
-.status-indicator.online {
-  background-color: #00d084;
-  box-shadow: 0 0 8px rgba(0, 208, 132, 0.4);
-}
-
+/* 用户信息区域 */
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.username {
+.user-info:hover {
+  background: #f8f9fa;
+}
+
+.user-avatar {
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.user-name {
   font-size: 14px;
   font-weight: 600;
   color: #333;
-  white-space: nowrap;
+  line-height: 1;
 }
 
-.dropdown-arrow {
-  font-size: 10px;
-  color: rgba(102, 102, 102, 0.6);
-  transition: transform 0.3s ease;
+.user-status {
+  font-size: 12px;
+  color: #22c55e;
+  line-height: 1;
 }
 
-.avatar-container:hover .dropdown-arrow {
+.dropdown-icon {
+  font-size: 14px;
+  color: #999;
+  transition: transform 0.2s ease;
+}
+
+.user-info:hover .dropdown-icon {
   transform: rotate(180deg);
-  color: #e4393c;
 }
 
-:deep(.custom-dropdown) {
-  border-radius: 12px;
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.1),
-    0 4px 16px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(228, 57, 60, 0.08);
-  backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.95);
-  padding: 8px;
-}
-
-:deep(.dropdown-item) {
+/* 下拉菜单 */
+:deep(.el-dropdown-menu.user-menu) {
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 12px 16px;
-  margin: 2px 0;
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 140px;
+}
+
+:deep(.el-dropdown-menu__item.menu-item) {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  margin: 2px 0;
 }
 
-:deep(.dropdown-item:hover) {
-  background: rgba(228, 57, 60, 0.06);
+:deep(.el-dropdown-menu__item.menu-item:hover) {
+  background: #f8f9fa;
   color: #e4393c;
 }
 
-:deep(.dropdown-item.logout:hover) {
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
+:deep(.el-dropdown-menu__item.logout-item:hover) {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
-.item-icon {
-  font-size: 14px;
-}
-
+/* 搜索下拉框样式简化 */
 .search-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   z-index: 1000;
-  background: #ffffff;
+  background: white;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 400px;
   overflow-y: auto;
-  margin-top: 8px;
-  padding: 8px;
 }
 
 .search-result-item {
   display: flex;
   align-items: center;
-  padding: 12px;
-  margin-bottom: 4px;
+  padding: 12px 16px;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  background: #ffffff;
-}
-
-.search-result-item:last-child {
-  margin-bottom: 0;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.2s ease;
 }
 
 .search-result-item:hover,
 .search-result-item.selected {
   background: #f8f9fa;
-  transform: none;
-  box-shadow: none;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
 }
 
 .result-item-cover {
@@ -774,21 +696,35 @@ const handleKeyDown = (event: KeyboardEvent) => {
 }
 
 .result-item-title {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: #333;
-  line-height: 1.3;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.result-item-info {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.result-item-author,
+.result-item-publisher {
+  font-size: 12px;
+  color: #666;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .result-item-description {
   font-size: 12px;
   color: #999;
   line-height: 1.4;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -797,61 +733,125 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 .result-item-price {
   font-size: 14px;
-  color: #e85a4f;
+  color: #e4393c;
   font-weight: 600;
 }
 
 .search-match-highlight {
-  background: #fff3cd;
-  color: #856404;
-  font-weight: 500;
+  background: #fef3c7;
+  color: #92400e;
   padding: 1px 2px;
   border-radius: 2px;
 }
 
 .search-no-results {
-  padding: 24px 20px;
+  padding: 40px 20px;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.search-no-results-icon {
-  color: #d44c4c;
-  opacity: 0.6;
-  margin-bottom: 2px;
+  color: #999;
 }
 
 .search-no-results-text {
-  font-size: 15px;
-  color: #333;
-  font-weight: 500;
-  margin: 0;
+  font-size: 14px;
+  margin-bottom: 4px;
 }
 
 .search-no-results-hint {
   font-size: 12px;
-  color: #999;
-  margin: 0;
+  color: #ccc;
 }
 
-/* 搜索下拉框滚动条样式 */
-.search-dropdown::-webkit-scrollbar {
-  width: 4px;
+/* 加载状态 */
+.search-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e4393c;
 }
 
-.search-dropdown::-webkit-scrollbar-track {
-  background: transparent;
+.loading-logo {
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
 }
 
-.search-dropdown::-webkit-scrollbar-thumb {
-  background: #e0e0e0;
-  border-radius: 2px;
+.loading-text {
+  font-size: 12px;
 }
 
-.search-dropdown::-webkit-scrollbar-thumb:hover {
-  background: #bdbdbd;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .header-left {
+    gap: 16px;
+  }
+  
+  .nav-menu {
+    gap: 4px;
+    margin-left: 12px;
+  }
+  
+  .nav-item {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .search-box {
+    width: 260px;
+  }
+  
+  .platform-name {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0 16px;
+  }
+  
+  .header-left {
+    gap: 12px;
+  }
+  
+  .nav-menu {
+    gap: 2px;
+    margin-left: 8px;
+  }
+  
+  .nav-item {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .search-box {
+    width: 200px;
+  }
+  
+  .platform-name {
+    font-size: 16px;
+    margin-left: 8px;
+    margin-right: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-item .nav-text {
+    display: none;
+  }
+  
+  .nav-item {
+    padding: 8px;
+    min-width: 36px;
+    justify-content: center;
+  }
+  
+  .platform-name {
+    font-size: 14px;
+    margin-right: 10px;
+  }
 }
 </style>
