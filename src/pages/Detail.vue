@@ -5,8 +5,8 @@ import RelatedBooks from '@/views/Detail/RelatedBooks.vue'
 import BookComments from '@/views/Detail/BookComments.vue'
 import RankingList from '@/views/HomePage/BookRanking.vue'
 
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 
@@ -41,7 +41,7 @@ interface Book {
 }
 
 const route = useRoute()
-const bookId = route.params.id as string
+const bookId = ref(route.params.id as string)
 
 const book = ref<Book | null>(null)
 const relatedBooks = ref<Book[]>([])
@@ -149,19 +149,28 @@ const fetchRelatedBooks = async (id: string) => {
     }
 
     const rawData = Array.isArray(response.data.data) 
-      ? response.data.data.slice(0, 5) 
+      ? response.data.data.filter((item: any) => String(item.id) !== id) 
       : [];
 
-    console.log('相关书籍数据:', rawData);
+    // 找到id最接近当前id的5本书
+    const sorted = rawData
+      .map((item: any) => ({
+        ...item,
+        idDiff: Math.abs(Number(item.id) - Number(id))
+      }))
+      .sort((a: any, b: any) => a.idDiff - b.idDiff)
+      .slice(0, 5)
+      .map((item: any) => ({
+        id: item.id || '无ID',
+        title: item.title?.trim() || '未知书名',
+        price: Number(item.price) || 0,
+        originalPrice: Number(item.originalPrice) || (Number(item.price) + 20) || 0,
+        image: item.covers && item.covers[0] ? item.covers[0] : '/src/assets/logo.png',
+        description: item.description || '暂无描述',
+        rate: Number(item.rate) || 0
+      }));
 
-    return rawData.map((item: any) => ({
-      id: item.id || '无ID',
-      title: item.title?.trim() || '未知书名',
-      price: Number(item.price) || 0,
-      image: item.covers[0] || '/src/assets/logo.png',
-      description: item.description || '暂无描述',
-      rate: Number(item.rate) || 0
-    }));
+    return sorted;
   } catch (err) {
     console.error('获取相关书籍失败:', err);
     if (axios.isAxiosError(err)) {
@@ -177,14 +186,30 @@ const fetchRelatedBooks = async (id: string) => {
 };
 
 onMounted(async () => {
-  fetchBookDetail(bookId).then((detail) => {
+  fetchBookDetail(bookId.value).then((detail) => {
     if (detail) book.value = detail;
   });
-
-  fetchRelatedBooks(bookId).then((related) => {
+  fetchRelatedBooks(bookId.value).then((related) => {
     relatedBooks.value = related;
   });
 });
+
+watch(
+  () => route.params.id,
+  async (newId, oldId) => {
+    if (newId !== oldId) {
+      bookId.value = newId as string
+      bookLoading.value = true
+      relatedBooksLoading.value = true
+      fetchBookDetail(bookId.value).then((detail) => {
+        if (detail) book.value = detail;
+      });
+      fetchRelatedBooks(bookId.value).then((related) => {
+        relatedBooks.value = related;
+      });
+    }
+  }
+)
 </script>
 
 <template>
@@ -241,7 +266,7 @@ onMounted(async () => {
             </div>
           </div>
           <div v-else-if="relatedBooks.length" class="card">
-            <RelatedBooks :relatedBooks="relatedBooks" />
+            <RelatedBooks :relatedBooks="relatedBooks" :currentBookId="bookId" />
           </div>
         </div>
         

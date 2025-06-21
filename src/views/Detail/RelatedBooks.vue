@@ -6,6 +6,7 @@
         v-for="(book, index) in sortedRelatedBooks"
         :key="index"
         class="related-book-item"
+        @click="goToDetail(book)"
       >
         <div class="related-cover-container">
           <img :src="book.image" alt="相关书籍封面" class="related-cover" />
@@ -23,7 +24,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 
 const props = defineProps({
   relatedBooks: {
@@ -31,7 +34,7 @@ const props = defineProps({
     default: () => []
   },
   currentBookId: {
-    type: Number,
+    type: String,
     required: true
   }
 });
@@ -51,13 +54,19 @@ const calculateDiscount = (currentPrice) => {
 // 根据当前书籍ID筛选相关书籍
 const sortedRelatedBooks = computed(() => {
   return [...props.relatedBooks]
+    .filter(book => String(book.id) !== props.currentBookId)
     .map(book => ({
       ...book,
-      idDifference: Math.abs(book.id - props.currentBookId)
+      idDifference: Math.abs(Number(book.id) - Number(props.currentBookId))
     }))
-    .sort((a, b) => a.idDifference - b.idDifference) // 按差值排序
-    .slice(0, 5); // 取前五个
+    .sort((a, b) => a.idDifference - b.idDifference)
+    .slice(0, 5);
 });
+
+// 跳转到书籍详情页
+const goToDetail = (book) => {
+  router.push({ name: 'Detail', params: { id: String(book.id) } })
+}
 
 </script>
 
