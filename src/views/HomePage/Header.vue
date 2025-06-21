@@ -116,7 +116,7 @@ const handleCommand = (command: string) => {
     // 处理登出逻辑
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('username')
-    router.push('/login')
+    router.push('/')
   } else if (command === 'admin-dashboard') {
     activeTab.value = '8'
     setTimeout(() => router.push('/admin/product-management'), 0)

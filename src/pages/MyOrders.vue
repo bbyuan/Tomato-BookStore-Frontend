@@ -200,7 +200,7 @@ const fetchOrders = async (status: string = 'ALL') => {
       loading.value = false
       // 直接跳转到登录页面
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 1500)
       return
     }
@@ -310,7 +310,7 @@ const fetchOrders = async (status: string = 'ALL') => {
       sessionStorage.removeItem('username')
       // 可以跳转到登录页面
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 2000)
     } else {
       error.value = response.data.msg || '获取订单数据失败'
@@ -322,7 +322,7 @@ const fetchOrders = async (status: string = 'ALL') => {
       sessionStorage.removeItem('token')
       sessionStorage.removeItem('username')
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 2000)
     } else {
       error.value = '网络错误，请稍后重试'
@@ -515,7 +515,7 @@ const continuePayment = async (orderId: string) => {
       sessionStorage.removeItem('token')
       sessionStorage.removeItem('username')
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 2000)
     } else {
       error.value = '获取支付表单失败，请稍后再试或联系客服'

@@ -24,6 +24,7 @@
 <script setup>
 import { computed } from 'vue'
 
+
 const props = defineProps({
   relatedBooks: {
     type: Array,
@@ -57,6 +58,7 @@ const sortedRelatedBooks = computed(() => {
     .sort((a, b) => a.idDifference - b.idDifference) // 按差值排序
     .slice(0, 5); // 取前五个
 });
+
 </script>
 
 <style scoped>
