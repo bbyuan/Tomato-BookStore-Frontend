@@ -51,7 +51,7 @@ onMounted(() => {
 const handleCommand = (command: string) => {
   if (command === 'account-settings') {
     router.push('/account-settings/account');
-    activeTab.value = '4'
+    activeTab.value = '5'
   } else if (command === 'logout') {
     // 处理登出逻辑
     sessionStorage.removeItem('token')
@@ -59,7 +59,7 @@ const handleCommand = (command: string) => {
     router.push('/login')
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management');
-    activeTab.value = '5'
+    activeTab.value = '6'
   } else if (command === 'homepage') {
     router.push('/homepage'); 
     activeTab.value = '1'
@@ -69,9 +69,12 @@ const handleCommand = (command: string) => {
   } else if (command === 'myorders') {
     router.push('/myorders');
     activeTab.value = '3'
+  } else if (command === 'my-evaluation') {
+    router.push('/pages/MyEvaluation');
+    activeTab.value = '4'
   } else if (command === 'personal-center') {
     router.push('/account-settings/account')
-    activeTab.value = '4'
+    activeTab.value = '5'
   }
 };
 </script>
@@ -106,12 +109,17 @@ const handleCommand = (command: string) => {
           <span>订单</span>
         </label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
-        <label class="tab" for="tab-4" @click="handleCommand('personal-center')">
+        <label class="tab" for="tab-4" @click="handleCommand('my-evaluation')">
+          <i class="tab-icon">⭐</i>
+          <span>评价</span>
+        </label>
+        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
+        <label class="tab" for="tab-5" @click="handleCommand('personal-center')">
           <i class="tab-icon">👤</i>
           <span>个人</span>
         </label>
-        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" checked/>
-        <label class="tab" for="tab-5" @click="handleCommand('admin-dashboard')">
+        <input type="radio" id="tab-6" name="tabs" value="6" v-model="activeTab" checked/>
+        <label class="tab" for="tab-6" @click="handleCommand('admin-dashboard')">
           <i class="tab-icon">⚙️</i>
           <span>后台</span>
         </label>
@@ -130,12 +138,6 @@ const handleCommand = (command: string) => {
           clearable
         />
       </div>
-      
-      <!-- 会员按钮 -->
-      <el-button type="primary" class="member-btn">
-        <i class="btn-icon">💎</i>
-        <span>成为会员</span>
-      </el-button>
       
       <!-- 用户信息区域 -->
       <el-dropdown @command="handleCommand" class="user-dropdown">
@@ -361,6 +363,10 @@ const handleCommand = (command: string) => {
   transform: translateY(-50%) translateX(400px);
 }
 
+.custom-tabs input[id="tab-6"]:checked ~ .glider {
+  transform: translateY(-50%) translateX(500px);
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -569,32 +575,36 @@ const handleCommand = (command: string) => {
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .custom-tabs {
-    min-width: 400px;
+    min-width: 600px;
   }
   
   .tab {
-    width: 80px;
+    width: 100px;
     font-size: 12px;
   }
   
   .glider {
-    width: 80px;
+    width: 100px;
   }
   
   .custom-tabs input[id="tab-2"]:checked ~ .glider {
-    transform: translateY(-50%) translateX(80px);
+    transform: translateY(-50%) translateX(100px);
   }
   
   .custom-tabs input[id="tab-3"]:checked ~ .glider {
-    transform: translateY(-50%) translateX(160px);
+    transform: translateY(-50%) translateX(200px);
   }
   
   .custom-tabs input[id="tab-4"]:checked ~ .glider {
-    transform: translateY(-50%) translateX(240px);
+    transform: translateY(-50%) translateX(300px);
   }
   
   .custom-tabs input[id="tab-5"]:checked ~ .glider {
-    transform: translateY(-50%) translateX(320px);
+    transform: translateY(-50%) translateX(400px);
+  }
+
+  .custom-tabs input[id="tab-6"]:checked ~ .glider {
+    transform: translateY(-50%) translateX(500px);
   }
 }
 

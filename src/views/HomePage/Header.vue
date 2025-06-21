@@ -335,7 +335,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
           </div>
         </div>
       </div>
-      <el-button type="primary" class="register-btn">成为会员</el-button>
       <div class="avatar-container">
         <el-avatar
           :src="userAvatar || defaultAvatar"
