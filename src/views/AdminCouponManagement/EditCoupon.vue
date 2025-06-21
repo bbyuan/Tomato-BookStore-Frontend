@@ -149,19 +149,25 @@ const submitCoupon = async () => {
   try {
     const token = sessionStorage.getItem('token')
     if (!token) throw new Error('请先登录')
-    
-    const data = { ...form }
-    const formatDateTime = (dt: string) => {
-      if (!dt) return ''
-      return dt.length === 16 ? dt + ':00' : dt
+    // 构造接口需要的字段
+    const data = {
+      couponId: props.couponId,
+      name: form.name,
+      description: form.description,
+      discountType: form.discountType,
+      discountValue: form.discountValue,
+      minOrderAmount: form.minOrderAmount,
+      totalQuantity: form.totalQuantity,
+      perUserLimit: form.perUserLimit,
+      validFrom: form.validFrom ? (form.validFrom.length === 16 ? form.validFrom + ':00' : form.validFrom) : '',
+      validTo: form.validTo ? (form.validTo.length === 16 ? form.validTo + ':00' : form.validTo) : ''
     }
-    data.validFrom = formatDateTime(data.validFrom)
-    data.validTo = formatDateTime(data.validTo)
-    
-    const res = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/coupons/${props.couponId}`, data, {
+    const url = `${import.meta.env.VITE_API_BASE_URL}/api/coupons/${props.couponId}`
+    console.log('PUT url:', url)
+    console.log('PUT data:', data)
+    const res = await axios.put(url, data, {
       headers: { 'token': token, 'Content-Type': 'application/json' }
     })
-    
     if (res.data && res.data.code === '200') {
       emit('success')
       close()
