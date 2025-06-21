@@ -51,12 +51,8 @@ const fetchBooks = async () => {
       return;
     }
     
-    // 根据是否有category参数选择不同的API端点
-    const url = props.category 
-      ? `/api/products/category/${props.category}`
-      : '/api/products'
-    
-    const response = await axios.get(url, {
+    // 使用分页API端点
+    const response = await axios.get('/api/products/page', {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -71,27 +67,31 @@ const fetchBooks = async () => {
     console.log('API响应数据:', response.data);
     
     if (response.data && response.data.code === '200') {
-      // 处理API返回的数据格式
-      const books = response.data.data.books || [];
+      // 处理API返回的分页数据格式
+      const pageData = response.data.data;
+      const books = pageData.products || [];
+      
       technicalBooks.value = books.map((item: any) => {
         return {
           id: item.id,
           title: item.title,
           price: `¥${item.price}`,
           originalPrice: `¥${item.originalPrice || (item.price + 20)}`,
-          image: (item.covers && item.covers[0]) || '/src/assets/logo.png',
+          image: (item.covers && item.covers[0]) || item.cover || '/src/assets/logo.png',
           description: item.description || '暂无描述',
         };
       });
 
-      // 处理分页信息
-      const pageInfo = response.data.data.pageInfo || {};
-      console.log('分页信息:', pageInfo);
-      
-      totalPage.value = pageInfo.totalPage || 1;
-      totalCount.value = pageInfo.totalCount || 0;
-      hasNext.value = pageInfo.hasNext || false;
-      hasPrev.value = pageInfo.hasPrev || false;
+      // 使用API返回的分页信息
+      const pageInfo = pageData.pageInfo;
+      if (pageInfo) {
+        pageNum.value = pageInfo.pageNum;
+        pageSize.value = pageInfo.pageSize;
+        totalPage.value = pageInfo.totalPage;
+        totalCount.value = pageInfo.totalCount;
+        hasNext.value = pageInfo.hasNext;
+        hasPrev.value = pageInfo.hasPrev;
+      }
     } else {
       error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
