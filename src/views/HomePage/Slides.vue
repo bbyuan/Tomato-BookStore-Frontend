@@ -78,15 +78,8 @@ onMounted(() => {
       ref="carouselRef"
     >
       <el-carousel-item v-for="slide in slides" :key="slide.id">
-        <div class="banner-full-image" :style="{ backgroundImage: 'url(' + slide.imageUrl + ')' }">
-          <el-button 
-            type="primary" 
-            class="banner-button-full"
-            @click="handleViewClick(slide.productId)"
-          >
-            <span>立即查看</span>
-            <el-icon class="el-icon--right"><ArrowRight /></el-icon>
-          </el-button>
+        <div class="banner-full-image" :style="{ backgroundImage: 'url(' + slide.imageUrl + ')' }" @click="handleViewClick(slide.productId)" style="cursor:pointer;">
+          <!-- 按钮已删除，点击图片跳转 -->
         </div>
       </el-carousel-item>
     </el-carousel>
@@ -136,34 +129,64 @@ onMounted(() => {
 .banner-button-full {
   margin: 36px 48px;
   border-radius: 32px;
-  padding: 16px 32px;
-  font-size: 17px;
-  background: linear-gradient(90deg, #fff 60%, #f3f7fa 100%);
-  color: #f48f8f;
-  border: 1.5px solid #eaeaea;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 18px 38px;
+  font-size: 18px;
+  background: linear-gradient(90deg, #ffb6b9 0%, #f48f8f 100%);
+  color: #fff;
+  border: 2px solid #ffe0e0;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 600;
+  gap: 12px;
+  font-weight: 700;
   box-shadow:
-    0 4px 18px rgba(244, 143, 143, 0.08),
-    0 1px 4px rgba(0,0,0,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.4);
+    0 6px 24px rgba(244, 143, 143, 0.18),
+    0 2px 8px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.25);
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(12px);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.7px;
+  outline: none;
+}
+
+.banner-button-full::before {
+  content: '';
+  position: absolute;
+  left: -40%;
+  top: -40%;
+  width: 180%;
+  height: 180%;
+  background: radial-gradient(circle, #fff6 0%, transparent 70%);
+  opacity: 0.2;
+  transition: opacity 0.4s;
+  z-index: 0;
 }
 
 .banner-button-full:hover {
-  background: linear-gradient(90deg, #f8f9fb 0%, #fff 100%);
-  color: #e57373;
-  transform: translateY(-2px) scale(1.04);
+  background: linear-gradient(90deg, #f48f8f 0%, #ffb6b9 100%);
+  color: #fff;
+  transform: translateY(-3px) scale(1.06);
   box-shadow:
-    0 8px 32px rgba(244, 143, 143, 0.13),
-    0 2px 8px rgba(0,0,0,0.06);
+    0 12px 36px rgba(244, 143, 143, 0.22),
+    0 4px 16px rgba(0,0,0,0.09);
   border-color: #f8dada;
+}
+
+.banner-button-full:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(244, 143, 143, 0.10);
+}
+
+.banner-button-full span {
+  position: relative;
+  z-index: 1;
+}
+
+.banner-button-full .el-icon--right {
+  position: relative;
+  z-index: 1;
+  font-size: 22px;
 }
 
 /* 简洁指示器 */
