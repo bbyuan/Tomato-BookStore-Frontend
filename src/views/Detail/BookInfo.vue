@@ -54,6 +54,17 @@ const bookDetails = computed(() => {
   })
 })
 
+// 描述展开/收起逻辑
+const showFullDescription = ref(false)
+const maxDescriptionLength = 150
+const shortDescription = computed(() => {
+  if (!props.bookInfo.description) return ''
+  return props.bookInfo.description.slice(0, maxDescriptionLength)
+})
+const isDescriptionLong = computed(() => {
+  return props.bookInfo.description && props.bookInfo.description.length > maxDescriptionLength
+})
+
 // 库存状态计算
 const isLowStock = computed(() => {
   return (props.bookInfo.stock?.amount || 0) < 50
@@ -211,7 +222,15 @@ const addToCart = async () => {
       </div>
 
       <!-- 描述 -->
-      <p class="description">{{ bookInfo.description }}</p>
+      <p class="description">
+        <span v-if="!isDescriptionLong || showFullDescription">{{ bookInfo.description }}</span>
+        <span v-else>{{ shortDescription }}...</span>
+        <template v-if="isDescriptionLong">
+          <button class="desc-toggle-btn" @click="showFullDescription = !showFullDescription">
+            {{ showFullDescription ? '收起' : '了解详情' }}
+          </button>
+        </template>
+      </p>
 
       <!-- 书籍细节信息 -->
       <div class="details-card">
@@ -412,6 +431,21 @@ const addToCart = async () => {
   line-height: 1.8;
   color: #666;
   margin-bottom: 20px;
+}
+
+.desc-toggle-btn {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 15px;
+  margin-left: 8px;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.desc-toggle-btn:hover {
+  color: #ff3b3b;
 }
 
 .details-card {
