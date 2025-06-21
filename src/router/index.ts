@@ -133,6 +133,11 @@ const router = createRouter({
       path: '/myorders',
       name: 'MyOrders',
       component: () => import('@/pages/MyOrders.vue')
+    },
+    {
+      path: '/myevaluation',
+      name: 'MyEvaluation',
+      component: () => import('@/pages/MyEvaluation.vue')
     }
   ],
 })
