@@ -150,7 +150,6 @@ onMounted(() => {
   <div class="book-ranking-container">
     <div class="ranking-header">
       <h3>图书排行榜</h3>
-      <a href="#" class="more-link">更多 »</a>
     </div>
     
     <div class="tabs">
@@ -228,21 +227,6 @@ onMounted(() => {
   color: #333;
   font-size: 16px;
   font-weight: 600;
-}
-
-.more-link {
-  color: #999;
-  text-decoration: none;
-  font-size: 12px;
-  transition: all 0.3s ease;
-  padding: 4px 8px;
-  border-radius: 10px;
-}
-
-.more-link:hover {
-  color: #ff6b6b;
-  background: rgba(255, 107, 107, 0.06);
-  transform: translateY(-1px);
 }
 
 .tabs {

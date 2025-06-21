@@ -219,7 +219,7 @@ onMounted(() => {
     
     <div class="hot-books-header">
       <h2>所有书籍</h2>
-      <div class="view-more">查看更多 <i class="arrow-right">›</i></div>
+      <!-- "查看更多"按钮已删除 -->
     </div>
     
     <!-- 添加加载状态显示 -->
