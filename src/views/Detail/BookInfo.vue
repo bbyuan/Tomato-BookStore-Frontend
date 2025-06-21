@@ -253,10 +253,6 @@ const addToCart = async () => {
           <span v-if="isAddingToCart">加入中...</span>
           <span v-else>{{ isOutOfStock ? '已售罄' : '加入购物车' }}</span>
         </button>
-        <button 
-          class="buy-now-btn">
-          {{ isOutOfStock ? '补货提醒' : '立即购买' }}
-        </button>
       </div>
     </div>
   
@@ -515,6 +511,7 @@ const addToCart = async () => {
   font-size: 16px;
   font-weight: 500;
   color: #333;
+  appearance: none;
   -moz-appearance: textfield;
   background: transparent;
   border-left: 1px solid #f0f0f0;
@@ -559,19 +556,15 @@ const addToCart = async () => {
   top: -1px;
 }
 
-.add-cart-btn,
-.buy-now-btn {
-  flex: 1;
+.add-cart-btn {
+  width: 100%;
   padding: 12px 0;
   border: none;
   border-radius: 25px;
   font-size: 18px;
   cursor: pointer;
   transition: all 0.3s;
-}
-
-.add-cart-btn {
-  background: #ffcc00; /* 保持黄色背景 */
+  background: #ffcc00;
   color: #fff;
   box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
 }
@@ -584,16 +577,6 @@ const addToCart = async () => {
   background: #ccc;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.buy-now-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d); /* 保持红色渐变背景 */
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
-}
-
-.buy-now-btn:hover {
-  background: linear-gradient(90deg, #ff5252, #ff8a65);
 }
 
 /* 全局购物车提示样式 - 与ProductShow保持一致 */
