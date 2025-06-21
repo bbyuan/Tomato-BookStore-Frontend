@@ -411,114 +411,61 @@ const switchTab = (tab: OrderStatus) => {
   fetchOrders(tab)
 }
 
-// 查看订单详情
-const viewOrderDetail = (orderId: string) => {
-  // 这里可以跳转到订单详情页面
-  alert(`查看订单详情: ${orderId}`)
-}
-
-// 继续支付处理
-const continuePayment = async (orderId: string) => {
-  // 找到对应的订单
-  const order = filteredOrders.value.find(o => o.id === orderId);
-  if (!order) {
-    alert('订单不存在');
-    return;
-  }
-
-  // 检查订单是否为待付款状态且未超时
-  if (order.status === 'UNPAID') {
-    const timeRemaining = calculateRemainingTime(order.orderTime);
-    if (timeRemaining.expired) {
-      alert('订单已超时，无法继续支付');
-      return;
-    }
-  }
-
-  try {
-    // 参考您的token获取方式
-    const token = sessionStorage.getItem('token')
-    const username = sessionStorage.getItem('username')
-
-    if (!token || !username) {
-      console.error('未找到token或用户名')
-      alert('用户未登录，请先登录')
-      return
-    }
-
-    const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId}/pay`, {
-      method: 'GET',
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    // 处理响应数据
-    if (response.data && response.data.code === '200' && response.data.data) {
-      const paymentData = response.data.data;
-      
-      // 保存订单支付信息到本地，方便用户查询
-      sessionStorage.setItem('currentPayment', JSON.stringify({
-        orderId: paymentData.orderId,
-        totalAmount: paymentData.totalAmount,
-        paymentMethod: paymentData.paymentMethod
-      }));
-      
-      // 获取返回的支付表单HTML
-      const paymentFormHTML = paymentData.paymentForm;
-      
-      // 创建一个新的HTML文档来展示支付表单
-      const paymentContainer = document.createElement('div');
-      paymentContainer.style.display = 'none'; 
-      paymentContainer.innerHTML = paymentFormHTML;
-      document.body.appendChild(paymentContainer);
-      
-      // 找到表单并自动提交
-      const form = paymentContainer.querySelector('form');
-      if (form) {
-        console.log('找到支付表单，准备提交');
-        form.submit(); // 自动提交表单
-      } else {
-        console.error('支付表单解析失败');
-        throw new Error('无法识别支付表单');
-      }
-    } else {
-      console.error('支付接口返回错误:', response.data);
-      throw new Error(response.data.msg || '获取支付表单失败');
-    }
-  } catch (err) {
-    console.error('支付请求失败:', err);
-    alert('获取支付表单失败，请稍后再试或联系客服');
-  }
-}
-
-// 取消订单
-const cancelOrder = (orderId: string) => {
-  // 这里可以弹出确认框，然后发送取消订单请求
-  if (confirm(`确定要取消订单 ${orderId} 吗？`)) {
-    // 模拟取消订单，实际应该调用API
-    alert(`订单 ${orderId} 已取消`)
-    // 在实际实现中，应该刷新订单列表
-  }
-}
-
-// 删除订单
-const deleteOrder = (orderId: string) => {
-  // 这里可以弹出确认框，然后发送删除订单请求
-  if (confirm(`确定要删除订单 ${orderId} 吗？此操作不可恢复。`)) {
-    // 模拟删除订单，实际应该调用API
-    allOrders.value = allOrders.value.filter(order => order.id !== orderId)
-    alert(`订单 ${orderId} 已删除`)
-  }
-}
-
 // 跳转到商品详情
 const goToProductDetail = (productId: string) => {
   router.push({
     name: 'Detail',
     params: { id: productId }
   })
+}
+
+// 继续支付
+const continuePayment = async (orderId: string) => {
+  const order = allOrders.value.find(o => o.id === orderId)
+  if (order && order.isExpired) {
+    alert('订单已超时，无法支付')
+    return
+  }
+  
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) {
+      error.value = '请先登录'
+      return
+    }
+
+    // 调用支付API
+    const response = await axios.get(`/api/orders/${orderId}/pay`, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    console.log('支付API响应:', response.data)
+
+    if (response.data.code === '200') {
+      // 跳转到支付页面，传递订单ID
+      router.push({
+        name: 'Payment',
+        params: { orderId: orderId }
+      })
+    } else {
+      alert(response.data.msg || '支付请求失败')
+    }
+  } catch (err: any) {
+    console.error('支付请求失败:', err)
+    if (err.response?.status === 401) {
+      error.value = '登录已过期，请重新登录'
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('username')
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    } else {
+      alert('网络错误，请稍后重试')
+    }
+  }
 }
 
 onMounted(() => {
@@ -659,7 +606,6 @@ const formatPrice = (price: number) => {
             <div class="order-actions">
               <!-- 待付款订单按钮 -->
               <template v-if="order.status === 'UNPAID'">
-                <button class="action-btn delete-btn" @click.stop="cancelOrder(order.id)">取消订单</button>
                 <button 
                   class="action-btn primary-btn" 
                   @click.stop="continuePayment(order.id)"
@@ -669,17 +615,7 @@ const formatPrice = (price: number) => {
                   {{ order.isExpired ? '订单已超时' : '继续支付' }}
                 </button>
               </template>
-              
-              <!-- 已付款订单按钮 -->
-              <template v-else-if="order.status === 'PAID'">
-                <button class="action-btn detail-btn" @click.stop="viewOrderDetail(order.id)">查看详情</button>
-              </template>
-              
-              <!-- 失败订单按钮 -->
-              <template v-else-if="order.status === 'FAILED'">
-                <button class="action-btn delete-btn" @click.stop="deleteOrder(order.id)">删除订单</button>
-                <button class="action-btn primary-btn" @click.stop="continuePayment(order.id)">重新支付</button>
-              </template>
+            
             </div>
           </div>
         </div>
@@ -1059,31 +995,6 @@ const formatPrice = (price: number) => {
 .primary-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 12px rgba(255, 107, 107, 0.3);
-}
-
-.detail-btn {
-  background: #ecf5ff;
-  color: #409eff;
-  border: 1px solid #d9ecff;
-}
-
-.detail-btn:hover {
-  color: #fff;
-  background-color: #409eff;
-  border-color: #409eff;
-  transform: translateY(-2px);
-}
-
-.delete-btn {
-  background: #f8f8f8;
-  color: #909399;
-  border: 1px solid #ebeef5;
-}
-
-.delete-btn:hover {
-  color: #f56c6c;
-  background-color: #fef0f0;
-  border-color: #fbc4c4;
 }
 
 /* 倒计时样式 */
