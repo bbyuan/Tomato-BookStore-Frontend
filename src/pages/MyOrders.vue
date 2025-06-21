@@ -42,6 +42,33 @@ interface OrderItem {
   quantity: number
 }
 
+// 商品信息类型
+interface ProductVO {
+  id: string
+  title: string
+  price: number
+  originalPrice?: number
+  rate?: number
+  description?: string
+  category?: string
+  cover?: string
+  cover_name?: string
+  covers?: string[]
+  covers_name?: string[]
+  detail?: string
+  specifications?: any[]
+  stock?: any
+}
+
+// 购物车项类型
+interface CartItemVO {
+  cartItemId: string
+  userId: string
+  productId: string
+  quantity: number
+  productInfo: ProductVO
+}
+
 // 后端返回的订单类型
 interface OrderVO {
   orderId: string
@@ -52,17 +79,19 @@ interface OrderVO {
   createTime: string
   cartItemIds: string[]
   shippingAddress?: string
-  userCouponId?: string
-  discountAmount?: number
-  originalAmount?: number
-  items?: OrderItem[] // 这可能需要额外处理，取决于后端返回的实际数据结构
+}
+
+// 订单详情类型（包含订单信息和商品列表）
+interface OrderWithDetail {
+  orderVO: OrderVO
+  cartItemVOList: CartItemVO[]
 }
 
 // 后端API响应类型
 interface ApiResponse {
   code: string
   msg: string
-  data: OrderVO[]
+  data: OrderWithDetail[]
 }
 
 // 前端使用的订单类型
@@ -303,12 +332,23 @@ const fetchOrders = async (status: string = 'ALL') => {
 }
 
 // 将后端订单数据转换为前端格式
-const convertOrderVOtoOrder = (orderVO: OrderVO): Order => {
+const convertOrderVOtoOrder = (orderWithDetail: OrderWithDetail): Order => {
+  const { orderVO, cartItemVOList } = orderWithDetail
+  
   // 前端状态转换
   const frontendStatus = frontendStatusMap[orderVO.status] || 'FAILED'
   
   // 输出单个订单的转换过程用于调试
   console.log('转换订单:', orderVO.orderId, '状态:', orderVO.status, '->', frontendStatus)
+  
+  // 将购物车项转换为订单项
+  const items: OrderItem[] = cartItemVOList.map(cartItem => ({
+    productId: cartItem.productId,
+    title: cartItem.productInfo.title,
+    image: cartItem.productInfo.cover || '/placeholder-book.jpg',
+    price: cartItem.productInfo.price,
+    quantity: cartItem.quantity
+  }))
   
   return {
     id: orderVO.orderId,
@@ -317,16 +357,7 @@ const convertOrderVOtoOrder = (orderVO: OrderVO): Order => {
     statusText: statusTextMap[frontendStatus],
     totalAmount: orderVO.totalAmount,
     paymentMethod: orderVO.paymentMethod || '暂未支付',
-    // 如果后端没有返回items，创建一个占位数据，或者根据cartItemIds获取
-    items: orderVO.items || [
-      {
-        productId: 'placeholder',
-        title: '商品信息加载中...',
-        image: '/placeholder-book.jpg',
-        price: orderVO.totalAmount,
-        quantity: 1
-      }
-    ],
+    items: items,
     // 检查是否已过期 (对于TIMEOUT状态的订单)
     isExpired: orderVO.status === 'TIMEOUT'
   }

@@ -62,6 +62,8 @@ onMounted(() => {
     activeTab.value = '1'
   } else if (path.includes('/myorders')) {
     activeTab.value = '4'
+  } else if (path.includes('/MyEvaluation')) {
+    activeTab.value = '5'
   } else if (path.includes('/account-settings')) {
     activeTab.value = '7'
   } else {
@@ -72,23 +74,30 @@ onMounted(() => {
 const handleCommand = (command: string) => {
   if (command === 'account-settings') {
     router.push('/account-settings/account')
+    activeTab.value = '7'
   } else if (command === 'logout') {
     // 处理登出逻辑
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('username')
+    router.push('/login')
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management')
-    activeTab.value = '8' // 设置管理员后台为选中状态
+    activeTab.value = '8'
   } else if (command === 'homepage') {
     router.push('/homepage')
-    activeTab.value = '1' // 设置主页为选中状态
+    activeTab.value = '1'
   } else if (command === 'cart') {
     router.push('/cart')
-    activeTab.value = '3' // 设置购物车为选中状态
+    activeTab.value = '3'
+  } else if (command === 'my-evaluation') {
+    router.push('/pages/MyEvaluation')
+    activeTab.value = '5'
   } else if (command === 'personal-center') {
     router.push('/account-settings/account')
-    activeTab.value = '7' // 设置个人中心为选中状态
+    activeTab.value = '7'
   } else if (command === 'myorders') {
     router.push('/myorders')
-    activeTab.value = '4' // 设置我的订单为选中状态
+    activeTab.value = '4'
   }
 }
 
@@ -257,40 +266,52 @@ const handleKeyDown = (event: KeyboardEvent) => {
         <span class="platform-name">番茄书城 Tomato BookStore</span>
       </div>
       <div class="custom-tabs">
-        <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
-        <label class="tab" for="tab-1" @click="handleCommand('homepage')">主页</label>
+        <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab"/>
+        <label class="tab" for="tab-1" @click="handleCommand('homepage')">
+          <i class="tab-icon">🏠</i>
+          <span>主页</span>
+        </label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
-        <label class="tab" for="tab-3" @click="handleCommand('cart')">购物车</label>
+        <label class="tab" for="tab-3" @click="handleCommand('cart')">
+          <i class="tab-icon">🛒</i>
+          <span>购物车</span>
+        </label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
-        <label class="tab" for="tab-4" @click="handleCommand('myorders')">我的订单</label>
+        <label class="tab" for="tab-4" @click="handleCommand('myorders')">
+          <i class="tab-icon">📋</i>
+          <span>订单</span>
+        </label>
+        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
+        <label class="tab" for="tab-5" @click="handleCommand('my-evaluation')">
+          <i class="tab-icon">⭐</i>
+          <span>评价</span>
+        </label>
         <input type="radio" id="tab-7" name="tabs" value="7" v-model="activeTab" />
-        <label class="tab" for="tab-7" @click="handleCommand('personal-center')">个人中心</label>
+        <label class="tab" for="tab-7" @click="handleCommand('personal-center')">
+          <i class="tab-icon">👤</i>
+          <span>个人</span>
+        </label>
         <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" />
-        <label class="tab" for="tab-8" @click="handleCommand('admin-dashboard')">管理员后台</label>
+        <label class="tab" for="tab-8" @click="handleCommand('admin-dashboard')">
+          <i class="tab-icon">⚙️</i>
+          <span>后台</span>
+        </label>
         <span class="glider"></span>
       </div>
     </div>
     <div class="header-right">
-      <div class="search-wrapper">
-        <input 
+      <div class="search-box">
+        <el-input
           v-model="searchInput"
-          type="text"
           placeholder="搜索图书..."
-          class="search-input-native"
+          :prefix-icon="Search"
+          class="search-input"
+          clearable
           @keydown="handleSearchKeydown"
           @focus="handleSearchFocus"
           @blur="handleSearchBlur"
           :disabled="isSearching"
         />
-        <button 
-          class="search-btn-native"
-          @click="handleSearch"
-          :disabled="isSearching"
-        >
-          <el-icon class="search-icon" :class="{ 'rotating': isSearching }">
-            <Search />
-          </el-icon>
-        </button>
         <div v-if="showSearchDropdown && searchResults.length > 0" class="search-dropdown">
           <div 
             v-for="(book, index) in searchResults" 
@@ -314,14 +335,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
               <div class="result-item-price">价格: ¥{{ book.price.toFixed(2) }}</div>
             </div>
           </div>
-          <div v-if="searchResults.length === 0" class="search-no-results">
-            <div class="search-no-results-icon">
-              <el-icon>
-                <Search />
-              </el-icon>
-            </div>
-            <div class="search-no-results-text">未找到相关结果</div>
-          </div>
         </div>
         <div v-else-if="showSearchDropdown" class="search-dropdown">
           <div class="search-no-results">
@@ -335,12 +348,35 @@ const handleKeyDown = (event: KeyboardEvent) => {
           </div>
         </div>
       </div>
-      <div class="avatar-container">
-        <el-avatar
-          :src="userAvatar || defaultAvatar"
-        />
-        <div class="status-dot" :class="{ 'logged-in': isLoggedIn }"></div>
-      </div>
+      
+      <!-- 用户信息区域 -->
+      <el-dropdown @command="handleCommand" class="user-dropdown">
+        <div class="avatar-container">
+          <el-avatar
+            :size="38"
+            :src="userAvatar || defaultAvatar"
+            class="user-avatar"
+          />
+          <div class="status-indicator" :class="{ 'online': isLoggedIn }"></div>
+          <div class="user-info">
+            <span class="username">用户</span>
+            <i class="dropdown-arrow">▼</i>
+          </div>
+        </div>
+        
+        <template #dropdown>
+          <el-dropdown-menu class="custom-dropdown">
+            <el-dropdown-item command="account-settings" class="dropdown-item">
+              <i class="item-icon">⚙️</i>
+              <span>账户设置</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="logout" class="dropdown-item logout">
+              <i class="item-icon">🚪</i>
+              <span>退出登录</span>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </el-header>
 </template>
@@ -455,12 +491,16 @@ const handleKeyDown = (event: KeyboardEvent) => {
   transform: translateY(-50%) translateX(200px);
 }
 
-.custom-tabs input[id="tab-7"]:checked ~ .glider {
+.custom-tabs input[id="tab-5"]:checked ~ .glider {
   transform: translateY(-50%) translateX(300px);
 }
 
-.custom-tabs input[id="tab-8"]:checked ~ .glider {
+.custom-tabs input[id="tab-7"]:checked ~ .glider {
   transform: translateY(-50%) translateX(400px);
+}
+
+.custom-tabs input[id="tab-8"]:checked ~ .glider {
+  transform: translateY(-50%) translateX(500px);
 }
 
 .header-right {
@@ -472,140 +512,200 @@ const handleKeyDown = (event: KeyboardEvent) => {
   justify-content: flex-end;
 }
 
-.search-wrapper {
+.search-box {
+  width: 280px;
   position: relative;
-  width: 260px;
-  height: 32px;
-  margin-right: 5px;
 }
 
-.search-input-native {
+.search-input {
+  width: 100%;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(228, 57, 60, 0.1);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  height: 42px;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 
+    0 4px 20px rgba(228, 57, 60, 0.15),
+    0 2px 8px rgba(228, 57, 60, 0.08) !important;
+  border-color: #e4393c !important;
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: rgba(228, 57, 60, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+:deep(.el-input__inner) {
+  font-size: 14px;
+  color: #333;
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: rgba(102, 102, 102, 0.6);
+}
+
+.member-btn {
+  border-radius: 22px;
+  padding: 0 20px;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
+  border: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 12px rgba(228, 57, 60, 0.25),
+    0 2px 6px rgba(228, 57, 60, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.member-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
   width: 100%;
   height: 100%;
-  padding: 0 40px 0 14px;
-  border: 1px solid rgba(212, 76, 76, 0.2);
-  border-radius: 16px;
-  background-color: rgba(255, 241, 241, 0.8);
-  font-size: 13px;
-  color: #333;
-  outline: none;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.1), 0 2px 4px 0 rgba(212, 76, 76, 0.05);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
 }
 
-.search-input-native::placeholder {
-  color: #999;
-  font-size: 13px;
+.member-btn:hover::before {
+  left: 100%;
 }
 
-.search-input-native:focus {
-  border-color: #d44c4c;
-  background-color: #fff;
-  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.3), 0 4px 8px 0 rgba(212, 76, 76, 0.15);
+.member-btn:hover {
+  background: linear-gradient(135deg, #d63031 0%, #ff5757 100%);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(228, 57, 60, 0.3),
+    0 4px 12px rgba(228, 57, 60, 0.2);
 }
 
-.search-input-native:hover {
-  border-color: rgba(212, 76, 76, 0.4);
-  background-color: #fff;
-  box-shadow: 0 0 1px 0 rgba(212, 76, 76, 0.2), 0 3px 6px 0 rgba(212, 76, 76, 0.1);
+.member-btn .btn-icon {
+  margin-right: 6px;
+  font-size: 16px;
 }
 
-.search-btn-native {
-  position: absolute;
-  right: 3px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 50%;
-  background-color: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  outline: none;
-}
-
-.search-btn-native:hover {
-  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
-  box-shadow: 0 2px 4px rgba(212, 76, 76, 0.3);
-}
-
-.search-btn-native:hover .search-icon {
-  color: white;
-}
-
-.search-icon {
-  font-size: 14px;
-  color: #d44c4c;
-  transition: all 0.3s ease;
-}
-
-.search-icon.rotating {
-  animation: rotate 1s linear infinite;
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.search-btn-native:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.register-btn {
-  padding: 0 18px;
-  height: 32px;
-  font-size: 13px;
-  background: linear-gradient(135deg, #d44c4c 0%, #ff6b6b 100%);
-  border: none;
-  border-radius: 16px;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.register-btn:hover {
-  background: linear-gradient(135deg, #c43c3c 0%, #ff5b5b 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(212, 76, 76, 0.2);
+.user-dropdown {
+  position: relative;
 }
 
 .avatar-container {
-  position: relative;
-  margin-left: 5px;
-}
-
-.avatar-container :deep(.el-avatar) {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 22px;
+  border: 1px solid rgba(228, 57, 60, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  position: relative;
 }
 
-.status-dot {
+.avatar-container:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(228, 57, 60, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(228, 57, 60, 0.1);
+}
+
+.user-avatar {
+  position: relative;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.status-indicator {
   position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 8px;
-  height: 8px;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 2px solid #fff;
   background-color: #ddd;
+  transition: all 0.3s ease;
 }
 
-.status-dot.logged-in {
-  background-color: #67C23A;
+.status-indicator.online {
+  background-color: #00d084;
+  box-shadow: 0 0 8px rgba(0, 208, 132, 0.4);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.username {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  color: rgba(102, 102, 102, 0.6);
+  transition: transform 0.3s ease;
+}
+
+.avatar-container:hover .dropdown-arrow {
+  transform: rotate(180deg);
+  color: #e4393c;
+}
+
+:deep(.custom-dropdown) {
+  border-radius: 12px;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(228, 57, 60, 0.08);
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px;
+}
+
+:deep(.dropdown-item) {
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 2px 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:deep(.dropdown-item:hover) {
+  background: rgba(228, 57, 60, 0.06);
+  color: #e4393c;
+}
+
+:deep(.dropdown-item.logout:hover) {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.item-icon {
+  font-size: 14px;
 }
 
 .search-dropdown {
