@@ -1,5 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import AddCoupon from './AddCoupon.vue'
 
+const loading = ref(false)
+const error = ref('')
+const showAddCoupon = ref(false)
+
+const openAddCouponModal = () => { showAddCoupon.value = true }
+const fetchAdverts = () => {}
 
 </script>
 
@@ -23,6 +31,8 @@
       <p>{{ error }}</p>
       <button @click="fetchAdverts" class="retry-btn">重试</button>
     </div>
+
+    <AddCoupon :show="showAddCoupon" @close="showAddCoupon = false" @success="fetchAdverts" />
   </div>
 </template>
 
