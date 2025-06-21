@@ -6,7 +6,8 @@ import { useRouter, useRoute } from 'vue-router'
 const menuItems = ref([
   { name: '商品管理', route: '/admin/product-management' },
   { name: '广告管理', route: '/admin/adver-management'},
-  { name: '评价审核管理', route: '/admin/evaluation-management' }
+  { name: '评价审核管理', route: '/admin/evaluation-management' },
+  { name: '优惠券管理', route: '/admin/coupon-management' },
 ])
 
 const router = useRouter()

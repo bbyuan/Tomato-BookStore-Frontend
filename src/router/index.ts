@@ -14,6 +14,7 @@ import Detail from '@/pages/Detail.vue'
 import AdminProductManagement from '@/pages/AdminProductManagement.vue'
 import AdminAdverManagement from '@/pages/AdminAdverManagement.vue'
 import AdminEvaluationManagement from '@/pages/AdminEvaluationManagement.vue'
+import AdminCouponManagement from '@/pages/AdminCouponManagement.vue'
 import Cart from '@/pages/Cart.vue';
 import Order from '@/pages/Order.vue';
 import PaymentSuccess from '@/pages/PaymentSuccess.vue'
@@ -105,6 +106,11 @@ const router = createRouter({
       path: '/admin/evaluation-management',
       name: 'AdminEvaluationManagement',
       component: AdminEvaluationManagement
+    },
+    {
+      path: '/admin/coupon-management',
+      name: 'AdminCouponManagement',
+      component: AdminCouponManagement
     },
     {
       path: '/not-found',
