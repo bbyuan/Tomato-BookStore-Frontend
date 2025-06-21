@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, onMounted } from 'vue'
 import axios from 'axios'
 
 const props = defineProps<{ 
@@ -82,29 +82,44 @@ const form = reactive({
   validTo: ''
 })
 
+// 重置表单
+const resetForm = () => {
+  form.name = ''
+  form.description = ''
+  form.discountType = 'AMOUNT'
+  form.discountValue = 0
+  form.minOrderAmount = 0
+  form.totalQuantity = 1
+  form.perUserLimit = 1
+  form.validFrom = ''
+  form.validTo = ''
+}
+
 // 获取优惠券详情
 const fetchCouponDetail = async () => {
   if (!props.couponId) return
-  
   loading.value = true
   try {
     const token = sessionStorage.getItem('token')
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/coupons/${props.couponId}`, {
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/coupons`, {
       headers: { token }
     })
     if (res.data && res.data.code === '200') {
-      const coupon = res.data.data
-      Object.assign(form, {
-        name: coupon.name || '',
-        description: coupon.description || '',
-        discountType: coupon.discountType || 'AMOUNT',
-        discountValue: coupon.discountValue || 0,
-        minOrderAmount: coupon.minOrderAmount || 0,
-        totalQuantity: coupon.totalQuantity || 1,
-        perUserLimit: coupon.perUserLimit || 1,
-        validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 16) : '',
-        validTo: coupon.validTo ? coupon.validTo.slice(0, 16) : ''
-      })
+      const couponList = res.data.data?.coupons || []
+      const coupon = couponList.find((c: any) => c.couponId === props.couponId)
+      if (coupon) {
+        Object.assign(form, {
+          name: coupon.name || '',
+          description: coupon.description || '',
+          discountType: coupon.discountType || 'AMOUNT',
+          discountValue: coupon.discountValue || 0,
+          minOrderAmount: coupon.minOrderAmount || 0,
+          totalQuantity: coupon.totalQuantity || 1,
+          perUserLimit: coupon.perUserLimit || 1,
+          validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 16) : '',
+          validTo: coupon.validTo ? coupon.validTo.slice(0, 16) : ''
+        })
+      }
     }
   } catch (e: any) {
     alert('获取优惠券详情失败: ' + (e.message || '未知错误'))
@@ -113,8 +128,16 @@ const fetchCouponDetail = async () => {
   }
 }
 
+onMounted(() => {
+  if (props.couponId) {
+    resetForm()
+    fetchCouponDetail()
+  }
+})
+
 watch(() => props.couponId, (val) => {
   if (val) {
+    resetForm()
     fetchCouponDetail()
   }
 })

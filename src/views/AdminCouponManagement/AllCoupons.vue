@@ -7,7 +7,6 @@ import axios from 'axios'
 const loading = ref(false)
 const error = ref('')
 const showAddCoupon = ref(false)
-const showEditCouponModal = ref(false)
 const currentEditCouponId = ref<string | null>(null)
 const coupons = ref<any[]>([])
 const pageNum = ref(1)
@@ -17,10 +16,8 @@ const totalPage = ref(1)
 const openAddCouponModal = () => { showAddCoupon.value = true }
 const openEditCouponModal = (couponId: string) => {
   currentEditCouponId.value = couponId
-  showEditCouponModal.value = true
 }
 const closeEditCouponModal = () => {
-  showEditCouponModal.value = false
   currentEditCouponId.value = null
 }
 
@@ -82,40 +79,23 @@ onMounted(fetchCoupons)
     <!-- 优惠券列表展示，参考Order.vue样式 -->
     <div v-if="!loading && !error" class="coupon-section">
       <h3 style="margin: 30px 0 18px 0; font-size: 20px; font-weight: 600; color: #2d3436;">全部优惠券</h3>
-      <div v-if="coupons.length > 0" class="coupon-list">
+      <div v-if="coupons.length > 0" class="coupon-list admin-coupon-list">
         <div 
           v-for="coupon in coupons" 
           :key="coupon.couponId" 
-          class="coupon-item"
+          class="coupon-item admin-coupon-item"
         >
-          <div class="coupon-header">
-            <div class="coupon-amount">
-              <span class="currency">¥</span>
-              <span class="value">{{ coupon.discountValue }}</span>
-            </div>
-            <span v-if="coupon.status" class="coupon-status-badge" :class="'status-' + coupon.status.toLowerCase()">
-              {{ coupon.status === 'ACTIVE' ? '生效中' : coupon.status === 'PENDING' ? '待生效' : coupon.status === 'EXPIRED' ? '已过期' : coupon.status }}
-            </span>
-          </div>
-          
-          <div class="coupon-body">
-            <div class="coupon-title">{{ coupon.name }}</div>
-            <div class="coupon-condition">满 {{ coupon.minOrderAmount }} 元可用</div>
-            <div class="coupon-expire">
-              <i class="time-icon">⏰</i>
-              {{ coupon.validFrom?.slice(0, 10) }} ~ {{ coupon.validTo?.slice(0, 10) }}
-            </div>
-          </div>
-          
-          <div class="coupon-footer">
-            <div class="coupon-actions">
-              <button @click="openEditCouponModal(coupon.couponId)" class="action-btn edit-btn">
-                <i class="action-icon">✏️</i>
-                <span>编辑</span>
+          <div class="coupon-amount admin-coupon-amount">¥{{ coupon.discountValue }}</div>
+          <div class="coupon-info admin-coupon-info">
+            <div class="coupon-desc admin-coupon-desc">{{ coupon.name }}</div>
+            <div class="coupon-condition admin-coupon-condition">满{{ coupon.minOrderAmount }}元可用</div>
+            <div class="coupon-expire admin-coupon-expire">有效期至: {{ coupon.validTo?.slice(0, 10) }}</div>
+            <div class="admin-coupon-actions">
+              <button @click="openEditCouponModal(coupon.couponId)" class="edit-btn action-btn">
+                <i class="action-icon">✏️</i> 编辑
               </button>
-              <button @click="handleDeleteCoupon(coupon.couponId)" class="action-btn delete-btn">
-                <i class="action-icon">🗑️</i>
-                <span>删除</span>
+              <button @click="handleDeleteCoupon(coupon.couponId)" class="delete-btn action-btn">
+                <i class="action-icon">🗑️</i> 删除
               </button>
             </div>
           </div>
@@ -127,9 +107,9 @@ onMounted(fetchCoupons)
     </div>
 
     <AddCoupon :show="showAddCoupon" @close="showAddCoupon = false" @success="fetchCoupons" />
-    <!-- 编辑优惠券的弹窗组件，假设组件名为EditCoupon -->
+    <!-- 编辑优惠券的弹窗组件，直接用 currentEditCouponId 控制 -->
     <EditCoupon 
-      v-if="showEditCouponModal" 
+      v-if="currentEditCouponId" 
       :couponId="currentEditCouponId" 
       @close="closeEditCouponModal" 
       @success="fetchCoupons" 
@@ -321,55 +301,63 @@ onMounted(fetchCoupons)
 }
 
 .coupon-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 10px;
+}
+
+.admin-coupon-list {
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
 }
 
 .coupon-item {
   display: flex;
-  flex-direction: column;
-  border: 1px solid #e8e8e8;
+  gap: 20px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 20px 24px;
+  background: #fff;
+  align-items: center;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.admin-coupon-item {
+  width: 340px;
+  min-width: 0;
+  background: #fff;
+  border: 1.5px solid #f3eaea;
   border-radius: 16px;
-  padding: 0;
-  cursor: default;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
-.coupon-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 30px rgba(255, 107, 107, 0.15);
-  border-color: #ff6b6b;
-}
-
-.coupon-header {
+  box-shadow: 0 2px 10px rgba(255, 107, 107, 0.06);
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 20px 20px 0 20px;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  overflow: hidden;
   position: relative;
 }
 
-.coupon-header::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+.admin-coupon-item:hover {
+  box-shadow: 0 6px 24px rgba(255, 107, 107, 0.13);
+  border-color: #ffbdbd;
 }
 
 .coupon-amount {
-  display: flex;
-  align-items: baseline;
+  min-width: 100px;
+  min-height: 90px;
+  background: #fff5f5;
   color: #ff6b6b;
-  font-weight: 800;
-  position: relative;
+  font-size: 32px;
+  font-weight: 700;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18px;
 }
 
 .currency {
@@ -382,39 +370,76 @@ onMounted(fetchCoupons)
   line-height: 1;
 }
 
-.coupon-body {
-  padding: 16px 20px;
-  flex: 1;
+.admin-coupon-amount {
+  background: #fff0f0;
+  color: #ff6b6b;
+  font-size: 32px;
+  font-weight: 700;
+  min-width: 110px;
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 16px 16px 0;
+  margin: 0;
 }
 
-.coupon-title {
+.coupon-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.admin-coupon-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 18px 12px 18px;
+}
+
+.coupon-desc {
   font-size: 18px;
   font-weight: 600;
-  color: #2d3436;
-  margin-bottom: 8px;
+  color: #222;
+  margin-bottom: 6px;
+}
+
+.admin-coupon-desc {
+  font-size: 17px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 6px;
   line-height: 1.3;
 }
 
 .coupon-condition {
   color: #666;
-  font-size: 14px;
+  font-size: 15px;
   margin-bottom: 8px;
-  padding: 4px 8px;
-  background: rgba(255, 107, 107, 0.08);
-  border-radius: 6px;
-  display: inline-block;
+}
+
+.admin-coupon-condition {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
 }
 
 .coupon-expire {
-  color: #999;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 0;
 }
 
 .time-icon {
   font-size: 14px;
+}
+
+.admin-coupon-expire {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 10px;
 }
 
 .coupon-footer {
@@ -426,53 +451,76 @@ onMounted(fetchCoupons)
 
 .coupon-actions {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-coupon-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .action-btn {
   border: none;
   outline: none;
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-size: 13px;
+  padding: 7px 20px;
+  border-radius: 18px;
+  font-size: 14px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .edit-btn {
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  color: #6c757d;
-  border: 1px solid #dee2e6;
+  background: #fff;
+  color: #ff6b6b;
+  border: 1px solid #ffe0e0;
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 4px rgba(255,107,107,0.07);
 }
 
 .edit-btn:hover {
-  background: linear-gradient(135deg, #ff6b6b, #ff8a65);
-  color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  background: #fff6f6;
+  color: #ff3b3b;
 }
 
 .delete-btn {
-  background: linear-gradient(135deg, #fff5f5, #ffe0e6);
-  color: #e74c3c;
-  border: 1px solid #f5c6cb;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: #fff;
+  border: 1px solid #ffbdbd;
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .delete-btn:hover {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
   color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
 .action-icon {
-  font-size: 14px;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .coupon-status-badge {
