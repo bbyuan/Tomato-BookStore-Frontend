@@ -148,7 +148,13 @@ const props = defineProps<{
     image: string
     price: number
   }
-  orderId: string
+  orderId?: string
+  review?: {
+    reviewId: string
+    rating: number
+    comment: string
+    media?: Array<{image: string, imageName: string}>
+  }
 }>()
 
 // Emits
