@@ -53,9 +53,26 @@
             :class="['conversation-item', { active: conversation.conversationId === conversationId }]"
             @click="selectConversation(conversation)"
           >
-            <div class="conversation-title">{{ conversation.title || '未命名对话' }}</div>
-            <div class="conversation-time">{{ formatConversationTime(conversation.time) }}</div>
-            <div class="conversation-model">{{ conversation.model }}</div>
+            <div class="conversation-content">
+              <div class="conversation-title">{{ conversation.title || '未命名对话' }}</div>
+              <div class="conversation-model">{{ conversation.model }}</div>
+            </div>
+            <div class="conversation-actions" @click.stop>
+              <button 
+                class="delete-btn"
+                @click="slideToDelete(conversation.conversationId)"
+                title="删除会话"
+                v-if="slideDeleteId !== conversation.conversationId"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
+                </svg>
+              </button>
+              <div v-if="slideDeleteId === conversation.conversationId" class="slide-confirm-actions">
+                <button class="confirm-btn" @click="executeDelete(conversation.conversationId)">确认删除</button>
+                <button class="cancel-btn" @click="slideDeleteId = null">取消</button>
+              </div>
+            </div>
           </div>
           <div v-if="conversations.length === 0" class="no-conversations">
             暂无历史会话
@@ -74,7 +91,9 @@
           </div>
           <div class="message-bubble">
             <div class="message-content">{{ msg.content }}</div>
-            <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
+            <div v-if="msg.showTime !== false" class="message-time">
+              {{ formatTime(msg.timestamp) }}
+            </div>
           </div>
         </div>
       </div>
@@ -101,6 +120,7 @@
         </div>
       </div>
     </div>
+    <Toast ref="toastRef" />
   </div>
 </template>
 
@@ -117,7 +137,9 @@ export default {
       isLoading: false,
       conversationId: null,
       conversations: [],
-      showConversations: false
+      showConversations: false,
+      deleteTargetId: null,
+      slideDeleteId: null
     }
   },
   methods: {
@@ -160,8 +182,6 @@ export default {
 
         if (result.code === 200 || result.data) {
           this.conversations = result.data?.conversations || []
-          // 按时间倒序排列
-          this.conversations.sort((a, b) => b.time - a.time)
         } else {
           console.error('获取会话列表失败:', result.msg)
         }
@@ -170,12 +190,13 @@ export default {
       }
     },
 
-    selectConversation(conversation) {
+    async selectConversation(conversation) {
       this.conversationId = conversation.conversationId
       this.messages = [] // 清空当前消息
       this.showConversations = false
-      // 这里可以根据需要加载历史消息
-      this.addMessage(`已切换到会话: ${conversation.title || '未命名对话'}`, 'ai')
+      
+      // 加载该会话的所有消息
+      await this.loadConversationMessages(conversation.conversationId)
     },
 
     startNewConversation() {
@@ -291,14 +312,164 @@ export default {
       }
     },
     
+    async loadConversationMessages(conversationId) {
+      try {
+        const token = sessionStorage.getItem('token')
+        if (!token) {
+          console.error('用户未登录')
+          this.addMessage('请先登录后再查看历史会话', 'ai')
+          return
+        }
+
+        console.log('开始加载会话消息, conversationId:', conversationId)
+        console.log('使用的token:', token ? token.substring(0, 20) + '...' : 'undefined')
+
+        // 显示加载提示
+        this.addMessage('正在加载历史消息...', 'ai')
+        const loadingMessageIndex = this.messages.length - 1
+
+        // 使用 axios POST 请求，参考 Header.vue 的token传递方式
+        const response = await axios.post('/api/ai/messages', {
+          conversationId: conversationId
+        }, {
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        console.log('响应状态:', response.status, response.statusText)
+        console.log('响应头:', response.headers)
+
+        const result = response.data
+        console.log('获取会话消息完整响应:', JSON.stringify(result, null, 2))
+
+        await this.processConversationMessages(result, loadingMessageIndex)
+
+      } catch (error) {
+        console.error('获取会话消息错误详情:', error)
+        console.error('错误堆栈:', error.stack)
+        
+        // 详细的错误信息
+        if (error.response) {
+          console.error('错误响应状态:', error.response.status)
+          console.error('错误响应数据:', error.response.data)
+          console.error('错误响应头:', error.response.headers)
+        } else if (error.request) {
+          console.error('请求发送但未收到响应:', error.request)
+        } else {
+          console.error('请求配置错误:', error.message)
+        }
+        
+        // 移除可能存在的加载提示
+        if (this.messages.length > 0 && this.messages[this.messages.length - 1].content === '正在加载历史消息...') {
+          this.messages.pop()
+        }
+        
+        if (error.response?.status === 401) {
+          this.addMessage('登录已过期，请重新登录后再试', 'ai')
+        } else if (error.response?.status === 400) {
+          const errorMsg = error.response?.data?.msg || error.response?.data?.message || '请求参数错误'
+          this.addMessage(`请求参数错误: ${errorMsg}`, 'ai')
+        } else {
+          this.addMessage('加载历史消息时发生错误，请稍后重试', 'ai')
+        }
+      }
+    },
+
+    async processConversationMessages(result, loadingMessageIndex) {
+      console.log('开始处理会话消息响应')
+      console.log('响应结构分析:')
+      console.log('- code:', result.code)
+      console.log('- msg:', result.msg)
+      console.log('- data:', result.data)
+      
+      // 移除加载提示消息
+      this.messages.splice(loadingMessageIndex, 1)
+      console.log('已移除加载提示消息')
+
+      // 检查是否是401未登录错误
+      if (result.code === '401' || result.code === 401) {
+        console.log('检测到401未登录错误')
+        this.addMessage('登录已过期，请重新登录后再试', 'ai')
+        return
+      }
+
+      if (result.code === '200' || result.code === 200 || result.data) {
+        const messagesData = result.data?.messages || []
+        console.log('提取到的消息数据:', messagesData)
+        
+        if (messagesData.length === 0) {
+          console.log('该会话没有历史消息')
+          this.addMessage('该会话暂无历史消息', 'ai')
+          return
+        }
+
+        console.log('开始转换和添加消息:')
+        // 将服务器返回的消息转换为前端格式
+        messagesData.forEach((msg, index) => {
+          console.log(`处理第${index + 1}条消息:`, msg)
+          console.log(`- content: ${msg.content}`)
+          console.log(`- role: ${msg.role}`)
+          
+          const messageType = msg.role === 'user' ? 'user' : 'ai'
+          console.log(`- 转换后的type: ${messageType}`)
+          
+          this.addHistoryMessage(msg.content, messageType)
+        })
+
+        console.log(`成功添加${messagesData.length}条历史消息`)
+
+        // 滚动到底部
+        this.$nextTick(() => {
+          console.log('滚动到底部')
+          this.scrollToBottom()
+        })
+
+      } else {
+        console.error('响应格式不正确或状态码错误')
+        console.error('期望code为200，实际:', result.code)
+        console.error('完整响应:', result)
+        
+        // 根据错误码显示不同消息
+        if (result.code === '400' || result.code === 400) {
+          this.addMessage('请求参数错误，请检查会话ID是否有效', 'ai')
+        } else {
+          this.addMessage(`获取历史消息失败：${result.msg || '未知错误'}`, 'ai')
+        }
+      }
+    },
+    
     addMessage(content, type) {
       this.messages.push({
         content,
         type,
-        timestamp: new Date()
+        timestamp: new Date(),
+        showTime: true
       })
       this.$nextTick(() => {
         this.scrollToBottom()
+      })
+    },
+
+    addHistoryMessage(content, type) {
+      this.messages.push({
+        content,
+        type,
+        timestamp: new Date(),
+        showTime: false
+      })
+      this.$nextTick(() => {
+        this.scrollToBottom()
+      })
+    },
+
+    formatTime(timestamp) {
+      if (!timestamp) return ''
+      const time = new Date(timestamp)
+      return time.toLocaleTimeString('zh-CN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
       })
     },
     
@@ -308,57 +479,53 @@ export default {
         container.scrollTop = container.scrollHeight
       }
     },
-    
-    formatTime(timestamp) {
-      return timestamp.toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
+
+    showDeleteConfirm(conversationId) {
+      this.deleteTargetId = conversationId
     },
-    
-    formatConversationTime(timestamp) {
-      // 处理时间戳格式 - 可能是毫秒或秒
-      let date
-      if (typeof timestamp === 'number') {
-        // 如果时间戳小于一定值，可能是秒级时间戳，需要转换为毫秒
-        date = timestamp < 10000000000 ? new Date(timestamp * 1000) : new Date(timestamp)
-      } else {
-        date = new Date(timestamp)
-      }
-      
-      // 检查日期是否有效
-      if (isNaN(date.getTime())) {
-        return '未知时间'
-      }
-      
-      const now = new Date()
-      const diff = now.getTime() - date.getTime()
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor(diff / (1000 * 60))
-      
-      if (minutes < 1) {
-        return '刚刚'
-      } else if (minutes < 60) {
-        return `${minutes}分钟前`
-      } else if (hours < 24) {
-        return `${hours}小时前`
-      } else if (days === 1) {
-        return '昨天 ' + date.toLocaleTimeString('zh-CN', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+
+    slideToDelete(conversationId) {
+      this.slideDeleteId = conversationId
+    },
+
+    async executeDelete(conversationId) {
+      try {
+        const token = sessionStorage.getItem('token')
+        if (!token) {
+          this.$refs.toastRef.show('用户未登录', 'error')
+          return
+        }
+        const response = await fetch('/api/ai/conversations', {
+          method: 'DELETE',
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ conversationId })
         })
-      } else if (days < 7) {
-        return `${days}天前`
-      } else {
-        return date.toLocaleDateString('zh-CN', {
-          month: 'numeric',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }).replace(/\//g, '-')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const result = await response.json()
+        if (result.code === 200 || result.code === '200') {
+          this.conversations = this.conversations.filter(
+            conv => conv.conversationId !== conversationId
+          )
+          if (this.conversationId === conversationId) {
+            this.conversationId = null
+            this.messages = []
+            this.addMessage('您好！我是AI助手，有什么可以帮助您的吗？', 'ai')
+          }
+          this.$refs.toastRef.show('删除成功', 'success')
+        } else {
+          this.$refs.toastRef.show(result.msg || '删除失败', 'error')
+        }
+        this.slideDeleteId = null
+      } catch (error) {
+        this.$refs.toastRef.show('删除会话时发生错误', 'error')
+        this.slideDeleteId = null
       }
-    }
+    },
   }
 }
 </script>
@@ -369,6 +536,8 @@ export default {
   bottom: 30px;
   right: 30px;
   z-index: 1000;
+  filter: drop-shadow(0 8px 32px rgba(228, 57, 60, 0.18));
+  /* 轻柔阴影 */
 }
 
 .chat-trigger {
@@ -380,10 +549,11 @@ export default {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 25px rgba(228, 57, 60, 0.35);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 25px rgba(228, 57, 60, 0.35), 0 2px 8px rgba(255,255,255,0.12);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s;
   position: relative;
   overflow: hidden;
+  border: 2.5px solid #fff6f6;
 }
 
 .chat-trigger::before {
@@ -393,33 +563,36 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 100%);
   border-radius: 50%;
+  pointer-events: none;
 }
 
 .chat-trigger:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 12px 35px rgba(228, 57, 60, 0.45);
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 16px 40px rgba(228, 57, 60, 0.38), 0 2px 12px rgba(255,255,255,0.18);
+  filter: brightness(1.08) saturate(1.1);
 }
 
 .chat-icon-logo {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   z-index: 1;
-  /* 移除白色滤镜，显示原始彩色logo */
+  filter: drop-shadow(0 2px 8px rgba(255,107,107,0.18));
 }
 
 .chat-window {
-  width: 380px;
-  height: 520px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 20px rgba(0, 0, 0, 0.1);
+  width: 400px;
+  height: 560px;
+  background: linear-gradient(135deg, #fff 80%, #ffeaea 100%);
+  border-radius: 22px;
+  box-shadow: 0 24px 80px 0 rgba(228, 57, 60, 0.13), 0 2px 12px rgba(255,255,255,0.10);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(228, 57, 60, 0.10);
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(2.5px);
 }
 
 @keyframes slideUp {
@@ -436,11 +609,12 @@ export default {
 .chat-header {
   background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
   color: white;
-  padding: 18px 20px;
+  padding: 22px 24px 18px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: relative;
+  box-shadow: 0 2px 12px rgba(228, 57, 60, 0.10);
 }
 
 .chat-header::before {
@@ -450,102 +624,112 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
 }
 
 .header-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   z-index: 1;
 }
 
 .ai-avatar {
-  width: 36px;
-  height: 36px;
-  background: rgba(255,255,255,0.2);
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.22);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(255,107,107,0.13);
+  border: 1.5px solid #fff6f6;
 }
 
 .ai-avatar-logo {
-  width: 20px;
-  height: 20px;
-  /* 移除白色滤镜，显示原始彩色logo */
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 2px 8px rgba(255,107,107,0.18));
 }
 
 .header-text h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.2;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.18);
 }
 
 .status {
-  font-size: 12px;
-  opacity: 0.9;
+  font-size: 13px;
+  opacity: 0.92;
   font-weight: 400;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.12);
 }
 
 .close-btn {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.18);
   border: none;
   color: white;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.22s;
   z-index: 1;
   backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(255,107,107,0.10);
 }
 
 .close-btn:hover {
-  background: rgba(255,255,255,0.25);
-  transform: scale(1.1);
+  background: rgba(255,255,255,0.32);
+  transform: scale(1.13) rotate(8deg);
+  box-shadow: 0 4px 16px rgba(255,107,107,0.18);
 }
 
 .close-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   z-index: 1;
 }
 
 .conversations-btn {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.18);
   border: none;
   color: white;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.22s;
   backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(255,107,107,0.10);
 }
 
 .conversations-btn:hover {
-  background: rgba(255,255,255,0.25);
-  transform: scale(1.1);
+  background: rgba(255,255,255,0.32);
+  transform: scale(1.13) rotate(-8deg);
+  box-shadow: 0 4px 16px rgba(255,107,107,0.18);
 }
 
 .conversations-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .conversations-panel {
@@ -553,95 +737,161 @@ export default {
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #fef7f7 0%, #ffffff 100%);
-  height: 100%; /* 确保占满剩余空间 */
-  overflow: hidden; /* 防止整个面板滚动 */
+  height: 100%;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(228, 57, 60, 0.06);
 }
 
 .conversations-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #ffe0e1;
+  padding: 18px 24px 12px 24px;
+  border-bottom: 1.5px solid #ffe0e1;
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: white;
-  flex-shrink: 0; /* 防止头部被压缩 */
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.06);
 }
 
 .conversations-header h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
   color: #2c3e50;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .new-chat-btn {
   background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
   color: white;
   border: none;
-  padding: 8px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.2s;
+  gap: 6px;
+  transition: all 0.22s;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.10);
 }
 
 .new-chat-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(228, 57, 60, 0.3);
+  transform: translateY(-2px) scale(1.08);
+  box-shadow: 0 6px 18px rgba(228, 57, 60, 0.18);
+  filter: brightness(1.08);
 }
 
 .new-chat-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .conversations-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
-  height: 0; /* 关键：强制使用flex布局的剩余空间 */
+  padding: 10px 6px 10px 6px;
+  height: 0;
+  min-height: 0;
+  background: linear-gradient(135deg, #fff 80%, #ffeaea 100%);
+  overflow-x: hidden;
+}
+
+.conversations-list::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+.conversations-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(228,57,60,0.10) transparent;
 }
 
 .conversation-item {
-  padding: 12px 16px;
-  margin-bottom: 6px;
-  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
+  transition: box-shadow 0.22s, background 0.22s, border 0.22s, transform 0.18s;
+  border: 1.5px solid transparent;
   background: white;
-  flex-shrink: 0; /* 防止项目被压缩 */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: visible;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.06);
 }
 
 .conversation-item:hover {
   background: #fef7f7;
   border-color: #ffe0e1;
-  transform: translateX(2px);
+  transform: translateX(3px) scale(1.03);
+  box-shadow: 0 4px 16px rgba(255,107,107,0.13);
 }
 
 .conversation-item.active {
-  background: linear-gradient(135deg, rgba(228, 57, 60, 0.1) 0%, rgba(255, 107, 107, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(228, 57, 60, 0.13) 0%, rgba(255, 107, 107, 0.13) 100%);
   border-color: #e4393c;
+  box-shadow: 0 6px 18px rgba(228, 57, 60, 0.13);
+}
+
+.slide-confirm-actions {
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.confirm-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  box-shadow: 0 2px 8px rgba(255,71,87,0.08);
+}
+
+.confirm-btn:hover {
+  background: #ff3838;
+}
+
+.cancel-btn {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.cancel-btn:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+}
+
+.conversation-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .conversation-title {
   font-size: 14px;
   font-weight: 500;
   color: #2c3e50;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.conversation-time {
-  font-size: 11px;
-  color: #8b95a5;
-  margin-bottom: 2px;
 }
 
 .conversation-model {
@@ -662,20 +912,12 @@ export default {
 }
 
 .conversations-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.conversations-list::-webkit-scrollbar-track {
+  width: 0px;
   background: transparent;
 }
-
-.conversations-list::-webkit-scrollbar-thumb {
-  background: rgba(228, 57, 60, 0.3);
-  border-radius: 3px;
-}
-
-.conversations-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(228, 57, 60, 0.5);
+.conversations-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(228,57,60,0.10) transparent;
 }
 
 /* ...existing code... */
@@ -683,17 +925,29 @@ export default {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px 20px 20px 20px;
   background: linear-gradient(to bottom, #fef7f7 0%, #ffffff 100%);
   scroll-behavior: smooth;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.06);
+  overflow-x: hidden;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(228,57,60,0.10) transparent;
 }
 
 .message {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   animation: messageSlide 0.3s ease-out;
+  filter: drop-shadow(0 2px 8px rgba(255,107,107,0.08));
 }
 
 @keyframes messageSlide {
@@ -716,56 +970,65 @@ export default {
 }
 
 .message-avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.13);
+  border: 1.5px solid #fff6f6;
 }
 
 .message-avatar-logo {
-  width: 16px;
-  height: 16px;
-  /* 移除白色滤镜，显示原始彩色logo */
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 2px 8px rgba(255,107,107,0.18));
 }
 
 .message-bubble {
-  max-width: calc(100% - 50px);
+  max-width: calc(100% - 60px);
   display: flex;
   flex-direction: column;
 }
 
 .message-content {
-  padding: 12px 16px;
-  border-radius: 18px;
-  font-size: 14px;
-  line-height: 1.5;
+  padding: 14px 18px;
+  border-radius: 20px;
+  font-size: 15px;
+  line-height: 1.6;
   word-wrap: break-word;
   position: relative;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.08);
+  border: 1.5px solid #ffe0e1;
+  background: linear-gradient(135deg, #fff 80%, #ffeaea 100%);
+  transition: background 0.18s, box-shadow 0.18s;
 }
 
 .message.user .message-content {
   background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
   color: white;
-  border-bottom-right-radius: 6px;
+  border-bottom-right-radius: 8px;
+  border: 1.5px solid #ffb3b3;
+  box-shadow: 0 2px 12px rgba(228, 57, 60, 0.13);
 }
 
 .message.ai .message-content {
-  background: white;
+  background: linear-gradient(135deg, #fff 80%, #ffeaea 100%);
   color: #2c3e50;
-  border: 1px solid #ffe0e1;
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 2px 8px rgba(228, 57, 60, 0.08);
+  border: 1.5px solid #ffe0e1;
+  border-bottom-left-radius: 8px;
+  box-shadow: 0 2px 12px rgba(255,107,107,0.10);
 }
 
 .message-time {
-  font-size: 11px;
+  font-size: 12px;
   color: #8b95a5;
-  margin-top: 4px;
+  margin-top: 6px;
   padding: 0 4px;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.10);
 }
 
 .message.user .message-time {
@@ -774,7 +1037,7 @@ export default {
 
 .typing {
   background: white !important;
-  border: 1px solid #ffe0e1 !important;
+  border: 1.5px solid #ffe0e1 !important;
   display: flex;
   align-items: center;
   min-height: 20px;
@@ -782,44 +1045,50 @@ export default {
 }
 
 .chat-input {
-  padding: 20px;
+  padding: 22px 24px 22px 24px;
   background: white;
-  border-top: 1px solid #ffe0e1;
+  border-top: 1.5px solid #ffe0e1;
+  box-shadow: 0 -2px 8px rgba(255,107,107,0.06);
 }
 
 .input-container {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   background: #fef7f7;
-  border-radius: 25px;
-  padding: 4px;
-  border: 1px solid #ffe0e1;
-  transition: all 0.3s ease;
+  border-radius: 28px;
+  padding: 6px 8px;
+  border: 1.5px solid #ffe0e1;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(255,107,107,0.06);
 }
 
 .input-container:focus-within {
   border-color: #e4393c;
-  box-shadow: 0 0 0 3px rgba(228, 57, 60, 0.1);
+  box-shadow: 0 0 0 4px rgba(228, 57, 60, 0.13);
+  background: #fff6f6;
 }
 
 .message-input {
   flex: 1;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
+  font-size: 15px;
   color: #2c3e50;
+  border-radius: 18px;
+  transition: background 0.18s;
 }
 
 .message-input::placeholder {
   color: #8b95a5;
+  opacity: 0.85;
 }
 
 .send-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: linear-gradient(135deg, #e4393c 0%, #ff6b6b 100%);
   color: white;
   border: none;
@@ -828,13 +1097,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.22s;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.10);
 }
 
 .send-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(228, 57, 60, 0.3);
+  transform: scale(1.10) rotate(-8deg);
+  box-shadow: 0 6px 18px rgba(228, 57, 60, 0.18);
+  filter: brightness(1.08);
 }
 
 .send-btn:disabled {
@@ -845,15 +1116,15 @@ export default {
 }
 
 .send-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .loading-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top: 2px solid white;
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top: 2.5px solid white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -865,41 +1136,273 @@ export default {
 
 /* 滚动条样式 */
 .chat-messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
+  width: 0px;
   background: transparent;
 }
-
-.chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(228, 57, 60, 0.3);
-  border-radius: 3px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(228, 57, 60, 0.5);
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(228,57,60,0.10) transparent;
 }
 
 /* 响应式设计 */
 @media (max-width: 480px) {
   .chat-window {
-    width: calc(100vw - 40px);
-    height: calc(100vh - 100px);
-    right: 20px;
-    bottom: 90px;
+    width: calc(100vw - 24px);
+    height: calc(100vh - 60px);
+    right: 12px;
+    bottom: 60px;
+    border-radius: 16px;
   }
-  
   .chat-trigger {
-    width: 56px;
-    height: 56px;
-    bottom: 20px;
-    right: 20px;
+    width: 54px;
+    height: 54px;
+    bottom: 12px;
+    right: 12px;
   }
-  
   .chat-icon-logo {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
+  .chat-header, .chat-input {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* 删除确认对话框样式 */
+/* .delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.delete-confirm-dialog {
+  background: white;
+  border-radius: 16px;
+  width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.delete-confirm-header {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.delete-confirm-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.delete-confirm-content {
+  padding: 24px;
+  text-align: center;
+}
+
+.delete-confirm-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(255, 71, 87, 0.1) 0%, rgba(255, 56, 56, 0.1) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.delete-confirm-icon svg {
+  width: 24px;
+  height: 24px;
+  color: #ff4757;
+}
+
+.delete-confirm-content p {
+  margin: 0 0 8px;
+  color: #2c3e50;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delete-confirm-content strong {
+  color: #ff4757;
+}
+
+.delete-warning {
+  color: #8b95a5 !important;
+  font-size: 12px !important;
+}
+
+.delete-confirm-actions {
+  padding: 0 24px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.cancel-btn {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.cancel-btn:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+}
+
+.confirm-delete-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.confirm-delete-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+}
+
+.confirm-delete-btn svg {
+  width: 14px;
+  height: 14px;
+} */
+
+.delete-btn {
+  background: white;
+  border: 1.5px solid #ff4757;
+  color: #ff4757;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(255,71,87,0.08);
+  position: relative;
+  margin-left: 8px;
+  outline: none;
+}
+.delete-btn:hover, .delete-btn-active {
+  background: #ff4757;
+  color: #fff;
+  border-color: #ff4757;
+  box-shadow: 0 4px 16px rgba(255,71,87,0.18);
+  transform: scale(1.08);
+}
+.delete-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.delete-popover {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 10;
+  background: #fff;
+  border: 1px solid #ff4757;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(255,71,87,0.13);
+  padding: 8px 16px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fadeIn 0.18s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.delete-popover-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.delete-popover-content span {
+  color: #ff4757;
+  font-size: 14px;
+  font-weight: 500;
+}
+.popover-confirm {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 16px;
+  font-size: 13px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.popover-confirm:hover {
+  background: #ff3838;
+}
+.popover-cancel {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 4px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.popover-cancel:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
 }
 </style>
