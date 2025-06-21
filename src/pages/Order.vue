@@ -438,7 +438,7 @@ const submitOrder = async () => {
     const token = sessionStorage.getItem('token')
     if (!token) {
       error.value = '用户未登录，请先登录'
-      router.push('/login')
+      router.push('/')
       return
     }
     

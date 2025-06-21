@@ -70,7 +70,7 @@ onMounted(() => {
     activeTab.value = '1'
   } else if (path.includes('/myorders')) {
     activeTab.value = '4'
-  } else if (path.includes('/MyEvaluation')) {
+  } else if (path.includes('/myevaluation')) {
     activeTab.value = '5'
   } else if (path.includes('/account-settings')) {
     activeTab.value = '7'
@@ -87,7 +87,7 @@ const handleCommand = (command: string) => {
     // 处理登出逻辑
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('username')
-    router.push('/login')
+    router.push('/')
   } else if (command === 'admin-dashboard') {
     router.push('/admin/product-management')
     activeTab.value = '8'
