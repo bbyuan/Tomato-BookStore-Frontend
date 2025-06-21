@@ -57,8 +57,14 @@ const router = createRouter({
             bookranking: BookRanking
           },
           props: true
-        },
+        }
       ]
+    },
+    {
+      path: '/category/:category',
+      name: 'CategoryProducts',
+      component: () => import('../views/HomePage/CategoryPage.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/detail/:id',

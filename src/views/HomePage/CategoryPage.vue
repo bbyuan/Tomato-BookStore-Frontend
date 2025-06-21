@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
 const router = useRouter();
+const route = useRoute();
+
 // 使用ref创建响应式数据
-const technicalBooks = ref<any[]>([]);
+const categoryBooks = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
+const categoryName = ref('');
+
 // 添加购物车相关状态
 const addingToCartId = ref<number | null>(null);
 const cartMessage = ref('');
@@ -24,6 +28,41 @@ const hasNext = ref(false);
 const hasPrev = ref(false);
 const pageNumInput = ref('');
 
+// 分类名称映射
+const categoryNameMapping = {
+  'Novel': '小说',
+  'Essay': '散文',
+  'MysteryThriller': '悬疑推理',
+  'LiteraryTheory': '文学理论',
+  'Anthology': '文集',
+  'WorldClassics': '世界名著',
+  'History': '历史',
+  'Philosophy': '哲学',
+  'Religion': '宗教',
+  'SocialScience': '社会科学',
+  'Politics': '政治',
+  'Military': '军事',
+  'Biography': '传记',
+  'Culture': '文化',
+  'Management': '管理',
+  'Economics': '经济',
+  'Law': '法律',
+  'ChildrenLiterature': '儿童文学',
+  'PictureBook': '绘本',
+  'Animation': '动漫',
+  'Painting': '绘画',
+  'Calligraphy': '书法',
+  'Music': '音乐',
+  'Photography': '摄影',
+  'Cuisine': '美食',
+  'Travel': '旅游',
+  'FamilyEducation': '家庭教育',
+  'Textbook': '教材',
+  'Medicine': '医学',
+  'ComputerScience': '计算机',
+  'NaturalScience': '自然科学'
+};
+
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
   const currentPrice = parseFloat(price.replace('¥', ''))
@@ -32,8 +71,8 @@ const calculateDiscount = (price: string, originalPrice: string) => {
   return Math.round((currentPrice / original) * 10)
 }
 
-// 获取商品列表数据
-const fetchBooks = async () => {
+// 获取分类书籍数据
+const fetchCategoryBooks = async () => {
   loading.value = true;
   error.value = '';
   
@@ -46,7 +85,10 @@ const fetchBooks = async () => {
       return;
     }
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/page`;
+    const category = route.params.category as string;
+    categoryName.value = categoryNameMapping[category as keyof typeof categoryNameMapping] || category;
+    
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/category/${category}`;
     
     const response = await axios.get(apiUrl, {
       headers: {
@@ -62,7 +104,7 @@ const fetchBooks = async () => {
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
       const products = response.data.data.products || [];
-      technicalBooks.value = products.map((item: any) => {
+      categoryBooks.value = products.map((item: any) => {
         return {
           id: item.id,
           title: item.title,
@@ -82,7 +124,7 @@ const fetchBooks = async () => {
       error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
   } catch (err: any) {
-    console.error('获取商品列表出错:', err);
+    console.error('获取分类书籍出错:', err);
     // 区分网络错误和认证错误
     if (err.response && err.response.status === 401) {
       error.value = '认证失败，请重新登录';
@@ -149,7 +191,6 @@ const addToCart = async (event: Event, bookId: number, bookTitle: string) => {
     addingToCartId.value = null;
     showCartResult.value = true;
     
-    
     setTimeout(() => {
       showCartResult.value = false;
     }, 1000);
@@ -176,17 +217,23 @@ const changePage = (page: number | string) => {
 
   pageNum.value = pageNumber;
   pageNumInput.value = '';
-  fetchBooks();
+  fetchCategoryBooks();
 };
+
+// 监听路由参数变化
+watch(() => route.params.category, () => {
+  pageNum.value = 1; // 重置页码
+  fetchCategoryBooks();
+}, { immediate: false });
 
 // 组件挂载时获取数据
 onMounted(() => {
-  fetchBooks();
+  fetchCategoryBooks();
 });
 </script>
 
 <template>
-  <div class="hot-books-container">
+  <div class="category-books-container">
     <!-- 添加全局购物车提示 -->
     <div 
       v-if="showCartResult" 
@@ -197,26 +244,37 @@ onMounted(() => {
       <div class="cart-message">{{ cartMessage }}</div>
     </div>
     
-    <div class="hot-books-header">
-      <h2>所有书籍</h2>
-      <div class="view-more">查看更多 <i class="arrow-right">›</i></div>
+    <div class="category-books-header">
+      <h2>{{ categoryName }}图书</h2>
+      <div class="breadcrumb">
+        <span @click="router.push('/homepage')" class="breadcrumb-item">首页</span>
+        <span class="breadcrumb-separator">></span>
+        <span class="breadcrumb-current">{{ categoryName }}</span>
+      </div>
     </div>
     
     <!-- 添加加载状态显示 -->
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
-      <p>正在加载商品数据...</p>
+      <p>正在加载{{ categoryName }}图书...</p>
     </div>
     
     <!-- 添加错误状态显示 -->
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
-      <button @click="fetchBooks" class="retry-btn">重试</button>
+      <button @click="fetchCategoryBooks" class="retry-btn">重试</button>
+    </div>
+    
+    <!-- 空状态显示 -->
+    <div v-else-if="categoryBooks.length === 0" class="empty-state">
+      <div class="empty-icon">📚</div>
+      <p>暂无{{ categoryName }}类图书</p>
+      <button @click="router.push('/homepage')" class="back-home-btn">返回首页</button>
     </div>
     
     <!-- 商品列表 -->
-    <div v-else class="hot-books-list">
-      <div v-for="book in technicalBooks" 
+    <div v-else class="category-books-list">
+      <div v-for="book in categoryBooks" 
            :key="book.id" 
            class="book-card"
            @click="goToDetail(book.id)">
@@ -246,53 +304,54 @@ onMounted(() => {
         </div>
       </div>
     </div>
-  </div>
-  <!-- 分页组件 -->
-  <div class="pagination-container">
-    <div class="pagination">
-      <button 
-        :disabled="!hasPrev" 
-        @click="changePage(pageNum - 1)" 
-        class="page-btn prev-btn"
-        :class="{'disabled': !hasPrev}"
-      >
-        上一页
-      </button>
-      
-      <div class="page-info">
-        <div class="page-input-wrapper">
-          <input 
-            type="number" 
-            v-model="pageNumInput"
-            :placeholder="String(pageNum)"
-            class="page-input"
-            @keyup.enter="(e) => { changePage(pageNumInput); e.target.blur(); }"
-            min="1"
-            :max="totalPage"
-          >
-          <div class="page-input-bg"></div>
+    
+    <!-- 分页组件 -->
+    <div v-if="totalPage > 1" class="pagination-container">
+      <div class="pagination">
+        <button 
+          :disabled="!hasPrev" 
+          @click="changePage(pageNum - 1)" 
+          class="page-btn prev-btn"
+          :class="{'disabled': !hasPrev}"
+        >
+          上一页
+        </button>
+        
+        <div class="page-info">
+          <div class="page-input-wrapper">
+            <input 
+              type="number" 
+              v-model="pageNumInput"
+              :placeholder="String(pageNum)"
+              class="page-input"
+              @keyup.enter="(e) => { changePage(pageNumInput); e.target.blur(); }"
+              min="1"
+              :max="totalPage"
+            >
+            <div class="page-input-bg"></div>
+          </div>
+          <span class="page-separator">/ {{ totalPage }}</span>
         </div>
-        <span class="page-separator">/ {{ totalPage }}</span>
+        
+        <button 
+          :disabled="!hasNext" 
+          @click="changePage(pageNum + 1)" 
+          class="page-btn next-btn"
+          :class="{'disabled': !hasNext}"
+        >
+          下一页
+        </button>
       </div>
       
-      <button 
-        :disabled="!hasNext" 
-        @click="changePage(pageNum + 1)" 
-        class="page-btn next-btn"
-        :class="{'disabled': !hasNext}"
-      >
-        下一页
-      </button>
-    </div>
-    
-    <div class="page-summary">
-      共 {{ totalCount }} 条记录，当前显示第 {{ pageNum }} 页
+      <div class="page-summary">
+        共 {{ totalCount }} 条记录，当前显示第 {{ pageNum }} 页
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.hot-books-container {
+.category-books-container {
   background: #ffffff;
   box-shadow: 0 5px 25px rgba(0,0,0,0.08);
   margin: 30px 0;
@@ -305,7 +364,7 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.hot-books-container::before {
+.category-books-container::before {
   content: "";
   position: absolute;
   top: 0;
@@ -315,7 +374,7 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
 }
 
-.hot-books-header {
+.category-books-header {
   padding: 20px 0;
   border-bottom: 1px solid #f0f0f0;
   position: relative;
@@ -324,7 +383,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.hot-books-header h2 {
+.category-books-header h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
@@ -337,7 +396,7 @@ onMounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
-.hot-books-header h2::after {
+.category-books-header h2::after {
   content: "";
   position: absolute;
   width: 40px;
@@ -347,31 +406,33 @@ onMounted(() => {
   left: 0;
 }
 
-.view-more {
-  color: #666;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
+.breadcrumb {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 20px;
-  background: rgba(255,107,107,0.1);
+  font-size: 14px;
+  color: #666;
 }
 
-.view-more:hover {
+.breadcrumb-item {
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.breadcrumb-item:hover {
   color: #ff6b6b;
-  background: rgba(255,107,107,0.2);
-  transform: translateX(5px);
 }
 
-.arrow-right {
-  margin-left: 5px;
-  font-size: 18px;
-  font-style: normal;
+.breadcrumb-separator {
+  margin: 0 8px;
+  color: #999;
 }
 
-.hot-books-list {
+.breadcrumb-current {
+  color: #ff6b6b;
+  font-weight: 500;
+}
+
+.category-books-list {
   display: flex;
   flex-wrap: wrap;
   padding: 20px 0;
@@ -657,52 +718,46 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 1400px) {
-  .book-card {
-    width: 20%;
-  }
-  .book-card:nth-child(5n)::after {
-    display: none;
-  }
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  text-align: center;
 }
 
-@media (max-width: 1200px) {
-  .book-card {
-    width: 25%;
-  }
-  .book-card:nth-child(4n)::after {
-    display: none;
-  }
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.6;
 }
 
-@media (max-width: 992px) {
-  .book-card {
-    width: 33.33%;
-  }
-  .book-card:nth-child(3n)::after {
-    display: none;
-  }
+.empty-state p {
+  color: #666;
+  font-size: 18px;
+  margin-bottom: 20px;
 }
 
-@media (max-width: 768px) {
-  .book-card {
-    width: 50%;
-  }
-  .book-card:nth-child(2n)::after {
-    display: none;
-  }
+.back-home-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-@media (max-width: 576px) {
-  .book-card {
-    width: 100%;
-  }
-  .book-card::after {
-    display: none;
-  }
+.back-home-btn:hover {
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
+  transform: translateY(-2px);
 }
 
-/* 添加加载和错误状态的样式 */
+/* 加载和错误状态的样式 */
 .loading-state, .error-state {
   display: flex;
   flex-direction: column;
@@ -801,19 +856,6 @@ onMounted(() => {
   color: #999;
 }
 
-.btn-icon {
-  margin: 0 5px;
-  font-weight: bold;
-}
-
-.prev-btn .btn-icon {
-  margin-right: 5px;
-}
-
-.next-btn .btn-icon {
-  margin-left: 5px;
-}
-
 .page-info {
   display: flex;
   align-items: center;
@@ -890,7 +932,56 @@ onMounted(() => {
   color: #777;
 }
 
+@media (max-width: 1400px) {
+  .book-card {
+    width: 20%;
+  }
+  .book-card:nth-child(5n)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) {
+  .book-card {
+    width: 25%;
+  }
+  .book-card:nth-child(4n)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 992px) {
+  .book-card {
+    width: 33.33%;
+  }
+  .book-card:nth-child(3n)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .book-card {
+    width: 50%;
+  }
+  .book-card:nth-child(2n)::after {
+    display: none;
+  }
+}
+
 @media (max-width: 576px) {
+  .book-card {
+    width: 100%;
+  }
+  .book-card::after {
+    display: none;
+  }
+  
+  .category-books-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
   .pagination {
     flex-direction: column;
     gap: 15px;
@@ -909,4 +1000,3 @@ onMounted(() => {
   }
 }
 </style>
-

@@ -55,49 +55,48 @@ const fetchRankings = async (metric: string) => {
       headers['token'] = token;
     }
 
-    // 使用products接口获取所有图书数据
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products/search`, {
+    // 获取当前日期，格式化为 YYYY-MM-DD
+    const today = new Date();
+    const dateStr = today.getFullYear() + '-' + 
+                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today.getDate()).padStart(2, '0');
+
+    // 使用排行榜API接口，添加必需的date参数
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products/rankings?date=${dateStr}&metric=${metric}`, {
       method: 'GET',
       headers
     });
 
     const data = await response.json();
-    console.log(`获取图书数据响应:`, data);
+    console.log(`获取排行榜数据响应:`, data);
 
-    if (data && (data.code === '200' || data.code === 200) && data.data) {
-      let sortedBooks = [...data.data];
-      
-      // 根据不同的指标进行排序
-      if (metric === 'rate') {
-        // 按评分排序（降序）
-        sortedBooks.sort((a: any, b: any) => (b.rate || 0) - (a.rate || 0));
-      } else if (metric === 'sales') {
-        // 按价格反向排序模拟销量（价格越低销量越高）
-        sortedBooks.sort((a: any, b: any) => a.price - b.price);
-      } else if (metric === 'composite') {
-        // 综合排序：评分 * 0.7 + (100 - 价格占比) * 0.3
-        sortedBooks.sort((a: any, b: any) => {
-          const scoreA = (a.rate || 0) * 0.7 + (100 - a.price / 10) * 0.3;
-          const scoreB = (b.rate || 0) * 0.7 + (100 - b.price / 10) * 0.3;
-          return scoreB - scoreA;
-        });
-      }
-
-      // 取前10名并添加排名信息
-      bookLists[metric] = sortedBooks.slice(0, 10).map((book: any, index: number) => ({
-        ...book,
-        rank: index + 1,
-        metricValue: metric === 'rate' 
-          ? book.rate 
-          : metric === 'sales' 
-            ? Math.floor(Math.random() * 1000) + 100 // 模拟销量
-            : ((book.rate || 0) * 0.7 + (100 - book.price / 10) * 0.3) // 综合分数
+    if (data && data.code === '200' && data.data && Array.isArray(data.data)) {
+      // 处理排行榜数据 - 数据直接在data数组中，只取前10名
+      bookLists[metric] = data.data.slice(0, 10).map((item: any, index: number) => ({
+        id: item.product.id,
+        rank: index + 1, // 使用索引+1作为排名，因为rank都是0
+        title: item.product.title,
+        price: item.product.price,
+        originalPrice: item.product.originalPrice || item.product.price,
+        rate: item.product.rate || 0,
+        description: item.product.description || '暂无描述',
+        category: item.product.category || 'science',
+        cover: item.product.cover || (item.product.covers && item.product.covers[0]) || '/src/assets/logo.png',
+        cover_name: item.product.cover_name || (item.product.covers_name && item.product.covers_name[0]) || '',
+        covers: item.product.covers || [],
+        covers_name: item.product.covers_name || [],
+        detail: item.product.detail || '',
+        specifications: item.product.specifications || [],
+        stock: item.product.stock || {},
+        metricValue: item.metric_value || 0
       }));
     } else {
-      console.error(`获取图书数据失败:`, data.msg);
+      console.error(`获取排行榜数据失败:`, data?.msg || '未知错误');
+      bookLists[metric] = [];
     }
   } catch (error) {
-    console.error(`获取图书数据出错:`, error);
+    console.error(`获取排行榜数据出错:`, error);
+    bookLists[metric] = [];
   } finally {
     isLoading.value = false;
   }
