@@ -259,16 +259,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
       <div class="custom-tabs">
         <input type="radio" id="tab-1" name="tabs" value="1" v-model="activeTab" checked />
         <label class="tab" for="tab-1" @click="handleCommand('homepage')">主页</label>
-        <input type="radio" id="tab-2" name="tabs" value="2" v-model="activeTab" />
-        <label class="tab" for="tab-2">热门活动</label>
         <input type="radio" id="tab-3" name="tabs" value="3" v-model="activeTab" />
         <label class="tab" for="tab-3" @click="handleCommand('cart')">购物车</label>
         <input type="radio" id="tab-4" name="tabs" value="4" v-model="activeTab" />
         <label class="tab" for="tab-4" @click="handleCommand('myorders')">我的订单</label>
-        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
-        <label class="tab" for="tab-5">优惠券管理</label>
-        <input type="radio" id="tab-6" name="tabs" value="6" v-model="activeTab" />
-        <label class="tab" for="tab-6">客户服务</label>
         <input type="radio" id="tab-7" name="tabs" value="7" v-model="activeTab" />
         <label class="tab" for="tab-7" @click="handleCommand('personal-center')">个人中心</label>
         <input type="radio" id="tab-8" name="tabs" value="8" v-model="activeTab" />
@@ -404,8 +398,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
   height: 40px;
   border-radius: 99px;
   width: auto;
-  min-width: 800px;
-  max-width: 900px;
+  min-width: 600px;
+  max-width: 700px;
   overflow: hidden;
   flex-shrink: 1;
 }
@@ -454,32 +448,20 @@ const handleKeyDown = (event: KeyboardEvent) => {
   transform: translateY(-50%) translateX(0);
 }
 
-.custom-tabs input[id="tab-2"]:checked ~ .glider {
+.custom-tabs input[id="tab-3"]:checked ~ .glider {
   transform: translateY(-50%) translateX(100px);
 }
 
-.custom-tabs input[id="tab-3"]:checked ~ .glider {
+.custom-tabs input[id="tab-4"]:checked ~ .glider {
   transform: translateY(-50%) translateX(200px);
 }
 
-.custom-tabs input[id="tab-4"]:checked ~ .glider {
+.custom-tabs input[id="tab-7"]:checked ~ .glider {
   transform: translateY(-50%) translateX(300px);
 }
 
-.custom-tabs input[id="tab-5"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(400px);
-}
-
-.custom-tabs input[id="tab-6"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(500px);
-}
-
-.custom-tabs input[id="tab-7"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(600px);
-}
-
 .custom-tabs input[id="tab-8"]:checked ~ .glider {
-  transform: translateY(-50%) translateX(700px);
+  transform: translateY(-50%) translateX(400px);
 }
 
 .header-right {
