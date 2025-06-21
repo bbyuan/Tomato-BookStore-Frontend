@@ -64,17 +64,20 @@ const fetchReviews = async () => {
         pageNum: currentPage.value,
         pageSize: pageSize.value
       }
-    });
+    });      console.log('Fetching reviews from:', apiUrl);
+      console.log('Response data:', response.data);
 
-    console.log('Fetching reviews from:', apiUrl);
-    console.log('Response data:', response.data);
-
-    if (response.data && response.data.code === '200') {
-      reviews.value = response.data.data.reviews;
-      totalCount.value = response.data.data.pageInfo.total_page || 0;
+      if (response.data && (response.data.code === '200' || response.data.code === 200)) {
+        reviews.value = response.data.data.reviews;
+        totalCount.value = response.data.data.pageInfo.total_page || response.data.data.pageInfo.totalCount || 0;
       
-      // 正确处理响应中的media字段，确保图片URL可以正确显示
-      reviews.value.forEach(review => {
+      // 确保评分为数值类型
+      reviews.value = reviews.value.map(review => {
+        // 确保rating是数值类型
+        review.rating = Number(review.rating);
+    
+        
+        // 处理media字段
         if (!review.media) {
           review.media = []; // 如果没有media字段，设为空数组
         } else if (!Array.isArray(review.media)) {
@@ -83,15 +86,18 @@ const fetchReviews = async () => {
         }
         
         // 确保每个media对象都有正确的image属性
-        review.media.forEach((mediaItem: any) => {
+        review.media = review.media.map((mediaItem: any) => {
           if (typeof mediaItem === 'string') {
             // 如果media是字符串，转换为对象格式
-            mediaItem = { image: mediaItem, imageName: '' };
-          } else if (!mediaItem.image && mediaItem.imageName) {
+            return { image: mediaItem, imageName: '' };
+          } else if (mediaItem && !mediaItem.image && mediaItem.imageName) {
             // 如果没有image但有imageName，则使用imageName
-            mediaItem.image = mediaItem.imageName;
+            return { ...mediaItem, image: mediaItem.imageName };
           }
+          return mediaItem;
         });
+        
+        return review;
       });
     } else {
       error.value = '获取评价数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
@@ -238,7 +244,10 @@ const getCommentPreview = (comment: string) => {
 // 获取图片URL列表
 const getImageUrlList = (mediaList: any[]) => {
   if (!mediaList || !Array.isArray(mediaList)) return [];
-  return mediaList.map(item => item.image);
+  return mediaList.map(item => {
+    // 确保我们使用正确的图片URL，优先使用image字段
+    return item.image || '';
+  });
 };
 
 // 组件挂载时获取数据
@@ -300,10 +309,11 @@ onMounted(() => {
         <div class="review-cell rating">
           <div class="star-rating">
             <el-rate
-              v-model="review.rating"
+              :model-value="review.rating / 2"
               disabled
               show-score
               text-color="#ff9900"
+              score-template="{value}"
             />
           </div>
         </div>
@@ -385,10 +395,11 @@ onMounted(() => {
               <span class="detail-label">评分:</span>
               <span class="detail-value rating-value">
                 <el-rate
-                  v-model="currentReview.rating"
+                  :model-value="currentReview.rating / 2"
                   disabled
                   show-score
                   text-color="#ff9900"
+                  score-template="{value}"
                 />
               </span>
             </div>
