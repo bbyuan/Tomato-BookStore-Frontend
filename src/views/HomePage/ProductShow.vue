@@ -260,7 +260,7 @@ onMounted(() => {
         class="page-btn prev-btn"
         :class="{'disabled': !hasPrev}"
       >
-        <span class="btn-icon">←</span> 上一页
+        上一页
       </button>
       
       <div class="page-info">
@@ -285,7 +285,7 @@ onMounted(() => {
         class="page-btn next-btn"
         :class="{'disabled': !hasNext}"
       >
-        下一页 <span class="btn-icon">→</span>
+        下一页
       </button>
     </div>
     

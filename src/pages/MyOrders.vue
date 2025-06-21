@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Header from '@/views/HomePage/Header.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 
 // 路由
@@ -29,6 +29,8 @@ interface Order {
   items: OrderItem[]
   tradeNo?: string
   paymentTime?: string
+  // 新增字段，用于标记是否已超时
+  isExpired?: boolean
 }
 
 // 当前选中的标签
@@ -137,7 +139,7 @@ const allOrders = ref<Order[]>([
   },
   {
     id: 'ORD202306010005',
-    orderTime: '2023-06-01 18:28:45',
+    orderTime: new Date(new Date().getTime() - 15 * 60 * 1000).toLocaleString(), // 15分钟前
     status: 'UNPAID',
     statusText: '待付款',
     totalAmount: 179.80,
@@ -153,6 +155,56 @@ const allOrders = ref<Order[]>([
     ]
   }
 ])
+
+// 计算订单剩余支付时间
+const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: number, expired: boolean } => {
+  const orderDate = new Date(orderTime).getTime()
+  const deadline = orderDate + 20 * 60 * 1000 // 20分钟支付期限
+  const now = new Date().getTime()
+  const timeLeft = deadline - now
+  
+  if (timeLeft <= 0) {
+    return { minutes: 0, seconds: 0, expired: true }
+  }
+  
+  const minutes = Math.floor(timeLeft / (60 * 1000))
+  const seconds = Math.floor((timeLeft % (60 * 1000)) / 1000)
+  
+  return { minutes, seconds, expired: false }
+}
+
+// 格式化剩余时间显示
+const formatRemainingTime = (orderTime: string): string => {
+  const { minutes, seconds, expired } = calculateRemainingTime(orderTime)
+  
+  if (expired) {
+    return '订单超时'
+  }
+  
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+// 倒计时定时器
+let countdownTimer: number | null = null
+
+// 更新待付款订单状态
+const updateOrdersStatus = () => {
+  allOrders.value.forEach(order => {
+    if (order.status === 'UNPAID') {
+      const { expired } = calculateRemainingTime(order.orderTime)
+      if (expired) {
+        order.isExpired = true
+      }
+    }
+  })
+}
+
+// 启动倒计时
+const startCountdown = () => {
+  countdownTimer = window.setInterval(() => {
+    updateOrdersStatus()
+  }, 1000)
+}
 
 // 根据当前选中标签筛选订单
 const filteredOrders = computed(() => {
@@ -180,6 +232,12 @@ const viewOrderDetail = (orderId: string) => {
 
 // 继续支付
 const continuePayment = (orderId: string) => {
+  const order = allOrders.value.find(o => o.id === orderId)
+  if (order && order.isExpired) {
+    alert('订单已超时，无法支付')
+    return
+  }
+  
   // 这里可以跳转到支付页面
   alert(`继续支付订单: ${orderId}`)
 }
@@ -219,8 +277,19 @@ onMounted(() => {
   // 模拟API请求延迟
   setTimeout(() => {
     loading.value = false
+    
+    // 启动倒计时
+    startCountdown()
+    
     // 实际应用中，这里会处理API响应，更新订单数据或设置错误信息
   }, 500)
+})
+
+// 组件卸载前清除定时器
+onBeforeUnmount(() => {
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer)
+  }
 })
 
 // 获取每个标签的订单数量
@@ -316,6 +385,10 @@ const formatPrice = (price: number) => {
             </div>
             <div class="order-status" :class="order.status.toLowerCase()">
               {{ order.statusText }}
+              <!-- 添加倒计时显示 -->
+              <span v-if="order.status === 'UNPAID'" class="countdown" :class="{ expired: order.isExpired }">
+                {{ order.isExpired ? '订单超时' : formatRemainingTime(order.orderTime) }}
+              </span>
             </div>
           </div>
           
@@ -348,7 +421,14 @@ const formatPrice = (price: number) => {
               <!-- 待付款订单按钮 -->
               <template v-if="order.status === 'UNPAID'">
                 <button class="action-btn delete-btn" @click.stop="cancelOrder(order.id)">取消订单</button>
-                <button class="action-btn primary-btn" @click.stop="continuePayment(order.id)">继续支付</button>
+                <button 
+                  class="action-btn primary-btn" 
+                  @click.stop="continuePayment(order.id)"
+                  :disabled="order.isExpired"
+                  :class="{ disabled: order.isExpired }"
+                >
+                  {{ order.isExpired ? '订单已超时' : '继续支付' }}
+                </button>
               </template>
               
               <!-- 已付款订单按钮 -->
@@ -764,6 +844,42 @@ const formatPrice = (price: number) => {
   color: #f56c6c;
   background-color: #fef0f0;
   border-color: #fbc4c4;
+}
+
+/* 倒计时样式 */
+.countdown {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 2px 8px;
+  border-radius: 12px;
+  animation: pulse 1s infinite alternate;
+}
+
+.countdown.expired {
+  background: rgba(245, 108, 108, 0.2);
+  color: #f56c6c;
+  animation: none;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+.action-btn.disabled {
+  background: #f0f0f0;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.action-btn.disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* 响应式设计 */
