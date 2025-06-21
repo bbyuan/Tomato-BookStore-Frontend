@@ -9,33 +9,62 @@ const props = defineProps({
   }
 })
 
-interface Comment {
-  id: number
-  username: string
-  avatar: string
-  content: string
-  rating: number
-  createdAt: string
+interface ReviewMediaVO {
+  imageName: string
+  image: string
 }
 
-const comments = ref<Comment[]>([])
+interface UsersVO {
+  userId: string
+  username: string
+  avatar?: string
+}
+
+interface ReviewVO {
+  reviewId: string
+  userId: string
+  orderId: string
+  bookId: string
+  rating: number
+  comment: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  createdAt: string
+  reviewedAt?: string
+  rejectReason?: string
+  media?: ReviewMediaVO[]
+  user?: UsersVO
+}
+
+const reviews = ref<ReviewVO[]>([])
 const isLoading = ref(true)
 const error = ref('')
+const pageNum = ref(1)
+const pageSize = ref(10)
+const sort = ref('date_desc')
 
 // 获取评论列表
 const fetchComments = async () => {
   isLoading.value = true
   error.value = ''
-  
   try {
-    const response = await axios.get(
-      `${import.meta.env.VITE_API_BASE_URL}/api/books/${props.bookId}/comments`
-    )
-    
+    const token = sessionStorage.getItem('token')
+    console.log('fetchComments: token =', token)
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/book/${props.bookId}`,
+      {
+        params: {
+          pageNum: pageNum.value,
+          pageSize: pageSize.value,
+          sort: sort.value
+        },
+        headers: token ? { 'token': token } : {}
+      })
+    console.log('fetchComments: response =', response)
     if (response.data && response.data.code === '200') {
-      comments.value = response.data.data || []
+      reviews.value = (response.data.data.reviews || []).filter((r: ReviewVO) => r.status === 'APPROVED')
+      console.log('fetchComments: reviews =', reviews.value)
     } else {
       error.value = response.data?.msg || '获取评论失败'
+      console.log('fetchComments: error =', error.value)
     }
   } catch (err: any) {
     console.error('获取评论出错:', err)
@@ -65,47 +94,43 @@ onMounted(() => {
 <template>
   <div class="comments-container">
     <h2 class="section-title">用户评论</h2>
-    
     <!-- 评论列表 -->
     <div class="comments-list">
       <div v-if="isLoading" class="loading-state">
         加载评论中...
       </div>
-      
       <div v-else-if="error" class="error-state">
         {{ error }}
       </div>
-      
-      <div v-else-if="comments.length === 0" class="empty-state">
+      <div v-else-if="reviews.length === 0" class="empty-state">
         暂无评论！
       </div>
-      
       <div v-else class="comment-items">
-        <div v-for="comment in comments" :key="comment.id" class="comment-item">
+        <div v-for="review in reviews" :key="review.reviewId" class="comment-item">
           <div class="comment-header">
             <div class="user-info">
-              <img :src="comment.avatar || '/src/assets/default-avatar.png'" alt="用户头像" class="user-avatar">
-              <span class="username">{{ comment.username }}</span>
+              <img :src="review.user?.avatar || '/src/assets/default-avatar.png'" alt="用户头像" class="user-avatar">
+              <span class="username">{{ review.user?.username || '匿名用户' }}</span>
             </div>
-            
             <div class="comment-rating">
               <span 
                 v-for="star in 5" 
                 :key="star"
                 class="rating-star"
-                :class="{ filled: star <= comment.rating }"
+                :class="{ filled: star <= Math.round(review.rating / 2) }"
               >
                 ★
               </span>
             </div>
           </div>
-          
           <div class="comment-content">
-            {{ comment.content }}
+            {{ review.comment }}
           </div>
-          
+          <div v-if="review.media && review.media.length > 0" class="comment-images">
+            <img v-for="(media, idx) in review.media" :key="idx" :src="media.image" class="comment-image" alt="评价图片">
+          </div>
           <div class="comment-footer">
-            <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
+            <span class="comment-date">{{ formatDate(review.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -229,6 +254,20 @@ onMounted(() => {
   color: #444;
   margin-bottom: 15px;
   word-break: break-word;
+}
+
+.comment-images {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 0 0;
+}
+
+.comment-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .comment-footer {
