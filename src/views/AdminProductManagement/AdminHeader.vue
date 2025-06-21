@@ -70,7 +70,7 @@ const handleCommand = (command: string) => {
     router.push('/myorders');
     activeTab.value = '3'
   } else if (command === 'my-evaluation') {
-    router.push('/pages/MyEvaluation');
+    router.push('/myevaluation');
     activeTab.value = '4'
   } else if (command === 'personal-center') {
     router.push('/account-settings/account')
