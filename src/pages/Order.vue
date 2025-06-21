@@ -398,10 +398,15 @@ const calculateItemDiscount = () => {
 // 计算优惠券折扣
 const calculateCouponDiscount = () => {
   if (!selectedCoupon.value) return 0
-  // 调试输出优惠券对象
   console.log('当前选中优惠券:', selectedCoupon.value)
-  // 优先使用 discountAmount 字段，如果没有则返回 0
-  return typeof selectedCoupon.value.discountAmount === 'number' ? selectedCoupon.value.discountAmount : 0
+  if (selectedCoupon.value.discountType === 'AMOUNT') {
+    return selectedCoupon.value.discountValue
+  } else if (selectedCoupon.value.discountType === 'PERCENT') {
+    // 折扣券 discountValue 例如 9.5 表示9.5折
+    const subtotal = calculateSubtotal()
+    return subtotal * (1 - selectedCoupon.value.discountValue / 10)
+  }
+  return 0
 }
 
 // 包邮条件判断
@@ -432,7 +437,7 @@ const selectCoupon = (coupon: Coupon | null) => {
   selectedCoupon.value = coupon
 }
 
-// 提交订单 - 修改为使用真实 API 并添加 token 验证
+// 提交订单 - 根据是否选择优惠券调用不同接口
 const submitOrder = async () => {
   // 验证表单
   if (!validateForm()) {
@@ -455,47 +460,76 @@ const submitOrder = async () => {
       return
     }
     
-     // 构建完整地址
-    const fullAddress = `${addressForm.province}${addressForm.city}${addressForm.district}${addressForm.detailAddress}`
+    // 构建完整地址
+    const fullAddress = `${addressForm.name},${addressForm.phone},${addressForm.province}${addressForm.city}${addressForm.district}${addressForm.detailAddress}`
 
-    // 构建订单数据
-    const checkoutData = {
-        cartItemIds: orderItems.value.map(item => item.id),
-        paymentMethod: "ALIPAY",
-        address: {
-            name: addressForm.name,
-            phone: addressForm.phone,
-            fullAddress: fullAddress
-        },
-    }
-    console.log(checkoutData.cartItemIds)
-    console.log('提交的订单数据:', checkoutData)
+    let response
     
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/api/cart/checkout`, 
-      checkoutData,
-      {
-        headers: {
-          'token': token,
-          'Content-Type': 'application/json'
-        }
+    // 根据是否选择优惠券决定调用哪个接口
+    if (selectedCoupon.value) {
+      // 有优惠券：调用 checkout-coupon 接口
+      const checkoutCouponData = {
+        cartItemIds: orderItems.value.map(item => item.id.toString()),
+        shippingAddress: fullAddress,
+        paymentMethod: "ALIPAY",
+        couponIds: [selectedCoupon.value.userCouponId]
       }
-    )
+      
+      console.log('使用优惠券提交的订单数据:', checkoutCouponData)
+      
+      response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/api/cart/checkout-coupon`, 
+        checkoutCouponData,
+        {
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    } else {
+      // 无优惠券：调用普通 checkout 接口
+      const checkoutData = {
+        cartItemIds: orderItems.value.map(item => item.id.toString()),
+        shippingAddress: fullAddress,
+        paymentMethod: "ALIPAY",
+        totalAmount: calculateTotal(),
+        originalAmount: calculateSubtotal()
+      }
+      
+      console.log('普通提交的订单数据:', checkoutData)
+      
+      response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/api/cart/checkout`, 
+        checkoutData,
+        {
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
+    
     console.log('submitOrder 下单接口原始返回:', response.data)
+    
     // 处理响应
     if (response.data && response.data.code === '200') {
       // 获取订单数据
       const orderData = response.data.data;
-        orderId.value = orderData.orderId; // 假设订单号在返回数据中
-       // 可以选择将其他订单信息保存到本地，如订单金额、创建时间等
+      orderId.value = orderData.orderId;
+      
+      // 保存订单信息到本地
       sessionStorage.setItem('lastOrderInfo', JSON.stringify({
-    orderId: orderData.orderId,
-    username: orderData.username,
-    totalAmount: orderData.totalAmount,
-    paymentMethod: orderData.paymentMethod,
-    createTime: orderData.createTime,
-    status: orderData.status
-  }));
+        orderId: orderData.orderId,
+        userId: orderData.userId,
+        totalAmount: orderData.totalAmount,
+        paymentMethod: orderData.paymentMethod,
+        createTime: orderData.createTime,
+        status: orderData.status,
+        originalAmount: orderData.originalAmount,
+        discountAmount: orderData.discountAmount
+      }));
 
       submitSuccess.value = true;
 
@@ -503,69 +537,75 @@ const submitOrder = async () => {
       console.log('订单总金额:', orderData.totalAmount);
       console.log('订单创建时间:', orderData.createTime);
       console.log('订单状态:', orderData.status);
+      
+      if (orderData.discountAmount) {
+        console.log('优惠金额:', orderData.discountAmount);
+        console.log('原始金额:', orderData.originalAmount);
+      }
 
       // 清除购物车中的已选商品数据
       sessionStorage.removeItem('selectedItems');
   
       // 显示成功状态一段时间后，跳转到支付页面
       setTimeout(async () => {
-  try {
-    // 获取token
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      throw new Error('用户未登录，无法完成支付');
-    }
-    
-    const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId.value}/pay`, {
-      method: 'GET',
-      headers: {
-        'token': token
-      }
-    })
-    console.log('支付接口原始返回:', response.data)
-    // 处理响应数据
-    if (response.data && response.data.code === '200' && response.data.data) {
-      const paymentData = response.data.data;
-      
-      // 保存订单支付信息到本地，方便用户查询
-      sessionStorage.setItem('currentPayment', JSON.stringify({
-        orderId: paymentData.orderId,
-        totalAmount: paymentData.totalAmount,
-        paymentMethod: paymentData.paymentMethod
-      }));
-      
-      // 获取返回的支付表单HTML
-      const paymentFormHTML = paymentData.paymentForm;
-      
-      // 创建一个新的HTML文档来展示支付表单
-      const paymentContainer = document.createElement('div');
-      paymentContainer.style.display = 'none'; 
-      paymentContainer.innerHTML = paymentFormHTML;
-      document.body.appendChild(paymentContainer);
-      
-      // 找到表单并自动提交
-      const form = paymentContainer.querySelector('form');
-      if (form) {
-        console.log('找到支付表单，准备提交');
-        form.submit(); // 自动提交表单
-      } else {
-        console.error('支付表单解析失败');
-        throw new Error('无法识别支付表单');
-      }
-    } else {
-      console.error('支付接口返回错误:', response.data);
-      throw new Error(response.data.msg || '获取支付表单失败');
-    }
-  } catch (err) {
-    console.error('支付请求失败:', err);
-    error.value = '获取支付表单失败，请稍后再试或联系客服';
-    
-    // 显示错误后，提供跳转到订单页面的选项
-    setTimeout(() => {
-      router.push('/user/orders');
-    }, 3000);
-  }
-}, 1500);
+        try {
+          // 获取token
+          const token = sessionStorage.getItem('token');
+          if (!token) {
+            throw new Error('用户未登录，无法完成支付');
+          }
+          
+          const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId.value}/pay`, {
+            method: 'GET',
+            headers: {
+              'token': token
+            }
+          })
+          console.log('支付接口原始返回:', response.data)
+          
+          // 处理响应数据
+          if (response.data && response.data.code === '200' && response.data.data) {
+            const paymentData = response.data.data;
+            
+            // 保存订单支付信息到本地，方便用户查询
+            sessionStorage.setItem('currentPayment', JSON.stringify({
+              orderId: paymentData.orderId,
+              totalAmount: paymentData.totalAmount,
+              paymentMethod: paymentData.paymentMethod
+            }));
+            
+            // 获取返回的支付表单HTML
+            const paymentFormHTML = paymentData.paymentForm;
+            
+            // 创建一个新的HTML文档来展示支付表单
+            const paymentContainer = document.createElement('div');
+            paymentContainer.style.display = 'none'; 
+            paymentContainer.innerHTML = paymentFormHTML;
+            document.body.appendChild(paymentContainer);
+            
+            // 找到表单并自动提交
+            const form = paymentContainer.querySelector('form');
+            if (form) {
+              console.log('找到支付表单，准备提交');
+              form.submit(); // 自动提交表单
+            } else {
+              console.error('支付表单解析失败');
+              throw new Error('无法识别支付表单');
+            }
+          } else {
+            console.error('支付接口返回错误:', response.data);
+            throw new Error(response.data.msg || '获取支付表单失败');
+          }
+        } catch (err) {
+          console.error('支付请求失败:', err);
+          error.value = '获取支付表单失败，请稍后再试或联系客服';
+          
+          // 显示错误后，提供跳转到订单页面的选项
+          setTimeout(() => {
+            router.push('/user/orders');
+          }, 3000);
+        }
+      }, 1500);
     } else {
       throw new Error(response.data.msg || '订单创建失败')
     }
@@ -793,7 +833,7 @@ onMounted(() => {
                     ¥{{ coupon.discountValue }}
                   </template>
                   <template v-else-if="coupon.discountType === 'PERCENT'">
-                    {{ (coupon.discountValue * 10).toFixed(1).replace(/\.0$/, '') }}折
+                    {{ (coupon.discountValue).toFixed(1).replace(/\.0$/, '') }}折
                   </template>
                 </div>
                 <div class="coupon-info">
@@ -822,11 +862,6 @@ onMounted(() => {
             <div class="summary-item">
               <span class="summary-label">商品金额</span>
               <span class="summary-value">¥{{ calculateSubtotal().toFixed(2) }}</span>
-            </div>
-            
-            <div class="summary-item" v-if="calculateItemDiscount() > 0">
-              <span class="summary-label">商品优惠</span>
-              <span class="summary-value discount">-¥{{ calculateItemDiscount().toFixed(2) }}</span>
             </div>
             
             <div class="summary-item" v-if="selectedCoupon">
