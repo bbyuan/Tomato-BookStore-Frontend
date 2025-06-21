@@ -21,12 +21,20 @@ interface OrderItem {
 
 // 优惠券类型定义
 interface Coupon {
-  id: string;
-  code: string;
-  discount: number;
-  minPurchase: number;
-  expireDate: string;
+  userCouponId: string;
+  couponId: string;
+  name: string;
   description: string;
+  discountType: 'AMOUNT' | 'PERCENT';
+  discountValue: number;
+  minOrderAmount: number;
+  claimedAt?: string;
+  expiresAt?: string;
+  usedAt?: string;
+  status?: string;
+  discountAmount?: number;
+  finalPrice?: number;
+  isBest?: boolean;
 }
 
 // 收货地址类型定义
@@ -189,7 +197,7 @@ const fetchUserInfo = async () => {
         'Content-Type': 'application/json'
       }
     })
-    
+    console.log('fetchUserInfo 接口返回:', response)
     if (response.data.code === '200') {
       userInfo.value = response.data.data
       console.log('获取到用户信息:', userInfo.value)
@@ -204,7 +212,6 @@ const fetchUserInfo = async () => {
     return null
   }
 }
-
 // 从用户信息中构建地址对象
 const buildAddressFromUserInfo = (info: UserInfo): Address | null => {
   if (!info || !info.telephone || !info.location) {
@@ -275,47 +282,50 @@ const fetchUserAddresses = async () => {
     userAddresses.value = []
   }
 }
-
-// 获取可用优惠券 - 修改为使用真实 API 并添加 token 验证（临时保持原有的假数据）
+// 获取可用优惠券 - 调用后端接口，自动勾选最佳优惠券
 const fetchAvailableCoupons = async () => {
   try {
-    // 获取 token
     const token = sessionStorage.getItem('token')
-    if (!token) {
-      console.error('用户未登录，无法获取优惠券')
-      return
-    }
-    
-  
-    // 保持原有的假数据
-    availableCoupons.value = [
-      {
-        id: '001',
-        code: 'BOOK10',
-        discount: 10,
-        minPurchase: 100,
-        expireDate: '2025-06-30',
-        description: '图书类满100减10元'
-      },
-      {
-        id: '002',
-        code: 'NEW30',
-        discount: 30,
-        minPurchase: 200,
-        expireDate: '2025-05-15',
-        description: '新用户专享满200减30元'
-      },
-      {
-        id: '003',
-        code: 'MEMBER20',
-        discount: 20,
-        minPurchase: 150,
-        expireDate: '2025-05-31',
-        description: '会员专享满150减20元'
+    // 订单金额，需根据实际商品小计+运费等计算
+    const amount = calculateTotal()
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/users/coupons/available`, {
+      headers: { token },
+      params: { amount: amount.toString() }
+    })
+    console.log('fetchAvailableCoupons 接口原始返回:', res.data)
+    if (res.data && res.data.code === '200') {
+      
+      const data = res.data.data || {}
+      availableCoupons.value = (data.availableCoupons || []).map((c: any) => ({
+        userCouponId: c.userCouponId,
+        couponId: c.couponId,
+        name: c.name,
+        description: c.description,
+        discountType: c.discountType,
+        discountValue: c.discountValue,
+        minOrderAmount: c.minOrderAmount,
+        claimedAt: c.claimedAt,
+        expiresAt: c.expiresAt,
+        usedAt: c.usedAt,
+        status: c.status,
+        discountAmount: c.discountAmount,
+        finalPrice: c.finalPrice,
+        isBest: c.isBest
+      }))
+      // 自动勾选最佳优惠券
+      if (data.bestCouponId) {
+        selectedCoupon.value = availableCoupons.value.find(c => c.userCouponId === data.bestCouponId) || null
+      } else {
+        selectedCoupon.value = null
       }
-    ]
-  } catch (err) {
-    console.error('获取优惠券出错:', err)
+    } else {
+      availableCoupons.value = []
+      selectedCoupon.value = null
+    }
+  } catch (e: any) {
+    availableCoupons.value = []
+    selectedCoupon.value = null
+    error.value = e.message || '获取可用优惠券失败'
   }
 }
 
@@ -388,7 +398,10 @@ const calculateItemDiscount = () => {
 // 计算优惠券折扣
 const calculateCouponDiscount = () => {
   if (!selectedCoupon.value) return 0
-  return selectedCoupon.value.discount
+  // 调试输出优惠券对象
+  console.log('当前选中优惠券:', selectedCoupon.value)
+  // 优先使用 discountAmount 字段，如果没有则返回 0
+  return typeof selectedCoupon.value.discountAmount === 'number' ? selectedCoupon.value.discountAmount : 0
 }
 
 // 包邮条件判断
@@ -468,7 +481,7 @@ const submitOrder = async () => {
         }
       }
     )
-    
+    console.log('submitOrder 下单接口原始返回:', response.data)
     // 处理响应
     if (response.data && response.data.code === '200') {
       // 获取订单数据
@@ -509,7 +522,7 @@ const submitOrder = async () => {
         'token': token
       }
     })
-    
+    console.log('支付接口原始返回:', response.data)
     // 处理响应数据
     if (response.data && response.data.code === '200' && response.data.data) {
       const paymentData = response.data.data;
@@ -770,27 +783,32 @@ onMounted(() => {
             <div v-if="availableCoupons.length > 0" class="coupon-list">
               <div 
                 v-for="coupon in availableCoupons" 
-                :key="coupon.id" 
+                :key="coupon.userCouponId"
                 class="coupon-item"
-                :class="{ 'selected': selectedCoupon?.id === coupon.id }"
+                :class="{ 'selected': selectedCoupon?.userCouponId === coupon.userCouponId }"
                 @click="selectCoupon(coupon)"
               >
-                <div class="coupon-amount">¥{{ coupon.discount }}</div>
-                <div class="coupon-info">
-                  <div class="coupon-desc">{{ coupon.description }}</div>
-                  <div class="coupon-condition">满{{ coupon.minPurchase }}元可用</div>
-                  <div class="coupon-expire">有效期至: {{ coupon.expireDate }}</div>
+                <div class="coupon-amount">
+                  <template v-if="coupon.discountType === 'AMOUNT'">
+                    ¥{{ coupon.discountValue }}
+                  </template>
+                  <template v-else-if="coupon.discountType === 'PERCENT'">
+                    {{ (coupon.discountValue * 10).toFixed(1).replace(/\.0$/, '') }}折
+                  </template>
                 </div>
-                <div class="coupon-select-mark" v-if="selectedCoupon?.id === coupon.id">
+                <div class="coupon-info">
+                  <div class="coupon-desc">{{ coupon.name }}</div>
+                  <div class="coupon-condition">满{{ coupon.minOrderAmount }}元可用</div>
+                  <div class="coupon-expire">有效期至: {{ coupon.expiresAt ? coupon.expiresAt.slice(0, 10) : '' }}</div>
+                </div>
+                <div class="coupon-select-mark" v-if="selectedCoupon?.userCouponId === coupon.userCouponId">
                   <div class="checkmark">✓</div>
                 </div>
               </div>
             </div>
-            
             <div v-else class="no-coupons">
               <p>暂无可用优惠券</p>
             </div>
-            
             <div class="coupon-clear" v-if="selectedCoupon" @click="selectCoupon(null)">
               不使用优惠券
             </div>
