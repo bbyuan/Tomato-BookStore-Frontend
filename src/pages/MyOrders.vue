@@ -23,7 +23,7 @@ const frontendStatusMap = {
   'PENDING': 'UNPAID',
   'SUCCESS': 'PAID',
   'FAILED': 'FAILED',
-  'TIMEOUT': 'FAILED'  // TIMEOUT也归类为失败订单
+  'TIMEOUT': 'FAILED'  
 } as const
 
 // 订单状态文本映射
@@ -91,8 +91,71 @@ const error = ref('')
 // 订单数据
 const allOrders = ref<Order[]>([])
 
+// 各状态订单数量统计
+const orderCounts = ref({
+  ALL: 0,
+  UNPAID: 0,
+  PAID: 0,
+  FAILED: 0
+})
+
+// 更新订单数量统计
+const updateOrderCounts = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+
+    // 分别获取各状态的订单数量
+    const promises = [
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'ALL' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'PENDING' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'SUCCESS' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'FAILED' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      }),
+      axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: 'TIMEOUT' },
+        headers: { 'token': token, 'Content-Type': 'application/json' }
+      })
+    ]
+
+    const [allRes, unpaidRes, paidRes, failedRes, timeoutRes] = await Promise.all(promises)
+    
+    // 合并FAILED和TIMEOUT的数量作为失败订单总数
+    const failedCount = (failedRes.data.code === '200' ? failedRes.data.data.length : 0) + 
+                       (timeoutRes.data.code === '200' ? timeoutRes.data.data.length : 0)
+    
+    orderCounts.value = {
+      ALL: allRes.data.code === '200' ? allRes.data.data.length : 0,
+      UNPAID: unpaidRes.data.code === '200' ? unpaidRes.data.data.length : 0,
+      PAID: paidRes.data.code === '200' ? paidRes.data.data.length : 0,
+      FAILED: failedCount
+    }
+    
+    console.log('订单数量统计:', orderCounts.value)
+    console.log('各状态订单数量:', {
+      ALL: orderCounts.value.ALL,
+      UNPAID: orderCounts.value.UNPAID,
+      PAID: orderCounts.value.PAID,
+      FAILED: orderCounts.value.FAILED
+    })
+  } catch (err) {
+    console.error('获取订单数量统计失败:', err)
+  }
+}
+
 // 获取订单数据
-const fetchOrders = async () => {
+const fetchOrders = async (status: string = 'ALL') => {
   loading.value = true
   error.value = ''
   
@@ -112,14 +175,56 @@ const fetchOrders = async () => {
       return
     }
 
-    // 始终获取所有订单数据
-    const response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
-      params: { status: 'ALL' },
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
+    // 根据选中的标签获取对应状态的订单数据
+    let requestStatus = backendStatusMap[status as keyof typeof backendStatusMap] || 'ALL'
+    console.log('请求订单状态:', status, '->', requestStatus)
+    
+    let response: any
+    let convertedOrders: Order[] = []
+    
+    // 如果是失败订单，需要同时获取FAILED和TIMEOUT状态
+    if (status === 'FAILED') {
+      console.log('获取失败订单，同时请求FAILED和TIMEOUT状态')
+      const [failedRes, timeoutRes] = await Promise.all([
+        axios.get<ApiResponse>('/api/orders/getByStatus', {
+          params: { status: 'FAILED' },
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        }),
+        axios.get<ApiResponse>('/api/orders/getByStatus', {
+          params: { status: 'TIMEOUT' },
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        })
+      ])
+      
+      console.log('FAILED订单响应:', failedRes.data)
+      console.log('TIMEOUT订单响应:', timeoutRes.data)
+      
+      // 合并两种状态的订单数据
+      const allFailedOrders = []
+      if (failedRes.data.code === '200') {
+        allFailedOrders.push(...failedRes.data.data)
       }
-    })
+      if (timeoutRes.data.code === '200') {
+        allFailedOrders.push(...timeoutRes.data.data)
+      }
+      
+      response = { data: { code: '200', data: allFailedOrders } }
+      console.log('合并后的失败订单数据:', allFailedOrders)
+    } else {
+      response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
+        params: { status: requestStatus },
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
     
     // 输出完整的响应数据用于调试
     console.log('订单API响应:', response.data)
@@ -130,7 +235,29 @@ const fetchOrders = async () => {
       console.log('原始订单数据:', response.data.data)
       
       // 转换后端数据格式为前端使用的格式
-      allOrders.value = response.data.data.map(convertOrderVOtoOrder)
+      const convertedOrders = response.data.data.map(convertOrderVOtoOrder)
+      
+      // 如果是获取全部订单，则替换所有数据
+      if (status === 'ALL') {
+        allOrders.value = convertedOrders
+      } else {
+        // 如果是获取特定状态的订单，则更新对应部分的数据
+        // 先移除该状态的旧数据，再添加新数据
+        const targetStatus = status as 'UNPAID' | 'PAID' | 'FAILED'
+        allOrders.value = allOrders.value.filter(order => order.status !== targetStatus)
+        allOrders.value.push(...convertedOrders)
+      }
+      
+      // 输出转换后的订单数据
+      console.log('转换后订单数据:', allOrders.value)
+      
+      // 输出各状态订单数量统计
+      console.log('订单数量统计:', {
+        ALL: allOrders.value.length,
+        UNPAID: allOrders.value.filter(o => o.status === 'UNPAID').length,
+        PAID: allOrders.value.filter(o => o.status === 'PAID').length,
+        FAILED: allOrders.value.filter(o => o.status === 'FAILED').length
+      })
       
       // 输出转换后的订单数据
       console.log('转换后订单数据:', allOrders.value)
@@ -206,10 +333,10 @@ const convertOrderVOtoOrder = (orderVO: OrderVO): Order => {
 }
 
 // 计算订单剩余支付时间
-const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: number, expired: boolean } => {
+const calculateRemainingTime = (orderTime: string, currentTimeValue?: number): { minutes: number, seconds: number, expired: boolean } => {
   const orderDate = new Date(orderTime).getTime()
-  const deadline = orderDate + 20 * 60 * 1000 // 20分钟支付期限
-  const now = new Date().getTime()
+  const deadline = orderDate + 30 * 60 * 1000 // 30分钟支付期限
+  const now = currentTimeValue || new Date().getTime()
   const timeLeft = deadline - now
   
   if (timeLeft <= 0) {
@@ -224,7 +351,8 @@ const calculateRemainingTime = (orderTime: string): { minutes: number, seconds: 
 
 // 格式化剩余时间显示
 const formatRemainingTime = (orderTime: string): string => {
-  const { minutes, seconds, expired } = calculateRemainingTime(orderTime)
+  // 使用 currentTime.value 来确保响应式更新
+  const { minutes, seconds, expired } = calculateRemainingTime(orderTime, currentTime.value)
   
   if (expired) {
     return '订单超时'
@@ -236,8 +364,14 @@ const formatRemainingTime = (orderTime: string): string => {
 // 倒计时定时器
 let countdownTimer: number | null = null
 
+// 当前时间戳，用于强制重新计算倒计时
+const currentTime = ref(Date.now())
+
 // 更新待付款订单状态
 const updateOrdersStatus = () => {
+  // 更新当前时间戳，触发倒计时重新计算
+  currentTime.value = Date.now()
+  
   allOrders.value.forEach(order => {
     if (order.status === 'UNPAID') {
       const { expired } = calculateRemainingTime(order.orderTime)
@@ -257,9 +391,11 @@ const startCountdown = () => {
 
 // 根据当前选中标签筛选订单
 const filteredOrders = computed(() => {
+  // 当选择特定状态时，显示该状态的订单
   if (activeTab.value === 'ALL') {
     return allOrders.value
   }
+  // 由于现在我们已经按状态获取数据，这里直接返回所有数据
   return allOrders.value.filter(order => {
     if (activeTab.value === 'UNPAID') return order.status === 'UNPAID'
     if (activeTab.value === 'PAID') return order.status === 'PAID'
@@ -271,109 +407,8 @@ const filteredOrders = computed(() => {
 // 切换标签
 const switchTab = (tab: OrderStatus) => {
   activeTab.value = tab
-  // 只切换显示，不重新加载数据
-}
-
-// 查看订单详情
-const viewOrderDetail = (orderId: string) => {
-  // 这里可以跳转到订单详情页面
-  alert(`查看订单详情: ${orderId}`)
-}
-
-// 继续支付处理
-const continuePayment = async (orderId: string) => {
-  // 找到对应的订单
-  const order = filteredOrders.value.find(o => o.id === orderId);
-  if (!order) {
-    alert('订单不存在');
-    return;
-  }
-
-  // 检查订单是否为待付款状态且未超时
-  if (order.status === 'UNPAID') {
-    const timeRemaining = calculateRemainingTime(order.orderTime);
-    if (timeRemaining.expired) {
-      alert('订单已超时，无法继续支付');
-      return;
-    }
-  }
-
-  try {
-    // 参考您的token获取方式
-    const token = sessionStorage.getItem('token')
-    const username = sessionStorage.getItem('username')
-
-    if (!token || !username) {
-      console.error('未找到token或用户名')
-      alert('用户未登录，请先登录')
-      return
-    }
-
-    const response = await axios(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId}/pay`, {
-      method: 'GET',
-      headers: {
-        'token': token,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    // 处理响应数据
-    if (response.data && response.data.code === '200' && response.data.data) {
-      const paymentData = response.data.data;
-      
-      // 保存订单支付信息到本地，方便用户查询
-      sessionStorage.setItem('currentPayment', JSON.stringify({
-        orderId: paymentData.orderId,
-        totalAmount: paymentData.totalAmount,
-        paymentMethod: paymentData.paymentMethod
-      }));
-      
-      // 获取返回的支付表单HTML
-      const paymentFormHTML = paymentData.paymentForm;
-      
-      // 创建一个新的HTML文档来展示支付表单
-      const paymentContainer = document.createElement('div');
-      paymentContainer.style.display = 'none'; 
-      paymentContainer.innerHTML = paymentFormHTML;
-      document.body.appendChild(paymentContainer);
-      
-      // 找到表单并自动提交
-      const form = paymentContainer.querySelector('form');
-      if (form) {
-        console.log('找到支付表单，准备提交');
-        form.submit(); // 自动提交表单
-      } else {
-        console.error('支付表单解析失败');
-        throw new Error('无法识别支付表单');
-      }
-    } else {
-      console.error('支付接口返回错误:', response.data);
-      throw new Error(response.data.msg || '获取支付表单失败');
-    }
-  } catch (err) {
-    console.error('支付请求失败:', err);
-    alert('获取支付表单失败，请稍后再试或联系客服');
-  }
-}
-
-// 取消订单
-const cancelOrder = (orderId: string) => {
-  // 这里可以弹出确认框，然后发送取消订单请求
-  if (confirm(`确定要取消订单 ${orderId} 吗？`)) {
-    // 模拟取消订单，实际应该调用API
-    alert(`订单 ${orderId} 已取消`)
-    // 在实际实现中，应该刷新订单列表
-  }
-}
-
-// 删除订单
-const deleteOrder = (orderId: string) => {
-  // 这里可以弹出确认框，然后发送删除订单请求
-  if (confirm(`确定要删除订单 ${orderId} 吗？此操作不可恢复。`)) {
-    // 模拟删除订单，实际应该调用API
-    allOrders.value = allOrders.value.filter(order => order.id !== orderId)
-    alert(`订单 ${orderId} 已删除`)
-  }
+  // 切换标签时加载对应状态的订单
+  fetchOrders(tab)
 }
 
 // 跳转到商品详情
@@ -384,9 +419,61 @@ const goToProductDetail = (productId: string) => {
   })
 }
 
+// 继续支付
+const continuePayment = async (orderId: string) => {
+  const order = allOrders.value.find(o => o.id === orderId)
+  if (order && order.isExpired) {
+    alert('订单已超时，无法支付')
+    return
+  }
+  
+  try {
+    const token = sessionStorage.getItem('token')
+    if (!token) {
+      error.value = '请先登录'
+      return
+    }
+
+    // 调用支付API
+    const response = await axios.get(`/api/orders/${orderId}/pay`, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    console.log('支付API响应:', response.data)
+
+    if (response.data.code === '200') {
+      // 跳转到支付页面，传递订单ID
+      router.push({
+        name: 'Payment',
+        params: { orderId: orderId }
+      })
+    } else {
+      alert(response.data.msg || '支付请求失败')
+    }
+  } catch (err: any) {
+    console.error('支付请求失败:', err)
+    if (err.response?.status === 401) {
+      error.value = '登录已过期，请重新登录'
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('username')
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    } else {
+      alert('网络错误，请稍后重试')
+    }
+  }
+}
+
 onMounted(() => {
   // 加载订单数据
-  fetchOrders()
+  fetchOrders('ALL')
+  
+  // 更新订单数量统计
+  updateOrderCounts()
   
   // 启动倒计时
   startCountdown()
@@ -401,15 +488,7 @@ onBeforeUnmount(() => {
 
 // 获取每个标签的订单数量
 const getTabCount = (status: OrderStatus) => {
-  if (status === 'ALL') {
-    return allOrders.value.length
-  }
-  return allOrders.value.filter(order => {
-    if (status === 'UNPAID') return order.status === 'UNPAID'
-    if (status === 'PAID') return order.status === 'PAID'
-    if (status === 'FAILED') return order.status === 'FAILED'
-    return false
-  }).length
+  return orderCounts.value[status] || 0
 }
 
 // 格式化金额
@@ -527,7 +606,6 @@ const formatPrice = (price: number) => {
             <div class="order-actions">
               <!-- 待付款订单按钮 -->
               <template v-if="order.status === 'UNPAID'">
-                <button class="action-btn delete-btn" @click.stop="cancelOrder(order.id)">取消订单</button>
                 <button 
                   class="action-btn primary-btn" 
                   @click.stop="continuePayment(order.id)"
@@ -537,17 +615,7 @@ const formatPrice = (price: number) => {
                   {{ order.isExpired ? '订单已超时' : '继续支付' }}
                 </button>
               </template>
-              
-              <!-- 已付款订单按钮 -->
-              <template v-else-if="order.status === 'PAID'">
-                <button class="action-btn detail-btn" @click.stop="viewOrderDetail(order.id)">查看详情</button>
-              </template>
-              
-              <!-- 失败订单按钮 -->
-              <template v-else-if="order.status === 'FAILED'">
-                <button class="action-btn delete-btn" @click.stop="deleteOrder(order.id)">删除订单</button>
-                <button class="action-btn primary-btn" @click.stop="continuePayment(order.id)">重新支付</button>
-              </template>
+            
             </div>
           </div>
         </div>
@@ -927,31 +995,6 @@ const formatPrice = (price: number) => {
 .primary-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 12px rgba(255, 107, 107, 0.3);
-}
-
-.detail-btn {
-  background: #ecf5ff;
-  color: #409eff;
-  border: 1px solid #d9ecff;
-}
-
-.detail-btn:hover {
-  color: #fff;
-  background-color: #409eff;
-  border-color: #409eff;
-  transform: translateY(-2px);
-}
-
-.delete-btn {
-  background: #f8f8f8;
-  color: #909399;
-  border: 1px solid #ebeef5;
-}
-
-.delete-btn:hover {
-  color: #f56c6c;
-  background-color: #fef0f0;
-  border-color: #fbc4c4;
 }
 
 /* 倒计时样式 */
