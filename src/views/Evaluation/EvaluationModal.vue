@@ -135,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import RatingStars from '@/views/Detail/RatingStars.vue'
@@ -277,51 +277,80 @@ const submitEvaluation = async () => {
       throw new Error('请先登录')
     }
 
-    // 按照接口要求构建评价数据
+    // 构建评价数据
     const reviewData = {
-      bookId: props.product.productId,  // 书籍ID (即productId)
-      rating: rating.value,             // 评分 (10分制)
-      comment: comment.value.trim(),    // 评价内容
-      media: uploadedImageNames.value.map(imageName => ({
-        imageName: imageName,  // 图片名称
-        image: ''              // 图片链接留空
+      reviewId: props.review?.reviewId,
+      bookId: props.product.productId,
+      rating: rating.value,
+      comment: comment.value.trim(),
+      status: 'PENDING',
+      media: uploadedImageNames.value.map((imageName, idx) => ({
+        imageName,
+        image: uploadedImages.value[idx] || ''
       }))
     }
 
-    console.log('提交评价数据:', reviewData)
-
-    // 调用评价接口
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/api/reviews/${props.orderId}`, 
-      reviewData,
-      {
-        headers: {
-          'token': token,
-          'Content-Type': 'application/json'
+    let response
+    if (props.review && props.review.reviewId) {
+      // 编辑，调用PUT
+      response = await axios.put(
+        `${import.meta.env.VITE_API_BASE_URL}/api/reviews/${props.review.reviewId}`,
+        reviewData,
+        {
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
         }
-      }
-    )
+      )
+    } else {
+      // 新增，调用POST
+      response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/api/reviews/${props.orderId}`,
+        reviewData,
+        {
+          headers: {
+            'token': token,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
 
     if (response.data && response.data.code === '200') {
-      alert('评价提交成功！')
+      alert(props.review ? '评价修改成功！' : '评价提交成功！')
       emit('submitted', {
+        ...reviewData,
         orderId: props.orderId,
-        productId: props.product.productId,
-        rating: rating.value,
-        comment: comment.value.trim(),
-        images: uploadedImageNames.value
+        productId: props.product.productId
       })
       closeModal()
     } else {
-      throw new Error(response.data?.msg || '评价提交失败')
+      throw new Error(response.data?.msg || (props.review ? '评价修改失败' : '评价提交失败'))
     }
   } catch (error: any) {
-    console.error('提交评价失败:', error)
-    alert(error.message || '评价提交失败')
+    console.error(props.review ? '修改评价失败:' : '提交评价失败:', error)
+    alert(error.message || (props.review ? '评价修改失败' : '评价提交失败'))
   } finally {
     isSubmitting.value = false
   }
 }
+
+// 回显：当review变化时，初始化表单内容
+watch(() => props.review, (val) => {
+  if (val) {
+    rating.value = val.rating || 0
+    comment.value = val.comment || ''
+    uploadedImages.value = (val.media || []).map(m => m.image)
+    uploadedImageNames.value = (val.media || []).map(m => m.imageName)
+    console.log('回显review:', val)
+  } else {
+    rating.value = 0
+    comment.value = ''
+    uploadedImages.value = []
+    uploadedImageNames.value = []
+  }
+}, { immediate: true })
 
 const closeModal = () => {
   emit('close')

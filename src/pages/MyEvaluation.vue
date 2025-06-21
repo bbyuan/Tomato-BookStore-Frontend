@@ -163,6 +163,7 @@ const fetchReviews = async (status: ReviewStatus = 'ALL') => {
     if (response.data.code === '200') {
       // 更新评价数据
       allReviews.value = response.data.data.reviews || []
+      console.log('allReviews赋值:', allReviews.value)
       
       // 更新评价数量统计
       if (status === 'ALL') {
@@ -244,9 +245,12 @@ const updateReviewCounts = async () => {
 // 根据当前选中标签筛选评价
 const filteredReviews = computed(() => {
   if (activeReviewTab.value === 'ALL') {
+    console.log('filteredReviews: 返回全部', allReviews.value)
     return allReviews.value
   }
-  return allReviews.value.filter(review => review.status === activeReviewTab.value)
+  const filtered = allReviews.value.filter(review => review.status === activeReviewTab.value)
+  console.log('filteredReviews: 按状态过滤', activeReviewTab.value, filtered)
+  return filtered
 })
 
 // 切换评价标签
@@ -282,23 +286,28 @@ const goToBookDetail = (bookId: string) => {
 
 // 打开评价编辑弹窗
 const editReview = (review: ReviewVO) => {
-  currentReview.value = review
+  // 根据 reviewId 查找完整的 review 信息
+  const found = allReviews.value.find(r => r.reviewId === review.reviewId)
+  console.log('editReview: 查找reviewId', review.reviewId, '结果:', found)
+  const targetReview = found || review
+  console.log('targetReview:', targetReview)
+  currentReview.value = { ...targetReview }
 
   // 优先使用product信息
   let title = ''
   let image = ''
-  if (review.product) {
-    title = review.product.title || `书籍 ${review.bookId}`
-    image = review.product.cover || (review.product.covers && review.product.covers.length > 0 ? review.product.covers[0] : '')
+  if (targetReview.product) {
+    title = targetReview.product.title || `书籍 ${targetReview.bookId}`
+    image = targetReview.product.cover || (targetReview.product.covers && targetReview.product.covers.length > 0 ? targetReview.product.covers[0] : '')
   }
-  if (!title) title = `书籍 ${review.bookId}`
-  if (!image) image = review.media && review.media.length > 0 ? review.media[0].image : '/src/assets/default-book.jpg'
+  if (!title) title = `书籍 ${targetReview.bookId}`
+  if (!image) image = targetReview.media && targetReview.media.length > 0 ? targetReview.media[0].image : '/src/assets/default-book.jpg'
 
   currentEvaluationProduct.value = {
-    productId: review.bookId,
+    productId: targetReview.bookId,
     title,
     image,
-    price: review.product?.price || 0
+    price: targetReview.product?.price || 0
   }
 
   showEvaluationModal.value = true
@@ -358,6 +367,7 @@ onMounted(() => {
   
   // 更新评价数量统计
   updateReviewCounts()
+  console.log('onMounted: allReviews初始值', allReviews.value)
 })
 </script>
 
