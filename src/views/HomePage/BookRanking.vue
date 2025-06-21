@@ -56,7 +56,7 @@ const fetchRankings = async (metric: string) => {
     }
 
     // 使用products接口获取所有图书数据
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products?pageNum=1&pageSize=50`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/products/search`, {
       method: 'GET',
       headers
     });

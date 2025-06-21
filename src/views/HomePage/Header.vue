@@ -11,6 +11,9 @@ const isLoggedIn = ref(true)
 const activeTab = ref('1')
 const userAvatar = ref('')
 const isSearching = ref(false)
+const showSearchDropdown = ref(false)
+const searchResults = ref([])
+const selectedIndex = ref(-1)
 
 const fetchUserAvatar = async () => {
   try {
@@ -121,7 +124,7 @@ const handleSearch = async () => {
     if (data && (data.code === '200' || data.code === 200) && data.data) {
       // 前端过滤搜索结果
       const allBooks = data.data
-      const searchResults = allBooks.filter((book: any) => {
+      const filteredResults = allBooks.filter((book: any) => {
         const title = book.title?.toLowerCase() || ''
         const author = book.author?.toLowerCase() || ''
         const publisher = book.publisher?.toLowerCase() || ''
@@ -133,16 +136,21 @@ const handleSearch = async () => {
                description.includes(keyword)
       })
 
+      // 更新搜索结果状态
+      searchResults.value = filteredResults
+      // 无论是否有结果都显示下拉框
+      showSearchDropdown.value = true
+
       // 构造搜索结果数据结构
       const searchData = {
-        books: searchResults,
+        books: filteredResults,
         pageInfo: {
           pageNum: 1,
-          pageSize: searchResults.length,
+          pageSize: filteredResults.length,
           hasNext: false,
           hasPrev: false,
           totalPage: 1,
-          totalCount: searchResults.length
+          totalCount: filteredResults.length
         }
       }
 
@@ -156,8 +164,6 @@ const handleSearch = async () => {
           results: searchData 
         } 
       }))
-      
-      ElMessage.success(`找到 ${searchResults.length} 本相关图书`)
       
       // 移除自动跳转逻辑，让搜索结果在当前页面显示
       // 只更新URL的查询参数，不进行页面跳转
@@ -185,6 +191,60 @@ const handleSearch = async () => {
 const handleSearchKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter') {
     handleSearch()
+  }
+}
+
+// 高亮匹配文本的函数
+const highlightMatch = (text: string, keyword: string) => {
+  if (!text || !keyword) return text
+  
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  return text.replace(regex, '<span class="search-match-highlight">$1</span>')
+}
+
+// 处理搜索结果项的点击
+const handleResultClick = (book: any) => {
+  // 隐藏下拉框
+  showSearchDropdown.value = false
+  // 跳转到图书详情页，使用与ProductShow相同的跳转方式
+  router.push({
+    name: 'Detail',
+    params: { id: book.id.toString() }
+  })
+}
+
+// 处理搜索输入框聚焦
+const handleSearchFocus = () => {
+  if (searchInput.value.trim() && searchResults.value.length > 0) {
+    showSearchDropdown.value = true
+  }
+}
+
+// 处理搜索输入框失去焦点
+const handleSearchBlur = () => {
+  // 延迟隐藏搜索下拉框，以防止点击事件被触发
+  setTimeout(() => {
+    showSearchDropdown.value = false
+  }, 200)
+}
+
+// 处理键盘上下箭头选择搜索结果
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    if (selectedIndex.value < searchResults.value.length - 1) {
+      selectedIndex.value++
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    if (selectedIndex.value > 0) {
+      selectedIndex.value--
+    }
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    if (selectedIndex.value >= 0 && selectedIndex.value < searchResults.value.length) {
+      handleResultClick(searchResults.value[selectedIndex.value])
+    }
   }
 }
 </script>
@@ -224,6 +284,8 @@ const handleSearchKeydown = (event: KeyboardEvent) => {
           placeholder="搜索图书..."
           class="search-input-native"
           @keydown="handleSearchKeydown"
+          @focus="handleSearchFocus"
+          @blur="handleSearchBlur"
           :disabled="isSearching"
         />
         <button 
@@ -235,6 +297,49 @@ const handleSearchKeydown = (event: KeyboardEvent) => {
             <Search />
           </el-icon>
         </button>
+        <div v-if="showSearchDropdown && searchResults.length > 0" class="search-dropdown">
+          <div 
+            v-for="(book, index) in searchResults" 
+            :key="book.id" 
+            class="search-result-item"
+            :class="{ 'selected': selectedIndex === index }"
+            @click="handleResultClick(book)"
+            @mouseover="selectedIndex = index"
+            @mouseleave="selectedIndex = -1"
+          >
+            <div class="result-item-cover">
+              <img :src="book.cover || book.image" :alt="book.title" class="book-cover-img" />
+            </div>
+            <div class="result-item-content">
+              <div class="result-item-title" v-html="highlightMatch(book.title, searchInput)"></div>
+              <div class="result-item-info">
+                <span class="result-item-author">{{ book.author }}</span>
+                <span class="result-item-publisher">{{ book.publisher }}</span>
+              </div>
+              <div class="result-item-description" v-html="highlightMatch(book.description, searchInput)"></div>
+              <div class="result-item-price">价格: ¥{{ book.price.toFixed(2) }}</div>
+            </div>
+          </div>
+          <div v-if="searchResults.length === 0" class="search-no-results">
+            <div class="search-no-results-icon">
+              <el-icon>
+                <Search />
+              </el-icon>
+            </div>
+            <div class="search-no-results-text">未找到相关结果</div>
+          </div>
+        </div>
+        <div v-else-if="showSearchDropdown" class="search-dropdown">
+          <div class="search-no-results">
+            <div class="search-no-results-icon">
+              <el-icon size="24">
+                <Search />
+              </el-icon>
+            </div>
+            <div class="search-no-results-text">暂无相关书籍</div>
+            <div class="search-no-results-hint">试试搜索其他关键词</div>
+          </div>
+        </div>
       </div>
       <el-button type="primary" class="register-btn">成为会员</el-button>
       <div class="avatar-container">
@@ -520,5 +625,144 @@ const handleSearchKeydown = (event: KeyboardEvent) => {
 
 .status-dot.logged-in {
   background-color: #67C23A;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background: #ffffff;
+}
+
+.search-result-item:last-child {
+  margin-bottom: 0;
+}
+
+.search-result-item:hover,
+.search-result-item.selected {
+  background: #f8f9fa;
+  transform: none;
+  box-shadow: none;
+}
+
+.result-item-cover {
+  width: 48px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.book-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-item-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.3;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-item-description {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.result-item-price {
+  font-size: 14px;
+  color: #e85a4f;
+  font-weight: 600;
+}
+
+.search-match-highlight {
+  background: #fff3cd;
+  color: #856404;
+  font-weight: 500;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.search-no-results {
+  padding: 24px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-no-results-icon {
+  color: #d44c4c;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
+.search-no-results-text {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+  margin: 0;
+}
+
+.search-no-results-hint {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+/* 搜索下拉框滚动条样式 */
+.search-dropdown::-webkit-scrollbar {
+  width: 4px;
+}
+
+.search-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-dropdown::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 2px;
+}
+
+.search-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #bdbdbd;
 }
 </style>
