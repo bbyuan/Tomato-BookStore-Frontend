@@ -466,7 +466,7 @@ const continuePayment = async (orderId: string) => {
     }
 
     // 调用支付API
-    const response = await axios.get(`/api/orders/${orderId}/pay`, {
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${orderId}/pay`, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -475,14 +475,37 @@ const continuePayment = async (orderId: string) => {
 
     console.log('支付API响应:', response.data)
 
-    if (response.data.code === '200') {
-      // 跳转到支付页面，传递订单ID
-      router.push({
-        name: 'Payment',
-        params: { orderId: orderId }
-      })
+    if (response.data.code === '200' && response.data.data) {
+      const paymentData = response.data.data
+      
+      // 保存订单支付信息到本地，方便用户查询
+      sessionStorage.setItem('currentPayment', JSON.stringify({
+        orderId: paymentData.orderId,
+        totalAmount: paymentData.totalAmount,
+        paymentMethod: paymentData.paymentMethod
+      }))
+      
+      // 获取返回的支付表单HTML
+      const paymentFormHTML = paymentData.paymentForm
+      
+      // 创建一个新的HTML文档来展示支付表单
+      const paymentContainer = document.createElement('div')
+      paymentContainer.style.display = 'none'
+      paymentContainer.innerHTML = paymentFormHTML
+      document.body.appendChild(paymentContainer)
+      
+      // 找到表单并自动提交
+      const form = paymentContainer.querySelector('form')
+      if (form) {
+        console.log('找到支付表单，准备提交')
+        form.submit() // 自动提交表单
+      } else {
+        console.error('支付表单解析失败')
+        throw new Error('无法识别支付表单')
+      }
     } else {
-      alert(response.data.msg || '支付请求失败')
+      console.error('支付接口返回错误:', response.data)
+      throw new Error(response.data.msg || '获取支付表单失败')
     }
   } catch (err: any) {
     console.error('支付请求失败:', err)
@@ -494,7 +517,13 @@ const continuePayment = async (orderId: string) => {
         router.push('/login')
       }, 2000)
     } else {
-      alert('网络错误，请稍后重试')
+      error.value = '获取支付表单失败，请稍后再试或联系客服'
+      
+      // 显示错误后，提供跳转到订单页面的选项
+      setTimeout(() => {
+        // 刷新当前页面来重新加载订单状态
+        fetchOrders(activeTab.value)
+      }, 3000)
     }
   }
 }
