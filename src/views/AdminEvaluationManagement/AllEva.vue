@@ -64,17 +64,20 @@ const fetchReviews = async () => {
         pageNum: currentPage.value,
         pageSize: pageSize.value
       }
-    });
+    });      console.log('Fetching reviews from:', apiUrl);
+      console.log('Response data:', response.data);
 
-    console.log('Fetching reviews from:', apiUrl);
-    console.log('Response data:', response.data);
-
-    if (response.data && response.data.code === '200') {
-      reviews.value = response.data.data.reviews;
-      totalCount.value = response.data.data.pageInfo.total_page || 0;
+      if (response.data && (response.data.code === '200' || response.data.code === 200)) {
+        reviews.value = response.data.data.reviews;
+        totalCount.value = response.data.data.pageInfo.total_page || response.data.data.pageInfo.totalCount || 0;
       
-      // 正确处理响应中的media字段，确保图片URL可以正确显示
-      reviews.value.forEach(review => {
+      // 确保评分为数值类型
+      reviews.value = reviews.value.map(review => {
+        // 确保rating是数值类型
+        review.rating = Number(review.rating);
+    
+        
+        // 处理media字段
         if (!review.media) {
           review.media = []; // 如果没有media字段，设为空数组
         } else if (!Array.isArray(review.media)) {
@@ -83,15 +86,24 @@ const fetchReviews = async () => {
         }
         
         // 确保每个media对象都有正确的image属性
-        review.media.forEach((mediaItem: any) => {
+        review.media = review.media.map((mediaItem: any) => {
+          // 确保media是一个有效的对象或字符串
+          if (!mediaItem) return { image: '', imageName: '' };
+          
           if (typeof mediaItem === 'string') {
             // 如果media是字符串，转换为对象格式
-            mediaItem = { image: mediaItem, imageName: '' };
-          } else if (!mediaItem.image && mediaItem.imageName) {
+            return { image: mediaItem, imageName: '' };
+          } else if (mediaItem && !mediaItem.image && mediaItem.imageName) {
             // 如果没有image但有imageName，则使用imageName
-            mediaItem.image = mediaItem.imageName;
+            return { ...mediaItem, image: mediaItem.imageName };
           }
+          return mediaItem;
         });
+        
+        // 打印当前评价数据，帮助调试
+        console.log('处理后的评价数据:', review);
+        
+        return review;
       });
     } else {
       error.value = '获取评价数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
@@ -110,7 +122,9 @@ const fetchReviews = async () => {
 
 // 显示评价详情
 const showReviewDetail = (review: any) => {
-  currentReview.value = review;
+  // 深拷贝一份评价数据，避免引用问题
+  currentReview.value = JSON.parse(JSON.stringify(review));
+  console.log('评价详情:', currentReview.value);
   showReviewDetailModal.value = true;
 };
 
@@ -138,7 +152,7 @@ const approveReview = async (reviewId: string) => {
       }
     });
 
-    if (response.data && response.data.code === 200) {
+    if (response.data && response.data.code === '200') {
       showSuccessMessage('审核通过', '该评价已成功通过审核');
       fetchReviews(); // 刷新列表
       if (showReviewDetailModal.value) {
@@ -171,7 +185,7 @@ const rejectReview = async (reviewId: string) => {
       }
     });
 
-    if (response.data && response.data.code === 200) {
+    if (response.data && response.data.code === '200') {
       showSuccessMessage('审核拒绝', '该评价已被拒绝');
       fetchReviews(); // 刷新列表
       if (showReviewDetailModal.value) {
@@ -235,10 +249,19 @@ const getCommentPreview = (comment: string) => {
   return comment.length > 50 ? comment.substring(0, 50) + '...' : comment;
 };
 
+// 添加预览图片方法
+const previewImage = (url: string, mediaList: any[]) => {
+  // 简单的图片预览，在新窗口中打开
+  window.open(url, '_blank');
+};
+
 // 获取图片URL列表
 const getImageUrlList = (mediaList: any[]) => {
   if (!mediaList || !Array.isArray(mediaList)) return [];
-  return mediaList.map(item => item.image);
+  return mediaList.map(item => {
+    // 确保我们使用正确的图片URL，优先使用image字段
+    return item.image || item || '';
+  });
 };
 
 // 组件挂载时获取数据
@@ -298,13 +321,9 @@ onMounted(() => {
         <div class="review-cell user-id">{{ review.userId }}</div>
         <div class="review-cell book-id">{{ review.bookId }}</div>
         <div class="review-cell rating">
-          <div class="star-rating">
-            <el-rate
-              v-model="review.rating"
-              disabled
-              show-score
-              text-color="#ff9900"
-            />
+          <div class="rating-value">
+            <span class="rating-number">{{ review.rating }}</span>
+            <span class="rating-max">/10</span>
           </div>
         </div>
         <div class="review-cell comment">
@@ -384,12 +403,8 @@ onMounted(() => {
             <div class="detail-item">
               <span class="detail-label">评分:</span>
               <span class="detail-value rating-value">
-                <el-rate
-                  v-model="currentReview.rating"
-                  disabled
-                  show-score
-                  text-color="#ff9900"
-                />
+                <span class="rating-number">{{ currentReview.rating }}</span>
+                <span class="rating-max">/10</span>
               </span>
             </div>
             
@@ -402,23 +417,22 @@ onMounted(() => {
           <!-- 评价内容 -->
           <div class="comment-section">
             <h3>评价内容:</h3>
-            <div class="comment-content">{{ currentReview.comment }}</div>
+            <div class="comment-content">{{ currentReview.comment || '无评价内容' }}</div>
           </div>
           
           <!-- 媒体文件 -->
           <div v-if="currentReview.media && currentReview.media.length > 0" class="media-section">
-            <h3>媒体文件:</h3>
+            <h3>晒图:</h3>
             <div class="media-grid">
               <div 
                 v-for="(mediaItem, index) in currentReview.media" 
                 :key="index"
                 class="media-item"
               >
-                <el-image
-                  :src="mediaItem.image"
-                  :preview-src-list="getImageUrlList(currentReview.media)"
-                  fit="cover"
+                <img
+                  :src="mediaItem.image || mediaItem"
                   class="media-image"
+                  @click="previewImage(mediaItem.image || mediaItem, currentReview.media)"
                 />
               </div>
             </div>
@@ -823,6 +837,11 @@ content: "";
   grid-template-columns: 1fr 1fr;
   gap: 15px;
   margin-bottom: 20px;
+  background: linear-gradient(135deg, #f8f9fa, #f1f3f5);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
 }
 
 .detail-item {
@@ -839,11 +858,32 @@ content: "";
 .detail-value {
   font-size: 14px;
   color: #212529;
+  font-weight: 500;
 }
 
 .rating-value {
   display: flex;
   align-items: center;
+  font-weight: bold;
+  font-size: 16px;
+  color: #ff9900;
+}
+
+.rating-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ff6b6b;
+  background: linear-gradient(135deg, #ff6b6b, #ff9e7d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 2px;
+}
+
+.rating-max {
+  font-size: 14px;
+  font-weight: 400;
+  color: #999;
 }
 
 .comment-section {
@@ -859,11 +899,20 @@ content: "";
 .comment-content {
   padding: 15px;
   background-color: #f8f9fa;
-  border-radius: 4px;
-  font-size:.14px;
+  border-radius: 8px;
+  font-size: 14px;
   color: #212529;
   white-space: pre-wrap;
   word-break: break-word;
+  border-left: 3px solid #ff6b6b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.comment-content:hover {
+  background-color: #fff9f9;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.1);
+  transform: translateY(-2px);
 }
 
 .media-section h3 {
@@ -881,14 +930,27 @@ content: "";
 .media-item {
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #dee2e6;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.media-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.2);
 }
 
 .media-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.media-image:hover {
+  transform: scale(1.05);
 }
 
 .modal-footer {
