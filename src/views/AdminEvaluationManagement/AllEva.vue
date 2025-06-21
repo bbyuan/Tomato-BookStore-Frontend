@@ -1,38 +1,31 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { ref, onMounted, computed } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 
 const router = useRouter();
 
-const technicalBooks = ref<any[]>([]);
+const reviews = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
-const showDeleteModal = ref(false);
-const bookToDelete = ref<any>(null);
-const showAddProductModal = ref(false);
-const showEditProductModal = ref(false); 
-const currentEditBook = ref<any>(null); 
+const showReviewDetailModal = ref(false);
+const currentReview = ref<any>(null);
+const successMessage = ref('');
+const successDescription = ref('');
 
 const currentPage = ref(1);
-const itemsPerPage = 12;
-
-// 计算当前页显示的商品
-const paginatedBooks = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return technicalBooks.value.slice(start, end);
-});
-
-// 计算总页数
+const pageSize = ref(10);
+const totalCount = ref(0);
 const totalPages = computed(() => {
-  return Math.ceil(technicalBooks.value.length / itemsPerPage);
+  return Math.ceil(totalCount.value / pageSize.value);
 });
 
 // 切换到上一页
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
+    fetchReviews();
   }
 };
 
@@ -40,19 +33,12 @@ const prevPage = () => {
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++;
+    fetchReviews();
   }
 };
 
-// 计算折扣
-const calculateDiscount = (price: string, originalPrice: string) => {
-  const currentPrice = parseFloat(price.replace('¥', ''))
-  const original = parseFloat(originalPrice.replace('¥', ''))
-  if (original === 0) return 0
-  return Math.round((currentPrice / original) * 10)
-}
-
-// 获取商品列表数据
-const fetchBooks = async () => {
+// 获取评价列表数据
+const fetchReviews = async () => {
   loading.value = true;
   error.value = '';
   
@@ -65,39 +51,65 @@ const fetchBooks = async () => {
       return;
     }
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/reviews`;
     
+
     const response = await axios.get(apiUrl, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
+      },
+      params: {
+        status: 'PENDING',
+        pageNum: currentPage.value,
+        pageSize: pageSize.value
       }
-    });
-    console.log(response.data.data);
+    });      console.log('Fetching reviews from:', apiUrl);
+      console.log('Response data:', response.data);
 
-    if (response.data && response.data.code === '200') {
-      // 处理API返回的数据格式
-      technicalBooks.value = response.data.data.map((item: any) => {
-        const currentPrice = parseFloat(item.price);
-        const originalPrice = parseFloat(item.originalPrice) || currentPrice;
-
-        return {
-          id: item.id,
-          title: item.title,
-          price: `¥${currentPrice.toFixed(2)}`,
-          originalPrice: `¥${originalPrice.toFixed(2)}`,
-          image: item.covers[0] || '/src/assets/logo.png',
-          description: item.description || '暂无描述',
-          stock: item.stock?.amount || 0, // 使用 stock.amount
-          frozenStock: item.stock?.frozen || 0, // 使用 stock.frozen
-        };
+      if (response.data && (response.data.code === '200' || response.data.code === 200)) {
+        reviews.value = response.data.data.reviews;
+        totalCount.value = response.data.data.pageInfo.total_page || response.data.data.pageInfo.totalCount || 0;
+      
+      // 确保评分为数值类型
+      reviews.value = reviews.value.map(review => {
+        // 确保rating是数值类型
+        review.rating = Number(review.rating);
+    
+        
+        // 处理media字段
+        if (!review.media) {
+          review.media = []; // 如果没有media字段，设为空数组
+        } else if (!Array.isArray(review.media)) {
+          // 如果media不是数组，将其转换为数组
+          review.media = [review.media];
+        }
+        
+        // 确保每个media对象都有正确的image属性
+        review.media = review.media.map((mediaItem: any) => {
+          // 确保media是一个有效的对象或字符串
+          if (!mediaItem) return { image: '', imageName: '' };
+          
+          if (typeof mediaItem === 'string') {
+            // 如果media是字符串，转换为对象格式
+            return { image: mediaItem, imageName: '' };
+          } else if (mediaItem && !mediaItem.image && mediaItem.imageName) {
+            // 如果没有image但有imageName，则使用imageName
+            return { ...mediaItem, image: mediaItem.imageName };
+          }
+          return mediaItem;
+        });
+        
+        // 打印当前评价数据，帮助调试
+        console.log('处理后的评价数据:', review);
+        
+        return review;
       });
     } else {
-      error.value = '获取数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
+      error.value = '获取评价数据失败: ' + (response.data ? response.data.msg || '未知错误' : '服务器响应格式错误');
     }
   } catch (err: any) {
-    console.error('获取商品列表出错:', err);
-    // 区分网络错误和认证错误
+    console.error('获取评价列表出错:', err);
     if (err.response && err.response.status === 401) {
       error.value = '认证失败，请重新登录';
     } else {
@@ -108,63 +120,22 @@ const fetchBooks = async () => {
   }
 };
 
-// 跳转到商品详情
-const goToDetail = (bookId: number) => {
-  router.push({
-    name: 'Detail',
-    params: { id: bookId.toString() }
-  });
-}
-
-// 打开新增商品弹窗
-const openAddProductModal = () => {
-  showAddProductModal.value = true;
+// 显示评价详情
+const showReviewDetail = (review: any) => {
+  // 深拷贝一份评价数据，避免引用问题
+  currentReview.value = JSON.parse(JSON.stringify(review));
+  console.log('评价详情:', currentReview.value);
+  showReviewDetailModal.value = true;
 };
 
-// 关闭新增商品弹窗
-const closeAddProductModal = () => {
-  showAddProductModal.value = false;
+// 关闭评价详情
+const closeReviewDetail = () => {
+  showReviewDetailModal.value = false;
+  currentReview.value = null;
 };
 
-// 处理商品添加成功
-const handleProductAdded = (productData: any) => {
-  // 商品添加成功后重新获取商品列表
-  fetchBooks();
-};
-
-// 跳转到新增商品页面 - 修改为打开弹窗
-const goToAddProduct = () => {
-  openAddProductModal();
-};
-
-// 打开编辑商品弹窗
-const openEditProductModal = (event: Event, book: any) => {
-  
-  event.stopPropagation(); // 阻止事件冒泡，避免触发卡片的点击事件
-  currentEditBook.value = book.id; // 只存储商品ID
-  showEditProductModal.value = true;
-  console.log(currentEditBook.value);
-}
-
-// 关闭编辑商品弹窗
-const closeEditProductModal = () => {
-  showEditProductModal.value = false;
-  currentEditBook.value = null;
-}
-
-// 显示删除确认框
-const showDeleteConfirm = (event: Event, book: any) => {
-  event.stopPropagation(); // 阻止事件冒泡
-  bookToDelete.value = book;
-  showDeleteModal.value = true;
-}
-
-// 删除商品
-const deleteProduct = async () => {
-  if (!bookToDelete.value) return;
-
-  console.log('准备删除商品:', bookToDelete.value);
-
+// 审核通过
+const approveReview = async (reviewId: string) => {
   try {
     const token = sessionStorage.getItem('token');
     if (!token) {
@@ -172,9 +143,9 @@ const deleteProduct = async () => {
       return;
     }
 
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/${bookToDelete.value.id}`;
-
-    const response = await axios.delete(apiUrl, {
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/reviews/${reviewId}/approve`;
+    
+    const response = await axios.put(apiUrl, {}, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -182,144 +153,313 @@ const deleteProduct = async () => {
     });
 
     if (response.data && response.data.code === '200') {
-      // 从列表中移除已删除的商品
-      technicalBooks.value = technicalBooks.value.filter(item => item.id !== bookToDelete.value.id);
+      showSuccessMessage('审核通过', '该评价已成功通过审核');
+      fetchReviews(); // 刷新列表
+      if (showReviewDetailModal.value) {
+        closeReviewDetail();
+      }
     } else {
-      error.value = response.data.msg || '删除失败';
+      ElMessage.error('审核操作失败: ' + (response.data.msg || '未知错误'));
     }
   } catch (err: any) {
-    console.error('删除商品出错:', err);
-    error.value = `删除失败: ${err.message || '未知错误'}`;
-  } finally {
-    // 无论成功或失败都关闭弹窗
-    showDeleteModal.value = false;
-    bookToDelete.value = null;
+    console.error('审核操作失败:', err);
+    ElMessage.error(`审核操作失败: ${err.message || '未知错误'}`);
   }
-}
+};
 
-// 取消删除
-const cancelDelete = () => {
-  showDeleteModal.value = false;
-  bookToDelete.value = null;
-}
+// 审核拒绝
+const rejectReview = async (reviewId: string) => {
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      error.value = '您尚未登录或登录已过期，请重新登录';
+      return;
+    }
+
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/reviews/${reviewId}/reject`;
+    
+    const response = await axios.put(apiUrl, {}, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.data && response.data.code === '200') {
+      showSuccessMessage('审核拒绝', '该评价已被拒绝');
+      fetchReviews(); // 刷新列表
+      if (showReviewDetailModal.value) {
+        closeReviewDetail();
+      }
+    } else {
+      ElMessage.error('审核操作失败: ' + (response.data.msg || '未知错误'));
+    }
+  } catch (err: any) {
+    console.error('审核操作失败:', err);
+    ElMessage.error(`审核操作失败: ${err.message || '未知错误'}`);
+  }
+};
+
+// 显示确认拒绝对话框
+const showRejectConfirm = (reviewId: string) => {
+  ElMessageBox.confirm(
+    '您确定要拒绝此评价吗？被拒绝的评价将不会显示给用户。',
+    '拒绝评价',
+    {
+      confirmButtonText: '确认拒绝',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      rejectReview(reviewId);
+    })
+    .catch(() => {
+      // 用户取消操作
+    });
+};
+
+// 显示成功消息
+const showSuccessMessage = (title: string, description: string) => {
+  successMessage.value = title;
+  successDescription.value = description;
+  
+  setTimeout(() => {
+    successMessage.value = '';
+    successDescription.value = '';
+  }, 3000);
+};
+
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// 获取评价内容预览
+const getCommentPreview = (comment: string) => {
+  if (!comment) return '';
+  return comment.length > 50 ? comment.substring(0, 50) + '...' : comment;
+};
+
+// 添加预览图片方法
+const previewImage = (url: string, mediaList: any[]) => {
+  // 简单的图片预览，在新窗口中打开
+  window.open(url, '_blank');
+};
+
+// 获取图片URL列表
+const getImageUrlList = (mediaList: any[]) => {
+  if (!mediaList || !Array.isArray(mediaList)) return [];
+  return mediaList.map(item => {
+    // 确保我们使用正确的图片URL，优先使用image字段
+    return item.image || item || '';
+  });
+};
 
 // 组件挂载时获取数据
 onMounted(() => {
-  fetchBooks();
+  fetchReviews();
 });
 </script>
 
 <template>
-  <div class="all-books-container">
-    <div class="all-books-header">
-      <h2>评价审核管理</h2>
-      <button class="add-product-btn" @click="openAddProductModal">
-        <i class="plus-icon">+</i> 新增商品
+  <div class="review-management">
+    <header class="review-header">
+      <h1>评价审核管理</h1>
+      <div class="review-stats">
+        <span>待审核评价: {{ totalCount }}</span>
+      </div>
+    </header>
+
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-container">
+      <div class="loader"></div>
+      <p>正在加载评价数据...</p>
+    </div>
+
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="error-container">
+      <div class="error-icon">!</div>
+      <p>{{ error }}</p>
+      <button @click="fetchReviews" class="retry-button">重试</button>
+    </div>
+
+    <!-- 评价列表 -->
+    <div v-else-if="reviews.length === 0" class="empty-container">
+      <div class="empty-icon">📝</div>
+      <p>暂无待审核评价</p>
+    </div>
+
+    <div v-else class="reviews-list">
+      <!-- 表格头部 -->
+      <div class="review-table-header">
+        <div class="review-cell review-id">评价ID</div>
+        <div class="review-cell user-id">用户ID</div>
+        <div class="review-cell book-id">图书ID</div>
+        <div class="review-cell rating">评分</div>
+        <div class="review-cell comment">评价内容</div>
+        <div class="review-cell created-at">创建时间</div>
+        <div class="review-cell actions">操作</div>
+      </div>
+
+      <!-- 表格内容 -->
+      <div 
+        v-for="review in reviews" 
+        :key="review.reviewId" 
+        class="review-row"
+        @click="showReviewDetail(review)"
+      >
+        <div class="review-cell review-id">{{ review.reviewId }}</div>
+        <div class="review-cell user-id">{{ review.userId }}</div>
+        <div class="review-cell book-id">{{ review.bookId }}</div>
+        <div class="review-cell rating">
+          <div class="rating-value">
+            <span class="rating-number">{{ review.rating }}</span>
+            <span class="rating-max">/10</span>
+          </div>
+        </div>
+        <div class="review-cell comment">
+          <div class="comment-preview">{{ getCommentPreview(review.comment) }}</div>
+        </div>
+        <div class="review-cell created-at">{{ formatDate(review.createdAt) }}</div>
+        <div class="review-cell actions">
+          <button 
+            class="action-button approve" 
+            @click.stop="approveReview(review.reviewId)"
+            title="通过审核"
+          >
+            通过
+          </button>
+          <button 
+            class="action-button reject" 
+            @click.stop="showRejectConfirm(review.reviewId)"
+            title="拒绝审核"
+          >
+            拒绝
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="reviews.length > 0" class="pagination">
+      <button 
+        class="pagination-button"
+        :disabled="currentPage === 1"
+        @click="prevPage"
+      >
+        上一页
+      </button>
+      <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+      <button 
+        class="pagination-button"
+        :disabled="currentPage === totalPages"
+        @click="nextPage"
+      >
+        下一页
       </button>
     </div>
 
-    <!-- 添加加载状态显示 -->
-    <div v-if="loading" class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>正在加载商品数据...</p>
-    </div>
-    
-    <!-- 添加错误状态显示 -->
-    <div v-else-if="error" class="error-state">
-      <p>{{ error }}</p>
-      <button @click="fetchBooks" class="retry-btn">重试</button>
-    </div>
-    
-    <!-- 商品列表 -->
-    <div v-else class="all-books-list">
-      <div v-for="book in paginatedBooks" 
-           :key="book.id" 
-           class="book-card"
-           @click="goToDetail(book.id)">
-        <div class="ribbon" v-if="book.stock < 10">库存紧张</div>
-        <div class="book-image">
-          <img :src="book.image" :alt="book.title">
-          <div class="hover-info">
-            <span>查看详情</span>
-          </div>
+    <!-- 评价详情弹窗 -->
+    <div v-if="showReviewDetailModal" class="modal-overlay" @click="closeReviewDetail">
+      <div class="review-detail-modal" @click.stop>
+        <!-- 弹窗头部 -->
+        <div class="modal-header">
+          <h2>评价详情</h2>
+          <button class="close-button" @click="closeReviewDetail">&times;</button>
         </div>
-        <div class="book-details">
-          <h3 class="book-title">{{ book.title }}</h3>
-          <div class="book-pricing">
-            <span class="price">{{ book.price }}</span>
-            <span class="original-price">{{ book.originalPrice }}</span>
-            <span class="discount" v-if="book.price !== '¥0.00'">
-              {{ calculateDiscount(book.price, book.originalPrice) }}折
-            </span>
+
+        <!-- 弹窗内容 -->
+        <div v-if="currentReview" class="modal-content">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">评价ID:</span>
+              <span class="detail-value">{{ currentReview.reviewId }}</span>
+            </div>
+            
+            <div class="detail-item">
+              <span class="detail-label">用户ID:</span>
+              <span class="detail-value">{{ currentReview.userId }}</span>
+            </div>
+            
+            <div class="detail-item">
+              <span class="detail-label">订单ID:</span>
+              <span class="detail-value">{{ currentReview.orderId }}</span>
+            </div>
+            
+            <div class="detail-item">
+              <span class="detail-label">图书ID:</span>
+              <span class="detail-value">{{ currentReview.bookId }}</span>
+            </div>
+            
+            <div class="detail-item">
+              <span class="detail-label">评分:</span>
+              <span class="detail-value rating-value">
+                <span class="rating-number">{{ currentReview.rating }}</span>
+                <span class="rating-max">/10</span>
+              </span>
+            </div>
+            
+            <div class="detail-item">
+              <span class="detail-label">创建时间:</span>
+              <span class="detail-value">{{ formatDate(currentReview.createdAt) }}</span>
+            </div>
           </div>
           
-          <!-- 库存和冻结库存信息 -->
-          <div class="stock-info">
-            <div class="stock-badge" :class="{ 'low-stock': book.stock < 50 }">
-              库存: {{ book.stock }}
-            </div>
-            <div class="frozen-stock-badge">
-              冻结: {{ book.frozenStock }}
-            </div>
+          <!-- 评价内容 -->
+          <div class="comment-section">
+            <h3>评价内容:</h3>
+            <div class="comment-content">{{ currentReview.comment || '无评价内容' }}</div>
           </div>
           
-          <div class="book-actions admin-actions">
-            <div class="edit-btn" @click="openEditProductModal($event, book)">
-              <img src="/src/assets/icons/edit-box-fill.svg" alt="编辑" class="action-icon">
-              编辑
-            </div>
-            <div class="delete-btn" @click="showDeleteConfirm($event, book)">
-              <img src="/src/assets/icons/delete-bin-6-fill.svg" alt="删除" class="action-icon">
-              删除
+          <!-- 媒体文件 -->
+          <div v-if="currentReview.media && currentReview.media.length > 0" class="media-section">
+            <h3>晒图:</h3>
+            <div class="media-grid">
+              <div 
+                v-for="(mediaItem, index) in currentReview.media" 
+                :key="index"
+                class="media-item"
+              >
+                <img
+                  :src="mediaItem.image || mediaItem"
+                  class="media-image"
+                  @click="previewImage(mediaItem.image || mediaItem, currentReview.media)"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- 分页控件 -->
-    <div class="pagination" v-if="totalPages > 1">
-      <button :disabled="currentPage === 1" @click="prevPage">上一页</button>
-      <span>第 {{ currentPage }} 页 / 共 {{ totalPages }} 页</span>
-      <button :disabled="currentPage === totalPages" @click="nextPage">下一页</button>
-    </div>
 
-    <!-- 删除确认弹窗 -->
-    <div v-if="showDeleteModal" class="delete-modal-overlay" @click="cancelDelete">
-      <div class="delete-modal" @click.stop>
-        <div class="delete-modal-icon">🗑️</div>
-        <h3>确认删除</h3>
-        <p>您确定要删除"{{ bookToDelete?.title }}"吗？</p>
-        <p class="warning-text">此操作不可撤销</p>
-        <div class="delete-modal-actions">
-          <button class="cancel-btn" @click="cancelDelete">取消</button>
-          <button class="confirm-delete-btn" @click="deleteProduct">确认删除</button>
+        <!-- 弹窗底部按钮 -->
+        <div class="modal-footer">
+          <button 
+            class="modal-button approve"
+            @click="approveReview(currentReview?.reviewId)"
+          >
+            通过审核
+          </button>
+          <button 
+            class="modal-button reject"
+            @click="showRejectConfirm(currentReview?.reviewId)"
+          >
+            拒绝审核
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 新增商品弹窗 -->
-    <AddProductModal 
-      v-if="showAddProductModal"
-      @close="closeAddProductModal"
-      @product-added="handleProductAdded"
-    />
-
-    <!-- 编辑商品弹窗 -->
-    <div v-if="showEditProductModal" class="edit-modal-overlay" @click="closeEditProductModal">
-      <div class="edit-modal-container" @click.stop>
-        <EditProductModal
-          v-if="currentEditBook"
-          :bookId="currentEditBook"
-          @save="fetchBooks" 
-          @close="closeEditProductModal"
-        />
-      </div>
-    </div>
-
-    <!-- 成功提示样式 -->
-    <div v-if="successMessage" class="success-toast">
-      <div class="success-icon">✅</div>
+    <!-- 成功提示 -->
+    <div v-if="successMessage" class="success-notification">
+      <div class="success-icon">✓</div>
       <div class="success-content">
         <h3>{{ successMessage }}</h3>
         <p>{{ successDescription }}</p>
@@ -329,7 +469,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.all-books-container {
+.review-management {
   background: #ffffff;
   box-shadow: 0 5px 25px rgba(0,0,0,0.08);
   margin: 30px 0;
@@ -342,8 +482,8 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.all-books-container::before {
-  content: "";
+.review-management::before {
+content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -352,7 +492,8 @@ onMounted(() => {
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
 }
 
-.all-books-header {
+/* 头部样式 */
+.review-header {
   padding: 25px 0;
   border-bottom: 1px solid #f0f0f0;
   position: relative;
@@ -361,7 +502,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.all-books-header h2 {
+.review-header h1 {
   margin: 0;
   font-size: 26px;
   font-weight: 600;
@@ -370,12 +511,13 @@ onMounted(() => {
   display: inline-block;
   padding-bottom: 8px;
   background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: fadeInDown 0.8s;
 }
 
-.all-books-header h2::after {
+.review-header h1::after {
   content: "";
   position: absolute;
   width: 50px;
@@ -386,694 +528,481 @@ onMounted(() => {
   animation: widthExtend 1s ease-out;
 }
 
-@keyframes widthExtend {
-  from { width: 0; }
-  to { width: 50px; }
+.review-stats {
+  padding: 8px 15px;
+  background-color: #fff;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
 }
 
-.add-product-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #ff6b6b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 错误状态 */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
+  border-left: 4px solid #ff6b6b;
+}
+
+.error-icon {
+  width: 40px;
+  height: 40px;
+  background-color: #ff6b6b;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.error-container p {
+  color: #495057;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.retry-button {
+  padding: 8px 20px;
+  background-color: #ff6b6b;
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 30px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 4px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.25);
-  transition: all 0.3s;
-  letter-spacing: 0.5px;
-}
-
-.add-product-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
-}
-
-.add-product-btn:active {
-  transform: translateY(-1px);
-}
-
-.plus-icon {
-  font-size: 18px;
-  font-style: normal;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.all-books-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-  padding: 30px 0;
-  position: relative;
-  z-index: 1;
-  animation: fadeIn 0.8s;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.book-card {
-  display: flex;
-  flex-direction: column;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  background: white;
-  border-radius: 15px;
-  overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.05);
-  cursor: pointer;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-  height: 100%;
-  animation: cardFloat 0.6s ease-out backwards;
-  min-height: 380px;
-  display: flex;
-  flex-direction: column;
-}
-
-@keyframes cardFloat {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 为卡片添加交错动画效果 */
-.all-books-list > div:nth-child(1) { animation-delay: 0.1s; }
-.all-books-list > div:nth-child(2) { animation-delay: 0.2s; }
-.all-books-list > div:nth-child(3) { animation-delay: 0.3s; }
-.all-books-list > div:nth-child(4) { animation-delay: 0.4s; }
-.all-books-list > div:nth-child(5) { animation-delay: 0.5s; }
-.all-books-list > div:nth-child(6) { animation-delay: 0.6s; }
-.all-books-list > div:nth-child(7) { animation-delay: 0.7s; }
-.all-books-list > div:nth-child(8) { animation-delay: 0.8s; }
-.all-books-list > div:nth-child(9) { animation-delay: 0.9s; }
-.all-books-list > div:nth-child(10) { animation-delay: 1.0s; }
-.all-books-list > div:nth-child(11) { animation-delay: 1.1s; }
-.all-books-list > div:nth-child(12) { animation-delay: 1.2s; }
-
-.ribbon {
-  position: absolute;
-  top: 20px;
-  right: -30px;
-  transform: rotate(45deg);
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  padding: 5px 30px;
-  font-size: 12px;
   font-weight: 500;
-  z-index: 5;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: background-color 0.2s;
 }
 
-.book-image {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(135deg, #fff6f6 0%, #ffefef 100%);
-  padding: 15px;
-  margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 220px;
+.retry-button:hover {
+  background-color: #ff5252;
 }
 
-.book-image img {
-  height: 190px;
-  width: auto;
-  max-width: 85%;
-  object-fit: contain;
-  transition: transform 0.5s ease;
-  filter: drop-shadow(0 6px 12px rgba(255, 107, 107, 0.2));
-  z-index: 2;
-}
-
-.hover-info {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255,107,107,0.85);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
-  font-weight: 500;
-  opacity: 0;
-  transition: all 0.3s ease;
-  transform: translateY(20px);
-  z-index: 3;
-}
-
-.book-card:hover .hover-info {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.book-card:hover .book-image img {
-  transform: scale(1.05);
-}
-
-.book-details {
-  flex: 1;
+/* 空状态 */
+.empty-container {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  background: white;
-  position: relative;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
 }
 
-.book-details::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 20px;
-  right: 20px;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(255,107,107,0), rgba(255,107,107,0.3), rgba(255,107,107,0));
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #adb5bd;
 }
 
-.book-title {
-  position: relative;
+.empty-container p {
+  color: #6c757d;
   font-size: 16px;
-  font-weight: 700;
-  line-height: 1.4;
-  height: 40px;
+}
+
+/* 评价列表 */
+.reviews-list {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.review-table-header {
+  display: flex;
+  background-color: #f8f9fa;
+  padding: 12px 15px;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.review-cell {
+  padding: 8px 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: #333;
-  transition: color 0.3s;
-  margin-bottom: 5px;
-  margin-top: 3px;
+  white-space: nowrap;
 }
 
-.book-card:hover .book-title {
-  color: #ff6b6b;
-}
-
-.book-pricing {
-  margin-bottom: 15px;
+.review-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+  cursor: pointer;
 }
 
-.price {
-  color: #ff6b6b;
-  font-size: 20px;
-  font-weight: bold;
+.review-row:hover {
+  background-color: #f8f9fa;
 }
 
-.original-price {
-  color: #999;
-  font-size: 14px;
-  text-decoration: line-through;
+.review-row:last-child {
+  border-bottom: none;
 }
 
-.discount {
-  background: #ffe8e8;
-  color: #ff6b6b;
-  padding: 3px 8px;
-  font-size: 12px;
-  border-radius: 20px;
-  font-weight: 500;
+.review-id, .user-id, .book-id {
+  width: 12%;
 }
 
-/* 修改库存样式与广告样式保持一致 */
-.stock-info {
+.rating {
+  width: 10%;
+}
+
+.comment {
+  width: 25%;
+}
+
+.created-at {
+  width: 15%;
+}
+
+.actions {
+  width: 14%;
   display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-  width: 100%;
-  margin-top: auto;
-  padding-top: 0;
-}
-
-.stock-badge, .frozen-stock-badge {
-  flex: 1;
-  padding: 7px 10px;
-  border-radius: 18px;
-  font-size: 13px;
-  font-weight: 800;
-  text-align: center;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  background-color: #e8f7f0;
-  color: #2e8b57;
-  border: 1px solid rgba(46, 139, 87, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  height: 35px;
-}
-
-.stock-badge::before, .frozen-stock-badge::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 60%);
-  z-index: 1;
-}
-
-.stock-badge span, .stock-badge i, .frozen-stock-badge span, .frozen-stock-badge i {
-  position: relative;
-  z-index: 2;
-}
-
-.stock-badge.low-stock {
-  background-color: #fff0f0;
-  color: #ff6b6b;
-  border: 1px solid rgba(255, 107, 107, 0.1);
-}
-
-.frozen-stock-badge {
-  background-color: #e6f0ff;
-  color: #4a6fa5;
-  border: 1px solid rgba(74, 111, 165, 0.1);
-}
-
-.book-card:hover .stock-badge, .book-card:hover .frozen-stock-badge {
-  box-shadow: 0 5px 15px rgba(46, 139, 87, 0.15);
-  transform: translateY(-2px);
-}
-
-/* 修改管理员操作按钮样式 */
-.admin-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  width: 100%;
-}
-
-.edit-btn, .delete-btn {
-  flex: 1;
-  padding: 7px 8px;
-  border-radius: 18px;
-  font-size: 13px;
-  font-weight: bold;
-  text-align: center;
-  transition: all 0.3s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
   gap: 5px;
-  cursor: pointer;
 }
 
-.edit-btn {
-  background: #f2f2f2;
-  color: #444;
-  border: 1px solid rgba(0,0,0,0.05);
-}
-
-.edit-btn:hover {
-  background: #ebebeb;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-  color: #ff6b6b;
-}
-
-.delete-btn {
-  background: #f2f2f2;
-  color: #444;
-  border: 1px solid rgba(0,0,0,0.05);
-}
-
-.delete-btn:hover {
-  background: #ebebeb;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-  color: #ff6b6b;
-}
-
-/* 删除确认弹窗样式 */
-.delete-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1000;
+.star-rating {
   display: flex;
   align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.3s ease;
-  backdrop-filter: blur(3px);
 }
 
-.delete-modal {
-  background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
-  border-radius: 20px;
-  padding: 35px;
-  width: 90%;
-  max-width: 450px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-  animation: scaleIn 0.4s ease;
-  text-align: center;
-  border: 1px solid rgba(255, 107, 107, 0.1);
+.comment-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.delete-modal-icon {
-  font-size: 50px;
-  margin-bottom: 20px;
-  animation: wobble 1s;
-  display: inline-block;
-}
-
-@keyframes wobble {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-15px) rotate(-5deg); }
-  30% { transform: translateX(10px) rotate(3deg); }
-  45% { transform: translateX(-10px) rotate(-3deg); }
-  60% { transform: translateX(5px) rotate(2deg); }
-  75% { transform: translateX(-5px) rotate(-1deg); }
-}
-
-.delete-modal h3 {
-  margin: 0 0 15px;
-  color: #ff6b6b;
-  font-size: 26px;
-  font-weight: 700;
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.delete-modal p {
-  color: #555;
-  line-height: 1.6;
-  font-size: 16px;
-  margin-bottom: 10px;
-}
-
-.warning-text {
-  color: #ff6b6b;
-  font-size: 15px;
-  font-weight: 500;
-  padding: 10px 20px;
-  background-color: rgba(255, 107, 107, 0.08);
-  border-radius: 15px;
-  margin: 15px 0;
-  display: inline-block;
-}
-
-.delete-modal-actions {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
-}
-
-.cancel-btn, .confirm-delete-btn {
-  padding: 12px 25px;
-  border-radius: 25px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
+.action-button {
+  padding: 5px 10px;
   border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+  transition: all 0.2s;
 }
 
-.cancel-btn {
-  background: #f2f2f2;
-  color: #555;
-  border: 1px solid rgba(0,0,0,0.05);
-}
-
-.cancel-btn:hover {
-  background: #e8e8e8;
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.confirm-delete-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+.action-button.approve {
+  background-color: #51cf66;
   color: white;
-  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
 }
 
-.confirm-delete-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+.action-button.approve:hover {
+  background-color: #40c057;
 }
 
-/* 分页控件统一样式 */
+.action-button.reject {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.action-button.reject:hover {
+  background-color: #ff5252;
+}
+
+/* 分页 */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px;
-  margin-top: 30px;
-  animation: fadeIn 1s 0.3s both;
+  margin-top: 20px;
+  gap: 10px;
 }
 
-.pagination button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 25px;
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  font-weight: 600;
+.pagination-button {
+  padding: 8px 15px;
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.2);
+  transition: all 0.2s;
+  color: #495057;
 }
 
-.pagination button:disabled {
-  background: #f0f0f0;
-  color: #ccc;
+.pagination-button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
-.pagination button:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+.pagination-button:not(:disabled):hover {
+  background-color: #e9ecef;
 }
 
-.pagination span {
-  font-size: 15px;
-  color: #555;
-  font-weight: 500;
+.page-info {
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  color: #495057;
+  font-size: 14px;
 }
 
-/* 加载中和错误状态统一样式 */
-.loading-state, .error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  text-align: center;
-  animation: fadeIn 0.8s;
-}
-
-.loading-spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255, 107, 107, 0.1);
-  border-left-color: #ff6b6b;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-state p {
-  color: #ff6b6b;
-  margin-bottom: 25px;
-  font-size: 18px;
-  max-width: 600px;
-}
-
-.retry-btn {
-  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  border-radius: 25px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 16px;
-  font-weight: 600;
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
-}
-
-.retry-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
-}
-
-/* 添加编辑弹窗样式 */
-.edit-modal-overlay {
+/* 弹窗样式 */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.3s ease;
-  backdrop-filter: blur(3px);
+  z-index: 1000;
 }
 
-.edit-modal-container {
-  width: 98%;
-  max-width: 1400px;
-  max-height: 95vh;
+.review-detail-modal {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #343a40;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6c757d;
+  line-height: 1;
+}
+
+.modal-content {
+  padding: 20px;
   overflow-y: auto;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: scaleIn 0.3s ease;
+  flex-grow: 1;
 }
 
-.book-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 30px rgba(255, 107, 107, 0.15);
-  border-color: rgba(255, 107, 107, 0.2);
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #f8f9fa, #f1f3f5);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
 }
 
-/* 媒体查询样式保留 */
-@media (max-width: 768px) {
-  .all-books-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  
-  .add-product-btn {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .all-books-list {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 15px;
-  }
-  
-  .book-image {
-    height: 180px;
-  }
-  
-  .book-image img {
-    height: 160px;
-  }
-  
-  .book-title {
-    font-size: 14px;
-    height: 40px;
-  }
-  
-  .book-details {
-    padding: 15px;
-  }
+.detail-item {
+  display: flex;
+  flex-direction: column;
 }
 
-/* 修复删除的图标样式 */
-.action-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
+.detail-label {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 5px;
 }
 
-/* 确保保留其他关键样式 */
-@keyframes scaleIn {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+.detail-value {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 500;
 }
 
-/* 成功提示样式 */
-.success-toast {
+.rating-value {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  font-size: 16px;
+  color: #ff9900;
+}
+
+.rating-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ff6b6b;
+  background: linear-gradient(135deg, #ff6b6b, #ff9e7d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 2px;
+}
+
+.rating-max {
+  font-size: 14px;
+  font-weight: 400;
+  color: #999;
+}
+
+.comment-section {
+  margin-bottom: 20px;
+}
+
+.comment-section h3 {
+  font-size: 16px;
+  color: #343a40;
+  margin-bottom: 10px;
+}
+
+.comment-content {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #212529;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid #ff6b6b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.comment-content:hover {
+  background-color: #fff9f9;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.1);
+  transform: translateY(-2px);
+}
+
+.media-section h3 {
+  font-size: 16px;
+  color: #343a40;
+  margin-bottom: 10px;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.media-item {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.media-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.2);
+}
+
+.media-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.media-image:hover {
+  transform: scale(1.05);
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.modal-button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.modal-button.approve {
+  background-color: #51cf66;
+  color: white;
+}
+
+.modal-button.approve:hover {
+  background-color: #40c057;
+}
+
+.modal-button.reject {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.modal-button.reject:hover {
+  background-color: #ff5252;
+}
+
+/* 成功提示 */
+.success-notification {
   position: fixed;
   top: 20px;
   right: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 16px 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  z-index: 9999;
-  animation: slideIn 0.3s ease;
-  pointer-events: none;
-}
-
-.success-icon {
-  width: 32px;
-  height: 32px;
-  background: #22c55e;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.success-content h3 {
-  margin: 0;
-  font-size: 16px;
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-.success-content p {
-  margin: 4px 0 0;
-  font-size: 14px;
-  color: #666;
-}
-
-.fade-out {
-  animation: fadeOut 0.3s ease forwards;
+  padding: 15px 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  z-index: 1001;
+  border-left: 4px solid #51cf66;
 }
 
 @keyframes slideIn {
@@ -1087,12 +1016,62 @@ onMounted(() => {
   }
 }
 
-@keyframes fadeOut {
-  from {
-    opacity: 1;
+.success-icon {
+  width: 30px;
+  height: 30px;
+  background-color: #51cf66;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-right: 15px;
+}
+
+.success-content h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  color: #212529;
+}
+
+.success-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .review-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
-  to {
-    opacity: 0;
+
+  .review-stats {
+    align-self: flex-start;
+  }
+
+  .review-table-header, .review-row {
+    display: none;
+  }
+
+  .reviews-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    padding: 15px;
+  }
+
+  .reviews-list > div {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
