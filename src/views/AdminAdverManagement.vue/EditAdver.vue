@@ -201,7 +201,7 @@ onMounted(() => {
   <!-- 显示加载状态 -->
   <div v-if="loading" class="loading-state">
     <div class="loading-spinner"></div>
-    <p>正在加载广告详情...</p>
+    <p>正在加载优惠券详情...</p>
   </div>
   
   <!-- 显示错误信息 -->

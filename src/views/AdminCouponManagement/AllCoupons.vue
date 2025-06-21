@@ -12,6 +12,8 @@ const coupons = ref<any[]>([])
 const pageNum = ref(1)
 const pageSize = ref(20)
 const totalPage = ref(1)
+const showDeleteModal = ref(false)
+const couponToDelete = ref<any>(null)
 
 const openAddCouponModal = () => { showAddCoupon.value = true }
 const openEditCouponModal = (couponId: string) => {
@@ -47,8 +49,38 @@ const fetchCoupons = async () => {
 }
 
 const handleDeleteCoupon = (couponId: string) => {
-  // TODO: 实现删除逻辑或弹窗确认
-  alert('删除功能待实现，couponId: ' + couponId)
+  const coupon = coupons.value.find(c => c.couponId === couponId)
+  couponToDelete.value = coupon
+  showDeleteModal.value = true
+}
+
+const confirmDeleteCoupon = async () => {
+  if (!couponToDelete.value) return
+  try {
+    const token = sessionStorage.getItem('token')
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/coupons/${couponToDelete.value.couponId}`
+    const res = await axios.delete(apiUrl, {
+      headers: { token, 'Content-Type': 'application/json' }
+    })
+    if (res.data && res.data.code === '200') {
+      coupons.value = coupons.value.filter(item => item.couponId !== couponToDelete.value.couponId)
+      showDeleteModal.value = false
+      couponToDelete.value = null
+    } else {
+      error.value = res.data.msg || '删除失败'
+    }
+  } catch (err: any) {
+    error.value = `删除失败: ${err.message || '未知错误'}`
+  } finally {
+    showDeleteModal.value = false
+    couponToDelete.value = null
+    fetchCoupons()
+  }
+}
+
+const cancelDeleteCoupon = () => {
+  showDeleteModal.value = false
+  couponToDelete.value = null
 }
 
 onMounted(fetchCoupons)
@@ -67,7 +99,7 @@ onMounted(fetchCoupons)
     <!-- 添加加载状态显示 -->
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
-      <p>正在加载广告数据...</p>
+      <p>正在加载优惠券数据...</p>
     </div>
     
     <!-- 添加错误状态显示 -->
@@ -114,6 +146,19 @@ onMounted(fetchCoupons)
       @close="closeEditCouponModal" 
       @success="fetchCoupons" 
     />
+
+    <div v-if="showDeleteModal" class="delete-modal-overlay" @click="cancelDeleteCoupon">
+      <div class="delete-modal" @click.stop>
+        <div class="delete-modal-icon">🗑️</div>
+        <h3>确认删除</h3>
+        <p>您确定要删除"{{ couponToDelete?.name }}"吗？</p>
+        <p class="warning-text">此操作不可撤销</p>
+        <div class="delete-modal-actions">
+          <button class="cancel-btn" @click="cancelDeleteCoupon">取消</button>
+          <button class="confirm-delete-btn" @click="confirmDeleteCoupon">确认删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -558,5 +603,121 @@ onMounted(fetchCoupons)
   text-align: center;
   padding: 50px 0;
   color: #999;
+}
+
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s;
+  backdrop-filter: blur(2px);
+}
+
+.delete-modal {
+  background: linear-gradient(135deg, #fff 60%, #ffeaea 100%);
+  border-radius: 20px;
+  padding: 38px 32px 28px 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(255, 107, 107, 0.18), 0 2px 8px rgba(0,0,0,0.08);
+  position: relative;
+  text-align: center;
+  animation: scaleIn 0.35s;
+}
+
+.delete-modal-icon {
+  font-size: 54px;
+  color: #ff6b6b;
+  margin-bottom: 10px;
+  animation: wobble 1s;
+  display: inline-block;
+  position: static;
+}
+
+@keyframes wobble {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-10px) rotate(-5deg); }
+  30% { transform: translateX(8px) rotate(3deg); }
+  45% { transform: translateX(-6px) rotate(-3deg); }
+  60% { transform: translateX(4px) rotate(2deg); }
+  75% { transform: translateX(-3px) rotate(-1deg); }
+}
+
+.delete-modal h3 {
+  margin: 0 0 14px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ff6b6b;
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
+}
+
+.delete-modal p {
+  margin: 0 0 18px 0;
+  font-size: 15px;
+  color: #555;
+}
+
+.warning-text {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 12px 0 18px 0;
+  padding: 8px 18px;
+  border-radius: 16px;
+  display: inline-block;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.10);
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.cancel-btn, .confirm-delete-btn {
+  border: none;
+  padding: 12px 32px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s, color 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  color: #888;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
+  color: #ff6b6b;
+}
+
+.confirm-delete-btn {
+  background: linear-gradient(90deg, #ff6b6b, #ff9e7d);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.18);
+}
+
+.confirm-delete-btn:hover {
+  background: linear-gradient(90deg, #ff5252, #ff8a65);
+  transform: translateY(-2px) scale(1.04);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 </style>
