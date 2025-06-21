@@ -71,8 +71,8 @@ const fetchRankings = async (metric: string) => {
     console.log(`获取排行榜数据响应:`, data);
 
     if (data && data.code === '200' && data.data && Array.isArray(data.data)) {
-      // 处理排行榜数据 - 数据直接在data数组中，只取前10名
-      bookLists[metric] = data.data.slice(0, 10).map((item: any, index: number) => ({
+      // 处理排行榜数据 - 数据直接在data数组中，只取前12名
+      bookLists[metric] = data.data.slice(0, 12).map((item: any, index: number) => ({
         id: item.product.id,
         rank: index + 1, // 使用索引+1作为排名，因为rank都是0
         title: item.product.title,
@@ -203,11 +203,11 @@ onMounted(() => {
 
 <style scoped>
 .book-ranking-container {
-  height: 100%;
+  height: fit-content;
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 18px;
+  padding: 16px 18px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -218,8 +218,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
   border-bottom: 1px solid #f5f5f5;
 }
 
@@ -250,7 +250,7 @@ onMounted(() => {
   background: #f8f9fa;
   border-radius: 6px;
   padding: 3px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .tab {
@@ -279,7 +279,7 @@ onMounted(() => {
 .book-list {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 0; /* 移除底部间距 */
+  margin-bottom: 0;
   padding-right: 2px;
 }
 
@@ -287,7 +287,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 6px;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   position: relative;
   overflow: hidden;
 }
@@ -326,7 +326,7 @@ onMounted(() => {
 .book-row {
   display: flex;
   align-items: center;
-  padding: 11px 12px;
+  padding: 8px 12px;
   gap: 12px;
 }
 
@@ -420,10 +420,10 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: #fafafa;
   border-radius: 6px;
-  margin: 0 8px 4px 8px;
+  margin: 0 8px 2px 8px;
   border: 1px solid rgba(255, 107, 107, 0.08);
   position: relative;
 }

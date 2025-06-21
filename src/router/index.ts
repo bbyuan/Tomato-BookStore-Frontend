@@ -19,6 +19,8 @@ import PaymentSuccess from '@/pages/PaymentSuccess.vue'
 import NotFound from '@/pages/NotFound.vue'
 import Loading from '@/pages/Loading.vue'
 import LoadingFail from '@/pages/LoadingFail.vue'
+import CategoryPage from '../views/HomePage/CategoryPage.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -62,9 +64,8 @@ const router = createRouter({
     },
     {
       path: '/category/:category',
-      name: 'CategoryProducts',
-      component: () => import('../views/HomePage/CategoryPage.vue'),
-      meta: { requiresAuth: true }
+      name: 'CategoryPage',
+      component: CategoryPage
     },
     {
       path: '/detail/:id',

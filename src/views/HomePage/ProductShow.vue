@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
+
+// 添加props定义
+const props = defineProps<{
+  category?: string
+}>()
 
 const router = useRouter();
 // 使用ref创建响应式数据
@@ -46,15 +51,12 @@ const fetchBooks = async () => {
       return;
     }
     
-    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/page`;
+    // 根据是否有category参数选择不同的API端点
+    const url = props.category 
+      ? `/api/products/category/${props.category}`
+      : '/api/products'
     
-    // 添加调试日志
-    console.log('发送分页请求参数:', {
-      pageSize: pageSize.value,
-      pageNum: pageNum.value
-    });
-    
-    const response = await axios.get(apiUrl, {
+    const response = await axios.get(url, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -70,8 +72,8 @@ const fetchBooks = async () => {
     
     if (response.data && response.data.code === '200') {
       // 处理API返回的数据格式
-      const products = response.data.data.products || [];
-      technicalBooks.value = products.map((item: any) => {
+      const books = response.data.data.books || [];
+      technicalBooks.value = books.map((item: any) => {
         return {
           id: item.id,
           title: item.title,
@@ -82,17 +84,9 @@ const fetchBooks = async () => {
         };
       });
 
-      // 处理分页信息 - 修正为从pageInfo获取
+      // 处理分页信息
       const pageInfo = response.data.data.pageInfo || {};
-      console.log('分页信息:', {
-        pageInfo: pageInfo,
-        pageNum: pageInfo.pageNum,
-        pageSize: pageInfo.pageSize,
-        totalPage: pageInfo.totalPage,
-        totalCount: pageInfo.totalCount,
-        hasNext: pageInfo.hasNext,
-        hasPrev: pageInfo.hasPrev
-      });
+      console.log('分页信息:', pageInfo);
       
       totalPage.value = pageInfo.totalPage || 1;
       totalCount.value = pageInfo.totalCount || 0;
@@ -198,6 +192,12 @@ const changePage = (page: number | string) => {
   pageNumInput.value = '';
   fetchBooks();
 };
+
+// 监听category变化，重新获取数据
+watch(() => props.category, () => {
+  pageNum.value = 1; // 重置页码
+  fetchBooks();
+}, { immediate: false })
 
 // 组件挂载时获取数据
 onMounted(() => {
