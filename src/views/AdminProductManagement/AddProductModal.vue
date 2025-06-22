@@ -376,7 +376,7 @@ const handleImageUpload = async (event: Event) => {
           throw new Error('未登录或登录已过期');
         }
 
-        const response = await axios.post('/api/upload/images', formData, {
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             'token': token
@@ -521,7 +521,7 @@ const submitProduct = async () => {
     console.log('提交的商品数据:', productData);
 
     // 调用创建商品API
-    const apiUrl = '/api/products';
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products`;
     const response = await axios.post(apiUrl, productData, {
       headers: {
         'token': token,
@@ -580,7 +580,7 @@ const updateProductStock = async (productId: string, stock: number) => {
       throw new Error('未登录或登录已过期');
     }
     
-    const apiUrl = `/api/products/stockpile/${productId}`;
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/products/stockpile/${productId}`;
     
     const response = await axios.patch(apiUrl, { amount: stock }, { // 修改字段为 amount
       headers: {

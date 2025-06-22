@@ -108,7 +108,7 @@ const handleFileUpload = async (event: Event) => {
 
     console.log('开始上传图片:', randomFileName);
 
-    const response = await axios.post('/api/upload/images', formData, {
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         'token': token

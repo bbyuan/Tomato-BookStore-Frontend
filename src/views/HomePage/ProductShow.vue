@@ -84,7 +84,7 @@ const fetchBooks = async () => {
     }
     
     // 使用分页API端点
-    const response = await axios.get('/api/products/page', {
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/products/page`, {
       headers: {
         'token': token,
         'Content-Type': 'application/json'
@@ -323,7 +323,7 @@ onMounted(() => {
             v-model="pageNumInput"
             :placeholder="String(pageNum)"
             class="page-input"
-            @keyup.enter="(e) => { changePage(pageNumInput); e.target.blur(); }"
+            @keyup.enter="(e) => { changePage(pageNumInput); (e.target as HTMLInputElement | null)?.blur(); }"
             min="1"
             :max="totalPage"
           >

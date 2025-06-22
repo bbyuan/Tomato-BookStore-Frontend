@@ -377,7 +377,7 @@ const nextStep = async () => {
 
       console.log('提交的数据:', formData) // 添加日志
 
-      const response = await axios.post('/api/accounts', formData)
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`, formData)
       
       console.log('注册响应:', response.data) // 添加日志
 
@@ -431,7 +431,7 @@ const handleAvatarUpload = async (event: Event) => {
       formData.append('file', file, randomFileName)
 
       // 调用上传接口
-      const response = await axios.post('/api/upload/images', formData, {
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

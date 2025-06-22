@@ -137,23 +137,23 @@ const updateOrderCounts = async () => {
 
     // 分别获取各状态的订单数量
     const promises = [
-      axios.get<ApiResponse>('/api/orders/getByStatus', {
+      axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: 'ALL' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiResponse>('/api/orders/getByStatus', {
+      axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: 'PENDING' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiResponse>('/api/orders/getByStatus', {
+      axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: 'SUCCESS' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiResponse>('/api/orders/getByStatus', {
+      axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: 'FAILED' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiResponse>('/api/orders/getByStatus', {
+      axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: 'TIMEOUT' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       })
@@ -216,14 +216,14 @@ const fetchOrders = async (status: string = 'ALL') => {
     if (status === 'FAILED') {
       console.log('获取失败订单，同时请求FAILED和TIMEOUT状态')
       const [failedRes, timeoutRes] = await Promise.all([
-        axios.get<ApiResponse>('/api/orders/getByStatus', {
+        axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
           params: { status: 'FAILED' },
           headers: {
             'token': token,
             'Content-Type': 'application/json'
           }
         }),
-        axios.get<ApiResponse>('/api/orders/getByStatus', {
+        axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
           params: { status: 'TIMEOUT' },
           headers: {
             'token': token,
@@ -247,7 +247,7 @@ const fetchOrders = async (status: string = 'ALL') => {
       response = { data: { code: '200', data: allFailedOrders } }
       console.log('合并后的失败订单数据:', allFailedOrders)
     } else {
-      response = await axios.get<ApiResponse>('/api/orders/getByStatus', {
+      response = await axios.get<ApiResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/orders/getByStatus`, {
         params: { status: requestStatus },
         headers: {
           'token': token,

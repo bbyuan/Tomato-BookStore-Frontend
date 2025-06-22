@@ -221,6 +221,9 @@ const cancelDelete = () => {
 onMounted(() => {
   fetchBooks();
 });
+
+const successMessage = ref<string>('')
+const successDescription = ref<string>('')
 </script>
 
 <template>

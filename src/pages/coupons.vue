@@ -12,8 +12,8 @@ const availablePage = ref({ pageNum: 1, pageSize: 10 })
 const claimedPage = ref({ pageNum: 1, pageSize: 10 })
 
 // 优惠券数据
-const availableCoupons = ref([])
-const myCoupons = ref([])
+const availableCoupons = ref<Coupon[]>([])
+const myCoupons = ref<Coupon[]>([])
 
 // 加载状态
 const loadingAvailable = ref(false)
@@ -24,7 +24,7 @@ const getAvailableCoupons = async () => {
   loadingAvailable.value = true
   try {
     const token = sessionStorage.getItem('token')
-    const res = await axios.get('/api/coupons', {
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/coupons`, {
       params: {
         status: 'ACTIVE',
         pageNum: availablePage.value.pageNum,
@@ -45,7 +45,7 @@ const getClaimedCoupons = async () => {
   loadingClaimed.value = true
   try {
     const token = sessionStorage.getItem('token')
-    const res = await axios.get('/api/users/coupons', {
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/users/coupons`, {
       params: {
         status: '', // 查询所有已领取
         pageNum: claimedPage.value.pageNum,
@@ -69,7 +69,7 @@ const claimCoupon = async (coupon: any) => {
     return
   }
   try {
-    const res = await axios.post(`/api/users/coupons/${coupon.couponId}/claim`, {}, {
+    const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/users/coupons/${coupon.couponId}/claim`, {}, {
       headers: { token }
     })
     if (res.data.code === '200') {
@@ -109,6 +109,20 @@ const formatCouponAmount = (coupon: any) => {
     return `${(coupon.discountValue).toFixed(1).replace(/\.0$/, '')}折`
   }
   return ''
+}
+
+// 添加 Coupon 接口定义
+interface Coupon {
+  userCouponId?: number;
+  couponId?: number;
+  status?: 'UNUSED' | 'USED' | 'EXPIRED';
+  name?: string;
+  minOrderAmount?: number;
+  claimedAt?: string;
+  expiresAt?: string;
+  validFrom?: string;
+  validTo?: string;
+  claimed?: boolean;
 }
 </script>
 

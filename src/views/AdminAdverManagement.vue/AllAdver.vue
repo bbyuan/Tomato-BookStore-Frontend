@@ -19,6 +19,10 @@ const currentEditAdver = ref<any>(null);
 const currentPage = ref(1);
 const itemsPerPage = 12;
 
+// 成功提示相关
+const successMessage = ref<string>('')
+const successDescription = ref<string>('')
+
 // 计算当前页显示的广告
 const paginatedAdverts = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;

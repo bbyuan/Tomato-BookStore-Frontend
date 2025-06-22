@@ -165,7 +165,7 @@ export default {
           return
         }
 
-        const response = await fetch('/api/ai/conversations', {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ai/conversations`, {
           method: 'GET',
           headers: {
             'token': token,
@@ -230,7 +230,7 @@ export default {
 
         console.log('使用的token:', token ? token.substring(0, 20) + '...' : 'undefined')
 
-        const response = await fetch('/api/ai/chat/stream', {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ai/chat/stream`, {
           method: 'POST',
           headers: {
             'token': token,
@@ -329,7 +329,7 @@ export default {
         const loadingMessageIndex = this.messages.length - 1
 
         // 使用 axios POST 请求，参考 Header.vue 的token传递方式
-        const response = await axios.post('/api/ai/messages', {
+        const response = await axios.post('/ai/messages', {
           conversationId: conversationId
         }, {
           headers: {
@@ -495,7 +495,7 @@ export default {
           this.$refs.toastRef.show('用户未登录', 'error')
           return
         }
-        const response = await fetch('/api/ai/conversations', {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ai/conversations`, {
           method: 'DELETE',
           headers: {
             'token': token,

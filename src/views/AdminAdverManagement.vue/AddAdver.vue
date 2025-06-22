@@ -240,7 +240,7 @@ const handleImageUpload = async (event: Event) => {
           throw new Error('未登录或登录已过期');
         }
 
-        const response = await axios.post('/api/upload/images', formData, {
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             'token': token
@@ -302,7 +302,7 @@ const submitAdver = async () => {
     };
 
     // 调用创建广告API
-    const apiUrl = '/api/advertisements';
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/advertisements`;
     const response = await axios.post(apiUrl, adverData, {
       headers: {
         'token': token,

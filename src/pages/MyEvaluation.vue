@@ -146,7 +146,7 @@ const fetchReviews = async (status: ReviewStatus = 'ALL') => {
     }
 
     // 请求评价数据
-    const response = await axios.get<ApiReviewResponse>('/api/reviews/user', {
+    const response = await axios.get<ApiReviewResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/user`, {
       params: {
         pageNum: 1,
         pageSize: 100,
@@ -209,19 +209,19 @@ const updateReviewCounts = async () => {
 
     // 分别获取各状态的评价数量
     const promises = [
-      axios.get<ApiReviewResponse>('/api/reviews/user', {
+      axios.get<ApiReviewResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/user`, {
         params: { pageNum: 1, pageSize: 1, status: 'ALL' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiReviewResponse>('/api/reviews/user', {
+      axios.get<ApiReviewResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/user`, {
         params: { pageNum: 1, pageSize: 1, status: 'PENDING' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiReviewResponse>('/api/reviews/user', {
+      axios.get<ApiReviewResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/user`, {
         params: { pageNum: 1, pageSize: 1, status: 'APPROVED' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       }),
-      axios.get<ApiReviewResponse>('/api/reviews/user', {
+      axios.get<ApiReviewResponse>(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/user`, {
         params: { pageNum: 1, pageSize: 1, status: 'REJECTED' },
         headers: { 'token': token, 'Content-Type': 'application/json' }
       })
@@ -328,7 +328,7 @@ const updateReview = async (review: ReviewVO) => {
     return false
   }
   try {
-    const response = await axios.put(`/api/reviews/${review.reviewId}`, review, {
+    const response = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/${review.reviewId}`, review, {
       headers: {
         token,
         'Content-Type': 'application/json'

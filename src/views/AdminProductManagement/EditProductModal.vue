@@ -71,7 +71,7 @@ const handleFileUpload = async (event: Event, mode: 'add' | 'replace') => {
         throw new Error('未登录或登录已过期');
       }
 
-      const response = await axios.post('/api/upload/images', formData, {
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/upload/images`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'token': token

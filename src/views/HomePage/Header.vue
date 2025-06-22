@@ -15,9 +15,20 @@ const username = ref('用户')
 const userRole = ref('customer') // 新增用户角色状态
 const isSearching = ref(false)
 const showSearchDropdown = ref(false)
-const searchResults = ref([])
+const searchResults = ref<Book[]>([])
 const selectedIndex = ref(-1)
-const searchBoxRef = ref(null)
+const searchBoxRef = ref<HTMLElement | null>(null)
+
+interface Book {
+  id: number;
+  cover?: string;
+  image?: string;
+  title: string;
+  author?: string;
+  publisher?: string;
+  description?: string;
+  price?: number;
+}
 
 const fetchUserAvatar = async () => {
   try {
@@ -290,7 +301,7 @@ const handleSearchBlur = () => {
 
 // 处理点击外部区域收回下拉栏
 const handleClickOutside = (event: Event) => {
-  if (searchBoxRef.value && !searchBoxRef.value.contains(event.target as Node)) {
+  if (searchBoxRef.value && !(searchBoxRef.value as HTMLElement).contains(event.target as Node)) {
     showSearchDropdown.value = false
     selectedIndex.value = -1
   }
@@ -395,8 +406,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
                 <span class="result-item-author">{{ book.author }}</span>
                 <span class="result-item-publisher">{{ book.publisher }}</span>
               </div>
-              <div class="result-item-description" v-html="highlightMatch(book.description, searchInput)"></div>
-              <div class="result-item-price">价格: ¥{{ book.price.toFixed(2) }}</div>
+              <div class="result-item-description" v-html="highlightMatch(book.description || '', searchInput)"></div>
+              <div class="result-item-price" v-if="book.price !== undefined">价格: ¥{{ book.price.toFixed(2) }}</div>
+              <div class="result-item-price" v-else>价格: 未知</div>
             </div>
           </div>
         </div>
