@@ -14,8 +14,8 @@
         <h3 class="related-name">{{ book.title }}</h3>
         <div class="related-pricing">
           <span class="current-price">¥{{ formatPrice(book.price) }}</span>
-          <span class="original-price">¥{{ formatPrice(book.originalPrice) }}</span>
-          <span class="discount">{{ calculateDiscount(book.price) }}折</span>
+          <span class="original-price" v-if="book.price !== book.originalPrice">¥{{ formatPrice(book.originalPrice) }}</span>
+          <span class="discount" v-if="calculateDiscount(book.price)">{{ calculateDiscount(book.price) }}折</span>
         </div>
       </div>
     </div>
@@ -47,8 +47,11 @@ const formatPrice = (price) => {
 // 计算折扣
 const calculateDiscount = (currentPrice) => {
   const originalPrice = currentPrice + 20
-  if (originalPrice === 0) return 0
-  return Math.round((currentPrice / originalPrice) * 10)
+  if (originalPrice === 0 || currentPrice >= originalPrice) return null
+  const discount = Math.round((currentPrice / originalPrice) * 10)
+  // 如果是九折以上（包含九折），不显示折扣
+  if (discount >= 9) return null
+  return discount
 }
 
 // 根据当前书籍ID筛选相关书籍

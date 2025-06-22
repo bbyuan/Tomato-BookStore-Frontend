@@ -79,8 +79,11 @@ const getChineseCategoryName = (englishName: string) => {
 
 // 计算折扣
 const calculateDiscount = (price: number, originalPrice: number) => {
-  if (originalPrice === 0) return 0
-  return Math.round((price / originalPrice) * 10)
+  if (originalPrice === 0 || price >= originalPrice) return null
+  const discount = Math.round((price / originalPrice) * 10)
+  // 如果是九折以上（包含九折），不显示折扣
+  if (discount >= 9) return null
+  return discount
 }
 
 // 获取分类商品数据
@@ -293,14 +296,13 @@ onMounted(() => {
                   <img :src="book.image" :alt="book.title">
                 </div>
                 <div class="book-details">
-                  <h3 class="book-title">{{ book.title }}</h3>
-                  <div class="book-pricing">
-                    <span class="price">¥{{ book.price }}</span>
-                    <span class="original-price">¥{{ book.originalPrice }}</span>
-                    <span class="discount" v-if="book.price !== 0">
-                      {{ calculateDiscount(book.price, book.originalPrice) }}折
-                    </span>
-                  </div>
+                  <h3 class="book-title">{{ book.title }}</h3>          <div class="book-pricing">
+            <span class="price">¥{{ book.price }}</span>
+            <span class="original-price" v-if="book.price !== book.originalPrice">¥{{ book.originalPrice }}</span>
+            <span class="discount" v-if="calculateDiscount(book.price, book.originalPrice)">
+              {{ calculateDiscount(book.price, book.originalPrice) }}折
+            </span>
+          </div>
                   <p class="book-description">{{ book.description }}</p>
                   <div class="book-actions">
                     <button 

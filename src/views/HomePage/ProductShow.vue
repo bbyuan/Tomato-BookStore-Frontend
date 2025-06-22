@@ -37,8 +37,11 @@ const userRole = ref('customer')
 const calculateDiscount = (price: string, originalPrice: string) => {
   const currentPrice = parseFloat(price.replace('¥', ''))
   const original = parseFloat(originalPrice.replace('¥', ''))
-  if (original === 0) return 0
-  return Math.round((currentPrice / original) * 10)
+  if (original === 0 || currentPrice >= original) return null
+  const discount = Math.round((currentPrice / original) * 10)
+  // 如果是九折以上（包含九折），不显示折扣
+  if (discount >= 9) return null
+  return discount
 }
 
 // 获取用户角色
@@ -277,8 +280,8 @@ onMounted(() => {
           <h3 class="book-title">{{ book.title }}</h3>
           <div class="book-pricing">
             <span class="price">{{ book.price }}</span>
-            <span class="original-price">{{ book.originalPrice }}</span>
-            <span class="discount" v-if="book.price !== '¥0.00'">
+            <span class="original-price" v-if="book.price !== book.originalPrice">{{ book.originalPrice }}</span>
+            <span class="discount" v-if="calculateDiscount(book.price, book.originalPrice)">
               {{ calculateDiscount(book.price, book.originalPrice) }}折
             </span>
           </div>
