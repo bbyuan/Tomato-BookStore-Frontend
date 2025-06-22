@@ -384,9 +384,9 @@ onMounted(() => {
             
             <div class="subtotal-cell">
               <span class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
-              <!-- 修改显示逻辑：只要原价和现价不同就显示原价，但折扣标签只在明显折扣时显示 -->
+              <!-- 修改显示逻辑：只有原价和现价不同且有明显折扣才显示原价 -->
               <template v-if="item.originalPrice > item.price">
-                <!-- 原价总是在不相等时显示 -->
+                <!-- 原价只在不相等时显示 -->
                 <div class="original-price">原价: ¥{{ (item.originalPrice * item.quantity).toFixed(2) }}</div>
               </template>
             </div>
