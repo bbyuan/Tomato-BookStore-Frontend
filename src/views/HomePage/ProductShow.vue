@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router';
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
 
 // 添加props定义
 const props = defineProps<{
@@ -29,12 +30,40 @@ const hasNext = ref(false);
 const hasPrev = ref(false);
 const pageNumInput = ref('');
 
+// 用户角色状态
+const userRole = ref('customer')
+
 // 计算折扣
 const calculateDiscount = (price: string, originalPrice: string) => {
   const currentPrice = parseFloat(price.replace('¥', ''))
   const original = parseFloat(originalPrice.replace('¥', ''))
   if (original === 0) return 0
   return Math.round((currentPrice / original) * 10)
+}
+
+// 获取用户角色
+const fetchUserRole = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+
+    if (token && username) {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${username}`, {
+        method: 'GET',
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      if (data.code === '200') {
+        userRole.value = data.data.role || 'customer'
+      }
+    }
+  } catch (error) {
+    console.error('获取用户角色出错:', error)
+  }
 }
 
 // 获取商品列表数据
@@ -201,6 +230,7 @@ watch(() => props.category, () => {
 
 // 组件挂载时获取数据
 onMounted(() => {
+  fetchUserRole();
   fetchBooks();
 });
 </script>
@@ -253,6 +283,10 @@ onMounted(() => {
             </span>
           </div>
           <p class="book-description">{{ book.description }}</p>
+          <!-- 只有管理员能看到库存信息 -->
+          <div v-if="userRole === 'admin'" class="book-stock">
+            库存: {{ book.stock || 0 }}
+          </div>
           <div class="book-actions">
             <button 
               class="add-cart-btn" 
@@ -539,6 +573,12 @@ onMounted(() => {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   flex: 1;
+}
+
+.book-stock {
+  color: #333;
+  font-size: 14px;
+  margin-bottom: 15px;
 }
 
 .book-actions {
