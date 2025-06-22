@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import RatingStars from './RatingStars.vue'
 import BookComments from './BookComments.vue'
 import axios from 'axios'
@@ -9,6 +9,39 @@ const props = defineProps({
     type: Object,
     required: true
   }
+})
+
+// 获取用户角色
+const userRole = ref('customer')
+
+const fetchUserRole = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+
+    if (token && username) {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${username}`, {
+        method: 'GET',
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      console.log("Role: ", data);
+      if (data.code === '200') {
+        userRole.value = data.data.role || 'customer'
+      }
+    }
+  } catch (error) {
+    console.error('获取用户角色出错:', error)
+  }
+}
+
+// 组件挂载时获取用户角色
+onMounted(() => {
+  fetchUserRole()
 })
 
 //处理规格信息
@@ -197,7 +230,8 @@ const addToCart = async () => {
           </span>
         </div>
 
-        <div class="stock-badge" :class="{ 'low-stock': isLowStock }">
+        <!-- 只有管理员可以看到库存信息 -->
+        <div v-if="userRole === 'admin'" class="stock-badge" :class="{ 'low-stock': isLowStock }">
           库存: {{ bookInfo.stock?.amount || 0 }}
         </div>
       </div>

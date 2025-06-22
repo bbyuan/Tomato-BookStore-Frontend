@@ -1,6 +1,34 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 
+// 用户角色状态
+const userRole = ref('customer')
+
+// 获取用户角色
+const fetchUserRole = async () => {
+  try {
+    const token = sessionStorage.getItem('token')
+    const username = sessionStorage.getItem('username')
+
+    if (token && username) {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts/${username}`, {
+        method: 'GET',
+        headers: {
+          'token': token,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      if (data.code === '200') {
+        userRole.value = data.data.role || 'customer'
+      }
+    }
+  } catch (error) {
+    console.error('获取用户角色出错:', error)
+  }
+}
+
 interface BookItem {
   id: string;
   rank: number;
@@ -142,6 +170,7 @@ const getRankDisplayValue = (book: BookItem): string => {
 
 // 组件挂载时获取默认的评分榜数据
 onMounted(() => {
+  fetchUserRole()
   fetchRankings('rate');
 });
 </script>

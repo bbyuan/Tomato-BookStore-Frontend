@@ -264,7 +264,7 @@ onMounted(() => {
             </span>
           </div>
           
-          <!-- 库存和冻结库存信息 -->
+          <!-- 库存和冻结库存信息 - 管理员界面始终显示 -->
           <div class="stock-info">
             <div class="stock-badge" :class="{ 'low-stock': book.stock < 50 }">
               库存: {{ book.stock }}

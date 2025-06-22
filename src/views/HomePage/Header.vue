@@ -12,6 +12,7 @@ const isLoggedIn = ref(true)
 const activeTab = ref('1')
 const userAvatar = ref('')
 const username = ref('用户')
+const userRole = ref('customer') // 新增用户角色状态
 const isSearching = ref(false)
 const showSearchDropdown = ref(false)
 const searchResults = ref([])
@@ -44,6 +45,8 @@ const fetchUserAvatar = async () => {
 
     if (data.code === '200') {
       userAvatar.value = data.data.avatar || defaultAvatar
+      // 获取并设置用户角色
+      userRole.value = data.data.role || 'customer'
       // 如果API返回了用户名，使用API返回的用户名
       if (data.data.username) {
         username.value = data.data.username
@@ -346,7 +349,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
           <span class="nav-icon">👤</span>
           <span class="nav-text">个人</span>
         </div>
-        <div class="nav-item" :class="{ active: activeTab === '8' }" @click="handleCommand('admin-dashboard')">
+        <!-- 只有管理员才能看到后台管理入口 -->
+        <div v-if="userRole === 'admin'" class="nav-item" :class="{ active: activeTab === '8' }" @click="handleCommand('admin-dashboard')">
           <span class="nav-icon">⚙️</span>
           <span class="nav-text">后台</span>
         </div>
