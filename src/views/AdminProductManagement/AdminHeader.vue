@@ -80,9 +80,12 @@ const handleCommand = (command: string) => {
   } else if (command === 'my-evaluation') {
     router.push('/myevaluation');
     activeTab.value = '4'
+  } else if (command === 'coupon') {
+    router.push('/coupons');
+    activeTab.value = '5.5'
   } else if (command === 'personal-center') {
     router.push('/account-settings/account')
-    activeTab.value = '5'
+    activeTab.value = '6'
   }
 };
 </script>
@@ -121,12 +124,18 @@ const handleCommand = (command: string) => {
           <i class="tab-icon">⭐</i>
           <span>评价</span>
         </label>
-        <input type="radio" id="tab-5" name="tabs" value="5" v-model="activeTab" />
+        <!-- 新增优惠券栏目 -->
+        <input type="radio" id="tab-5-5" name="tabs" value="5.5" v-model="activeTab" />
+        <label class="tab" for="tab-5-5" @click="handleCommand('coupon')">
+          <i class="tab-icon">🎫</i>
+          <span>优惠券</span>
+        </label>
+        <input type="radio" id="tab-5" name="tabs" value="6" v-model="activeTab" />
         <label class="tab" for="tab-5" @click="handleCommand('personal-center')">
           <i class="tab-icon">👤</i>
           <span>个人</span>
         </label>
-        <input type="radio" id="tab-6" name="tabs" value="6" v-model="activeTab" checked/>
+        <input type="radio" id="tab-6" name="tabs" value="7" v-model="activeTab" checked/>
         <label class="tab" for="tab-6" @click="handleCommand('admin-dashboard')">
           <i class="tab-icon">⚙️</i>
           <span>后台</span>
@@ -367,12 +376,15 @@ const handleCommand = (command: string) => {
   transform: translateY(-50%) translateX(300px);
 }
 
-.custom-tabs input[id="tab-5"]:checked ~ .glider {
+/* 在 custom-tabs 的 glider 样式后面，增加对新栏目 glider 的定位样式 */
+.custom-tabs input[id="tab-5-5"]:checked ~ .glider {
   transform: translateY(-50%) translateX(400px);
 }
-
-.custom-tabs input[id="tab-6"]:checked ~ .glider {
+.custom-tabs input[id="tab-5"]:checked ~ .glider {
   transform: translateY(-50%) translateX(500px);
+}
+.custom-tabs input[id="tab-6"]:checked ~ .glider {
+  transform: translateY(-50%) translateX(600px);
 }
 
 .header-right {
