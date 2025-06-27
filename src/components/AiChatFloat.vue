@@ -329,7 +329,7 @@ export default {
         const loadingMessageIndex = this.messages.length - 1
 
         // 使用 axios POST 请求，参考 Header.vue 的token传递方式
-        const response = await axios.post('/ai/messages', {
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/ai/messages`, {
           conversationId: conversationId
         }, {
           headers: {

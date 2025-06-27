@@ -12,8 +12,21 @@
             <input v-model="passwordForm.newPassword" :type="showNewPassword ? 'text' : 'password'" placeholder="请输入新密码"
               :class="{ 'input-error': newPasswordError }">
             <button type="button" class="toggle-password" @click="showNewPassword = !showNewPassword">
-              <img :src="showNewPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
-                alt="toggle password visibility" class="eye-icon">
+              <span v-if="showNewPassword" class="eye-icon" aria-label="显示密码">
+                <!-- 可见小眼睛 SVG -->
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                  <circle cx="10" cy="10" r="2" fill="#333"/>
+                </svg>
+              </span>
+              <span v-else class="eye-icon" aria-label="隐藏密码">
+                <!-- 隐藏小眼睛 SVG（带斜杠） -->
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                  <circle cx="10" cy="10" r="2" fill="#333"/>
+                  <line x1="4" y1="16" x2="16" y2="4" stroke="#d44c4c" stroke-width="1.5"/>
+                </svg>
+              </span>
             </button>
           </div>
           <div v-if="newPasswordError" class="error-message">
@@ -27,8 +40,21 @@
             <input v-model="passwordForm.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
               placeholder="请再次输入新密码" :class="{ 'input-error': confirmPasswordError }">
             <button type="button" class="toggle-password" @click="showConfirmPassword = !showConfirmPassword">
-              <img :src="showConfirmPassword ? '/src/assets/images/眼睛_隐藏.svg' : '/src/assets/images/眼睛_显示.svg'"
-                alt="toggle password visibility" class="eye-icon">
+              <span v-if="showConfirmPassword" class="eye-icon" aria-label="显示密码">
+                <!-- 可见小眼睛 SVG -->
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                  <circle cx="10" cy="10" r="2" fill="#333"/>
+                </svg>
+              </span>
+              <span v-else class="eye-icon" aria-label="隐藏密码">
+                <!-- 隐藏小眼睛 SVG（带斜杠） -->
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                  <circle cx="10" cy="10" r="2" fill="#333"/>
+                  <line x1="4" y1="16" x2="16" y2="4" stroke="#d44c4c" stroke-width="1.5"/>
+                </svg>
+              </span>
             </button>
           </div>
           <div v-if="confirmPasswordError" class="error-message">

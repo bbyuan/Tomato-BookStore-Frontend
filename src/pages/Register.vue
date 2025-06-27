@@ -60,12 +60,28 @@
                 :class="{ 'input-error': passwordError }"
               >
               <label for="password" :class="{ 'label-float': form.password }">密码</label>
-              <img 
+              <span 
                 class="password-toggle" 
-                :src="showPassword ? '/src/assets/images/眼睛_显示.svg' : '/src/assets/images/眼睛_隐藏.svg'"
                 @click="showPassword = !showPassword"
-                alt="toggle password visibility"
+                style="display: flex; align-items: center;"
+                aria-label="切换密码可见性"
               >
+                <span v-if="showPassword">
+                  <!-- 可见小眼睛 SVG -->
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                    <circle cx="10" cy="10" r="2" fill="#333"/>
+                  </svg>
+                </span>
+                <span v-else>
+                  <!-- 隐藏小眼睛 SVG（带斜杠） -->
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                    <circle cx="10" cy="10" r="2" fill="#333"/>
+                    <line x1="4" y1="16" x2="16" y2="4" stroke="#d44c4c" stroke-width="1.5"/>
+                  </svg>
+                </span>
+              </span>
               <span class="error-message" v-if="passwordError">{{ passwordErrorMessage }}</span>
             </div>
             <div class="form-field">
@@ -77,12 +93,28 @@
                 :class="{ 'input-error': passwordMismatch }"
               >
               <label for="confirmPassword" :class="{ 'label-float': form.confirmPassword }">确认密码</label>
-              <img 
+              <span 
                 class="password-toggle" 
-                :src="showConfirmPassword ? '/src/assets/images/眼睛_显示.svg' : '/src/assets/images/眼睛_隐藏.svg'"
                 @click="showConfirmPassword = !showConfirmPassword"
-                alt="toggle password visibility"
+                style="display: flex; align-items: center;"
+                aria-label="切换密码可见性"
               >
+                <span v-if="showConfirmPassword">
+                  <!-- 可见小眼睛 SVG -->
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                    <circle cx="10" cy="10" r="2" fill="#333"/>
+                  </svg>
+                </span>
+                <span v-else>
+                  <!-- 隐藏小眼睛 SVG（带斜杠） -->
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <ellipse cx="10" cy="10" rx="7" ry="4" stroke="#333" stroke-width="1.5" fill="none"/>
+                    <circle cx="10" cy="10" r="2" fill="#333"/>
+                    <line x1="4" y1="16" x2="16" y2="4" stroke="#d44c4c" stroke-width="1.5"/>
+                  </svg>
+                </span>
+              </span>
               <span class="error-message" v-if="passwordMismatch">两次输入的密码不一致</span>
             </div>
             <div class="form-field">

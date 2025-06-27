@@ -287,9 +287,9 @@ onMounted(() => {
           </div>
           <p class="book-description">{{ book.description }}</p>
           <!-- 只有管理员能看到库存信息 -->
-          <div v-if="userRole === 'admin'" class="book-stock">
+          <!-- <div v-if="userRole === 'admin'" class="book-stock">
             库存: {{ book.stock || 0 }}
-          </div>
+          </div> -->
           <div class="book-actions">
             <button 
               class="add-cart-btn" 
